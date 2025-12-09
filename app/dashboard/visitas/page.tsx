@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Clock, MapPin, User, Plus, Trash2, CheckCircle } from "lucide-react"
+import { useData } from "@/contexts/data-context"
+import { Calendar, Clock, User, Plus, Trash2, CheckCircle } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -19,19 +19,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-
-interface Visit {
-  id: string
-  obraName: string
-  address: string
-  date: string
-  time: string
-  duration: string
-  contactPerson: string
-  contactPhone: string
-  status: "agendada" | "concluida" | "cancelada"
-  notes?: string
-}
 
 const timeSlots = [
   "08:00",
@@ -51,108 +38,71 @@ const timeSlots = [
   "17:00",
 ]
 
-const durations = ["30 minutos", "1 hora", "1h30", "2 horas", "3 horas", "Meio dia"]
-
-const mockVisits: Visit[] = [
-  {
-    id: "1",
-    obraName: "Edifício Residencial Sol Nascente",
-    address: "Rua das Flores, 123, Lisboa",
-    date: "2024-02-10",
-    time: "10:00",
-    duration: "2 horas",
-    contactPerson: "João Silva",
-    contactPhone: "+351 912 345 678",
-    status: "agendada",
-    notes: "Levar equipamento de medição.",
-  },
-  {
-    id: "2",
-    obraName: "Renovação Hotel Mar Azul",
-    address: "Av. da Liberdade, 45, Faro",
-    date: "2024-02-08",
-    time: "14:00",
-    duration: "3 horas",
-    contactPerson: "Maria Costa",
-    contactPhone: "+351 923 456 789",
-    status: "concluida",
-  },
-  {
-    id: "3",
-    obraName: "Ampliação Escola Primária",
-    address: "Rua do Parque, 78, Porto",
-    date: "2024-02-15",
-    time: "09:00",
-    duration: "1h30",
-    contactPerson: "António Ferreira",
-    contactPhone: "+351 934 567 890",
-    status: "agendada",
-  },
-]
-
-const mockObras = [
-  "Edifício Residencial Sol Nascente",
-  "Renovação Hotel Mar Azul",
-  "Ampliação Escola Primária",
-  "Reabilitação Centro Histórico",
-  "Centro Comercial Norte",
-]
+const visitTypes = ["Vistoria Técnica", "Reunião com Cliente", "Inspeção de Segurança", "Medições", "Entrega de Obra"]
 
 export default function VisitasPage() {
-  const [visits, setVisits] = useState<Visit[]>(mockVisits)
+  const { visitas, obras, addVisita, updateVisita, deleteVisita } = useData()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [newVisit, setNewVisit] = useState({
+    obraId: "",
     obraName: "",
-    address: "",
     date: "",
     time: "",
-    duration: "",
-    contactPerson: "",
+    type: "",
+    contactName: "",
     contactPhone: "",
     notes: "",
   })
 
   const handleAddVisit = (e: React.FormEvent) => {
     e.preventDefault()
-    const visit: Visit = {
-      id: Math.random().toString(36).substr(2, 9),
-      ...newVisit,
-      status: "agendada",
-    }
-    setVisits((prev) => [...prev, visit])
+
+    const selectedObra = obras.find((o) => o.id === newVisit.obraId)
+
+    addVisita({
+      obraId: newVisit.obraId,
+      obraName: selectedObra?.name || newVisit.obraName,
+      date: newVisit.date,
+      time: newVisit.time,
+      type: newVisit.type,
+      contactName: newVisit.contactName,
+      contactPhone: newVisit.contactPhone,
+      notes: newVisit.notes,
+    })
+
     setNewVisit({
+      obraId: "",
       obraName: "",
-      address: "",
       date: "",
       time: "",
-      duration: "",
-      contactPerson: "",
+      type: "",
+      contactName: "",
       contactPhone: "",
       notes: "",
     })
     setIsDialogOpen(false)
   }
 
-  const deleteVisit = (id: string) => {
-    setVisits((prev) => prev.filter((v) => v.id !== id))
+  const handleDeleteVisit = (id: string) => {
+    deleteVisita(id)
   }
 
   const markAsComplete = (id: string) => {
-    setVisits((prev) => prev.map((v) => (v.id === id ? { ...v, status: "concluida" as const } : v)))
+    updateVisita(id, { status: "realizada" })
   }
 
-  const upcomingVisits = visits.filter((v) => v.status === "agendada")
-  const completedVisits = visits.filter((v) => v.status === "concluida")
+  const upcomingVisits = visitas.filter((v) => v.status === "agendada")
+  const completedVisits = visitas.filter((v) => v.status === "realizada")
 
   const statusColors = {
-    agendada: "bg-primary text-primary-foreground",
-    concluida: "bg-price-below text-white",
-    cancelada: "bg-price-critical text-white",
+    agendada: "bg-primary/20 text-primary",
+    realizada: "bg-price-below/20 text-price-below",
+    cancelada: "bg-price-high/20 text-price-high",
   }
 
   const statusLabels = {
     agendada: "Agendada",
-    concluida: "Concluída",
+    realizada: "Realizada",
     cancelada: "Cancelada",
   }
 
@@ -178,14 +128,20 @@ export default function VisitasPage() {
             <form onSubmit={handleAddVisit} className="space-y-4 pt-4">
               <div className="space-y-2">
                 <Label>Obra *</Label>
-                <Select value={newVisit.obraName} onValueChange={(v) => setNewVisit((p) => ({ ...p, obraName: v }))}>
+                <Select
+                  value={newVisit.obraId}
+                  onValueChange={(v) => {
+                    const obra = obras.find((o) => o.id === v)
+                    setNewVisit((p) => ({ ...p, obraId: v, obraName: obra?.name || "" }))
+                  }}
+                >
                   <SelectTrigger className="bg-input/50">
                     <SelectValue placeholder="Selecione a obra" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockObras.map((obra) => (
-                      <SelectItem key={obra} value={obra}>
-                        {obra}
+                    {obras.map((obra) => (
+                      <SelectItem key={obra.id} value={obra.id}>
+                        {obra.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -193,14 +149,19 @@ export default function VisitasPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Morada da Visita *</Label>
-                <Input
-                  placeholder="Rua, número, cidade"
-                  value={newVisit.address}
-                  onChange={(e) => setNewVisit((p) => ({ ...p, address: e.target.value }))}
-                  className="bg-input/50"
-                  required
-                />
+                <Label>Tipo de Visita *</Label>
+                <Select value={newVisit.type} onValueChange={(v) => setNewVisit((p) => ({ ...p, type: v }))}>
+                  <SelectTrigger className="bg-input/50">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {visitTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -231,29 +192,13 @@ export default function VisitasPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Duração Estimada</Label>
-                <Select value={newVisit.duration} onValueChange={(v) => setNewVisit((p) => ({ ...p, duration: v }))}>
-                  <SelectTrigger className="bg-input/50">
-                    <SelectValue placeholder="Selecione a duração" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {durations.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Pessoa de Contacto</Label>
                   <Input
                     placeholder="Nome"
-                    value={newVisit.contactPerson}
-                    onChange={(e) => setNewVisit((p) => ({ ...p, contactPerson: e.target.value }))}
+                    value={newVisit.contactName}
+                    onChange={(e) => setNewVisit((p) => ({ ...p, contactName: e.target.value }))}
                     className="bg-input/50"
                   />
                 </div>
@@ -311,7 +256,7 @@ export default function VisitasPage() {
                 <CheckCircle className="h-5 w-5 text-price-below" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Concluídas</p>
+                <p className="text-sm text-muted-foreground">Realizadas</p>
                 <p className="text-2xl font-bold">{completedVisits.length}</p>
               </div>
             </div>
@@ -325,7 +270,7 @@ export default function VisitasPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total de Visitas</p>
-                <p className="text-2xl font-bold">{visits.length}</p>
+                <p className="text-2xl font-bold">{visitas.length}</p>
               </div>
             </div>
           </CardContent>
@@ -352,23 +297,20 @@ export default function VisitasPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <h3 className="font-semibold">{visit.obraName}</h3>
+                        <p className="text-sm text-muted-foreground">{visit.type}</p>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mt-1">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="h-3.5 w-3.5" />
-                            {visit.address}
-                          </span>
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5" />
                             {new Date(visit.date).toLocaleDateString("pt-PT")}
                           </span>
                           <span className="flex items-center gap-1">
                             <Clock className="h-3.5 w-3.5" />
-                            {visit.time} ({visit.duration})
+                            {visit.time}
                           </span>
-                          {visit.contactPerson && (
+                          {visit.contactName && (
                             <span className="flex items-center gap-1">
                               <User className="h-3.5 w-3.5" />
-                              {visit.contactPerson}
+                              {visit.contactName}
                             </span>
                           )}
                         </div>
@@ -384,7 +326,7 @@ export default function VisitasPage() {
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Concluir
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => deleteVisit(visit.id)}>
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteVisit(visit.id)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
@@ -399,8 +341,8 @@ export default function VisitasPage() {
       {completedVisits.length > 0 && (
         <Card className="bg-card/50">
           <CardHeader>
-            <CardTitle>Visitas Concluídas</CardTitle>
-            <CardDescription>Histórico de visitas realizadas</CardDescription>
+            <CardTitle>Visitas Realizadas</CardTitle>
+            <CardDescription>Histórico de visitas</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -416,10 +358,7 @@ export default function VisitasPage() {
                         <Calendar className="h-3.5 w-3.5" />
                         {new Date(visit.date).toLocaleDateString("pt-PT")}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-3.5 w-3.5" />
-                        {visit.address}
-                      </span>
+                      <span>{visit.type}</span>
                     </div>
                   </div>
                   <Badge className={statusColors[visit.status]}>{statusLabels[visit.status]}</Badge>

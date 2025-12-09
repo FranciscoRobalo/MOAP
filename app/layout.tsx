@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/auth-context"
+import { DataProvider } from "@/contexts/data-context"
 import "./globals.css"
 
 const _inter = Inter({ subsets: ["latin"] })
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   title: "MOAP - Orçamentos que fazem todo o sentido",
   description:
     "Plataforma inteligente para análise de orçamentos de construção. Compare preços unitários com a média do mercado.",
-    generator: 'v0.app'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -24,9 +25,9 @@ export default function RootLayout({
     <html lang="pt">
       <body className={`font-sans antialiased`}>
         <AuthProvider>
-          {children}
-          <Analytics />
+          <DataProvider>{children}</DataProvider>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   )

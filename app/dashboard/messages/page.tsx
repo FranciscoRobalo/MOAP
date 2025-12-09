@@ -8,172 +8,30 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send, Search, MoreVertical, Phone, Video, Paperclip } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
-
-interface Message {
-  id: string
-  content: string
-  senderId: string
-  timestamp: Date
-}
-
-interface Conversation {
-  id: string
-  user: {
-    id: string
-    name: string
-    avatar: string
-    status: "online" | "offline" | "away"
-  }
-  lastMessage: string
-  timestamp: Date
-  unread: number
-  messages: Message[]
-}
-
-const mockConversations: Conversation[] = [
-  {
-    id: "1",
-    user: {
-      id: "2",
-      name: "João Silva",
-      avatar: "/professional-man.png",
-      status: "online",
-    },
-    lastMessage: "O orçamento já está pronto para revisão.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    unread: 2,
-    messages: [
-      {
-        id: "1",
-        content: "Bom dia! Como está o projeto?",
-        senderId: "2",
-        timestamp: new Date(Date.now() - 1000 * 60 * 30),
-      },
-      {
-        id: "2",
-        content: "Bom dia! Está a correr bem, estamos a finalizar.",
-        senderId: "1",
-        timestamp: new Date(Date.now() - 1000 * 60 * 25),
-      },
-      {
-        id: "3",
-        content: "Ótimo! Quando posso esperar o relatório?",
-        senderId: "2",
-        timestamp: new Date(Date.now() - 1000 * 60 * 20),
-      },
-      {
-        id: "4",
-        content: "Deve estar pronto até ao final do dia.",
-        senderId: "1",
-        timestamp: new Date(Date.now() - 1000 * 60 * 15),
-      },
-      {
-        id: "5",
-        content: "O orçamento já está pronto para revisão.",
-        senderId: "2",
-        timestamp: new Date(Date.now() - 1000 * 60 * 5),
-      },
-    ],
-  },
-  {
-    id: "2",
-    user: {
-      id: "3",
-      name: "Maria Santos",
-      avatar: "/professional-woman.png",
-      status: "away",
-    },
-    lastMessage: "Preciso de ajuda com a análise de preços.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60),
-    unread: 0,
-    messages: [
-      { id: "1", content: "Olá! Pode ajudar-me?", senderId: "3", timestamp: new Date(Date.now() - 1000 * 60 * 90) },
-      {
-        id: "2",
-        content: "Claro, em que posso ajudar?",
-        senderId: "1",
-        timestamp: new Date(Date.now() - 1000 * 60 * 85),
-      },
-      {
-        id: "3",
-        content: "Preciso de ajuda com a análise de preços.",
-        senderId: "3",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60),
-      },
-    ],
-  },
-  {
-    id: "3",
-    user: {
-      id: "4",
-      name: "Pedro Costa",
-      avatar: "/man-construction.jpg",
-      status: "offline",
-    },
-    lastMessage: "Obrigado pela análise detalhada!",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
-    unread: 0,
-    messages: [
-      {
-        id: "1",
-        content: "Recebi o relatório, muito obrigado!",
-        senderId: "4",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4),
-      },
-      {
-        id: "2",
-        content: "De nada! Se precisar de mais alguma coisa, estou disponível.",
-        senderId: "1",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3.5),
-      },
-      {
-        id: "3",
-        content: "Obrigado pela análise detalhada!",
-        senderId: "4",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
-      },
-    ],
-  },
-  {
-    id: "4",
-    user: {
-      id: "5",
-      name: "Ana Ferreira",
-      avatar: "/woman-architect.png",
-      status: "online",
-    },
-    lastMessage: "Vamos agendar uma reunião?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-    unread: 1,
-    messages: [
-      {
-        id: "1",
-        content: "Olá! Gostaria de discutir o projeto.",
-        senderId: "5",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 25),
-      },
-      {
-        id: "2",
-        content: "Vamos agendar uma reunião?",
-        senderId: "5",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-      },
-    ],
-  },
-]
+import { useData } from "@/contexts/data-context"
 
 export default function MessagesPage() {
   const { user } = useAuth()
-  const [conversations, setConversations] = useState(mockConversations)
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(mockConversations[0])
+  const { conversations, messages, sendMessage, markConversationAsRead } = useData()
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(conversations[0]?.id || null)
   const [newMessage, setNewMessage] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
 
+  const selectedConversation = conversations.find((c) => c.id === selectedConversationId)
+  const conversationMessages = selectedConversationId ? messages[selectedConversationId] || [] : []
+
   const filteredConversations = conversations.filter((conv) =>
-    conv.user.name.toLowerCase().includes(searchQuery.toLowerCase()),
+    conv.participantName.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  const formatTime = (date: Date) => {
+  const formatTime = (timeString: string) => {
+    if (timeString.includes(":") && timeString.length <= 5) {
+      return timeString
+    }
+    const date = new Date(timeString)
+    if (isNaN(date.getTime())) {
+      return timeString
+    }
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const hours = diff / (1000 * 60 * 60)
@@ -188,51 +46,23 @@ export default function MessagesPage() {
     }
   }
 
-  const formatMessageTime = (date: Date) => {
+  const formatMessageTime = (timestamp: string) => {
+    const date = new Date(timestamp)
+    if (isNaN(date.getTime())) {
+      return timestamp
+    }
     return date.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })
   }
 
-  const sendMessage = () => {
-    if (!newMessage.trim() || !selectedConversation) return
-
-    const message: Message = {
-      id: Math.random().toString(36).substr(2, 9),
-      content: newMessage,
-      senderId: user?.id || "1",
-      timestamp: new Date(),
-    }
-
-    setConversations((prev) =>
-      prev.map((conv) =>
-        conv.id === selectedConversation.id
-          ? {
-              ...conv,
-              messages: [...conv.messages, message],
-              lastMessage: newMessage,
-              timestamp: new Date(),
-            }
-          : conv,
-      ),
-    )
-
-    setSelectedConversation((prev) =>
-      prev
-        ? {
-            ...prev,
-            messages: [...prev.messages, message],
-            lastMessage: newMessage,
-            timestamp: new Date(),
-          }
-        : null,
-    )
-
+  const handleSendMessage = () => {
+    if (!newMessage.trim() || !selectedConversationId) return
+    sendMessage(selectedConversationId, newMessage)
     setNewMessage("")
   }
 
-  const selectConversation = (conv: Conversation) => {
-    setSelectedConversation(conv)
-    // Mark as read
-    setConversations((prev) => prev.map((c) => (c.id === conv.id ? { ...c, unread: 0 } : c)))
+  const selectConversation = (convId: string) => {
+    setSelectedConversationId(convId)
+    markConversationAsRead(convId)
   }
 
   return (
@@ -262,31 +92,29 @@ export default function MessagesPage() {
                 {filteredConversations.map((conv) => (
                   <button
                     key={conv.id}
-                    onClick={() => selectConversation(conv)}
+                    onClick={() => selectConversation(conv.id)}
                     className={cn(
                       "w-full flex items-center gap-3 rounded-lg p-3 text-left transition-colors",
-                      selectedConversation?.id === conv.id ? "bg-accent" : "hover:bg-accent/50",
+                      selectedConversationId === conv.id ? "bg-accent" : "hover:bg-accent/50",
                     )}
                   >
                     <div className="relative">
                       <img
-                        src={conv.user.avatar || "/placeholder.svg"}
-                        alt={conv.user.name}
+                        src={conv.participantAvatar || "/placeholder.svg"}
+                        alt={conv.participantName}
                         className="h-12 w-12 rounded-full object-cover"
                       />
                       <span
                         className={cn(
                           "absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card",
-                          conv.user.status === "online" && "bg-price-below",
-                          conv.user.status === "away" && "bg-price-average",
-                          conv.user.status === "offline" && "bg-muted-foreground",
+                          conv.online ? "bg-price-below" : "bg-muted-foreground",
                         )}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium truncate">{conv.user.name}</span>
-                        <span className="text-xs text-muted-foreground">{formatTime(conv.timestamp)}</span>
+                        <span className="font-medium truncate">{conv.participantName}</span>
+                        <span className="text-xs text-muted-foreground">{formatTime(conv.lastMessageTime)}</span>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">{conv.lastMessage}</p>
                     </div>
@@ -309,27 +137,21 @@ export default function MessagesPage() {
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <img
-                      src={selectedConversation.user.avatar || "/placeholder.svg"}
-                      alt={selectedConversation.user.name}
+                      src={selectedConversation.participantAvatar || "/placeholder.svg"}
+                      alt={selectedConversation.participantName}
                       className="h-10 w-10 rounded-full object-cover"
                     />
                     <span
                       className={cn(
                         "absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card",
-                        selectedConversation.user.status === "online" && "bg-price-below",
-                        selectedConversation.user.status === "away" && "bg-price-average",
-                        selectedConversation.user.status === "offline" && "bg-muted-foreground",
+                        selectedConversation.online ? "bg-price-below" : "bg-muted-foreground",
                       )}
                     />
                   </div>
                   <div>
-                    <p className="font-medium">{selectedConversation.user.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {selectedConversation.user.status === "online"
-                        ? "Online"
-                        : selectedConversation.user.status === "away"
-                          ? "Ausente"
-                          : "Offline"}
+                    <p className="font-medium">{selectedConversation.participantName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedConversation.participantRole} - {selectedConversation.online ? "Online" : "Offline"}
                     </p>
                   </div>
                 </div>
@@ -349,7 +171,7 @@ export default function MessagesPage() {
               {/* Messages */}
               <ScrollArea className="flex-1 p-6">
                 <div className="space-y-4">
-                  {selectedConversation.messages.map((message) => {
+                  {conversationMessages.map((message) => {
                     const isOwn = message.senderId === user?.id || message.senderId === "1"
                     return (
                       <div key={message.id} className={cn("flex", isOwn ? "justify-end" : "justify-start")}>
@@ -380,7 +202,7 @@ export default function MessagesPage() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault()
-                    sendMessage()
+                    handleSendMessage()
                   }}
                   className="flex items-center gap-3"
                 >

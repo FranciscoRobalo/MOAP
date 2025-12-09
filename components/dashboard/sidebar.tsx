@@ -20,14 +20,19 @@ import {
   UserPlus,
   Calculator,
   FileSpreadsheet,
+  LayoutGrid,
+  Settings,
+  Bell,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { useData } from "@/contexts/data-context"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 
 const navigation = [
-  { name: "Visão Geral", href: "/dashboard", icon: FileText },
-  { name: "Nova Obra", href: "/dashboard/obras/nova", icon: Building2 },
+  { name: "Visão Geral", href: "/dashboard", icon: LayoutGrid },
+  { name: "Minhas Obras", href: "/dashboard/obras", icon: Building2 },
+  { name: "Nova Obra", href: "/dashboard/obras/nova", icon: FileText },
   { name: "Pré-Validação", href: "/dashboard/obras/validacao", icon: ClipboardCheck },
   { name: "Agendar Visita", href: "/dashboard/visitas", icon: Calendar },
   { name: "Concursos", href: "/dashboard/concursos", icon: Briefcase },
@@ -39,12 +44,17 @@ const navigation = [
   { name: "Utilizadores", href: "/dashboard/users", icon: Users },
   { name: "Convidar", href: "/dashboard/convidar", icon: UserPlus },
   { name: "Propostas", href: "/dashboard/proposals", icon: Star },
+  { name: "Notificações", href: "/dashboard/notificacoes", icon: Bell },
+  { name: "Definições", href: "/dashboard/definicoes", icon: Settings },
 ]
 
 export function DashboardSidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
+  const { notifications } = useData()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  const unreadCount = notifications.filter((n) => !n.read).length
 
   return (
     <>
@@ -83,16 +93,18 @@ export function DashboardSidebar() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-4">
+          <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
             {navigation.map((item) => {
-              const isActive = pathname === item.href
+              const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
+              const showBadge = item.href === "/dashboard/notificacoes" && unreadCount > 0
+
               return (
                 <Link
                   key={item.name}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors relative",
                     isActive
                       ? "bg-sidebar-accent text-sidebar-accent-foreground"
                       : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
@@ -100,6 +112,11 @@ export function DashboardSidebar() {
                 >
                   <item.icon className="h-5 w-5" />
                   {item.name}
+                  {showBadge && (
+                    <span className="absolute right-3 h-5 min-w-5 px-1 rounded-full bg-price-high text-[10px] font-bold flex items-center justify-center text-white">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
                 </Link>
               )
             })}

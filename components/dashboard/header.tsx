@@ -1,9 +1,9 @@
 "use client"
 
-import { Bell, Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/contexts/auth-context"
+import { NotificationsDropdown } from "./notifications-dropdown"
 
 export function DashboardHeader() {
   const { user } = useAuth()
@@ -19,10 +19,7 @@ export function DashboardHeader() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
-          </Button>
+          <NotificationsDropdown />
           <div className="h-8 w-8 rounded-full bg-muted overflow-hidden">
             <img
               src={user?.avatar || "/placeholder.svg?height=32&width=32&query=user"}

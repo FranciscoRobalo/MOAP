@@ -1,14 +1,15 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { useData } from "@/contexts/data-context"
 import { Building2, MapPin, Calendar, Euro, FileText, Send, CheckCircle } from "lucide-react"
 
 const projectTypes = [
@@ -31,10 +32,12 @@ const urgencyLevels = [
 ]
 
 export default function NovaObraPage() {
+  const router = useRouter()
+  const { addObra } = useData()
   const [submitted, setSubmitted] = useState(false)
   const [formData, setFormData] = useState({
-    projectName: "",
-    projectType: "",
+    name: "",
+    type: "",
     region: "",
     address: "",
     estimatedBudget: "",
@@ -50,8 +53,24 @@ export default function NovaObraPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
+    addObra({
+      name: formData.name,
+      type: formData.type,
+      region: formData.region,
+      address: formData.address,
+      estimatedBudget: Number(formData.estimatedBudget) || 0,
+      startDate: formData.startDate,
+      endDate: formData.endDate,
+      urgency: formData.urgency,
+      description: formData.description,
+      requirements: formData.requirements,
+      contactName: formData.contactName,
+      contactPhone: formData.contactPhone,
+      contactEmail: formData.contactEmail,
+    })
+
     setSubmitted(true)
-    // In a real app, this would send to an API
   }
 
   const updateField = (field: string, value: string) => {
@@ -70,7 +89,12 @@ export default function NovaObraPage() {
             <p className="text-muted-foreground mb-6">
               A sua solicitação foi recebida com sucesso. Iremos analisar os detalhes e entrar em contacto brevemente.
             </p>
-            <Button onClick={() => setSubmitted(false)}>Submeter Nova Obra</Button>
+            <div className="flex gap-3 justify-center">
+              <Button variant="outline" onClick={() => setSubmitted(false)}>
+                Submeter Nova Obra
+              </Button>
+              <Button onClick={() => router.push("/dashboard/obras")}>Ver Minhas Obras</Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -99,19 +123,19 @@ export default function NovaObraPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="projectName">Nome do Projeto *</Label>
+                <Label htmlFor="name">Nome do Projeto *</Label>
                 <Input
-                  id="projectName"
+                  id="name"
                   placeholder="Ex: Edifício Residencial Sol Nascente"
-                  value={formData.projectName}
-                  onChange={(e) => updateField("projectName", e.target.value)}
+                  value={formData.name}
+                  onChange={(e) => updateField("name", e.target.value)}
                   className="bg-input/50"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="projectType">Tipo de Obra *</Label>
-                <Select value={formData.projectType} onValueChange={(value) => updateField("projectType", value)}>
+                <Label htmlFor="type">Tipo de Obra *</Label>
+                <Select value={formData.type} onValueChange={(value) => updateField("type", value)}>
                   <SelectTrigger className="bg-input/50">
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
