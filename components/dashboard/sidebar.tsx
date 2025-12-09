@@ -3,17 +3,41 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { FileText, Upload, DollarSign, MessageSquare, Users, Star, LogOut, Menu, X } from "lucide-react"
+import {
+  FileText,
+  Upload,
+  DollarSign,
+  MessageSquare,
+  Users,
+  Star,
+  LogOut,
+  Menu,
+  X,
+  Building2,
+  ClipboardCheck,
+  Calendar,
+  Briefcase,
+  UserPlus,
+  Calculator,
+  FileSpreadsheet,
+} from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 
 const navigation = [
   { name: "Visão Geral", href: "/dashboard", icon: FileText },
-  { name: "Carregar Documentos", href: "/dashboard/upload", icon: Upload },
+  { name: "Nova Obra", href: "/dashboard/obras/nova", icon: Building2 },
+  { name: "Pré-Validação", href: "/dashboard/obras/validacao", icon: ClipboardCheck },
+  { name: "Agendar Visita", href: "/dashboard/visitas", icon: Calendar },
+  { name: "Concursos", href: "/dashboard/concursos", icon: Briefcase },
+  { name: "Orçamentos", href: "/dashboard/orcamentos", icon: Calculator },
+  { name: "Importar Documentos", href: "/dashboard/importar", icon: FileSpreadsheet },
   { name: "Preços de Materiais", href: "/dashboard/prices", icon: DollarSign },
+  { name: "Carregar Documentos", href: "/dashboard/upload", icon: Upload },
   { name: "Mensagens", href: "/dashboard/messages", icon: MessageSquare },
   { name: "Utilizadores", href: "/dashboard/users", icon: Users },
+  { name: "Convidar", href: "/dashboard/convidar", icon: UserPlus },
   { name: "Propostas", href: "/dashboard/proposals", icon: Star },
 ]
 
