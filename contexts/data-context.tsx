@@ -9,11 +9,9 @@ export interface Material {
   unit: string
   price: number
   category: string
+  type: "material" | "work"
   region?: string
-  lastUpdated?: string
-  type: "material" | "work" // Added type to distinguish materials from works
-  supplier?: string
-  notes?: string
+  lastUpdated?: string // Added lastUpdated field to track price sync
 }
 
 export interface BudgetItem {
