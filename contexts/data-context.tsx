@@ -11,6 +11,9 @@ export interface Material {
   category: string
   region?: string
   lastUpdated?: string
+  type: "material" | "work" // Added type to distinguish materials from works
+  supplier?: string
+  notes?: string
 }
 
 export interface BudgetItem {
@@ -33,25 +36,30 @@ export interface Budget {
   items: BudgetItem[]
 }
 
+// Updated Obra interface
 export interface Obra {
   id: string
-  name: string
-  type: string
-  region: string
-  address: string
-  estimatedBudget: number
+  title: string
+  client: string
+  location: string
+  category: string
+  budget: number
   startDate: string
   endDate: string
-  urgency: string
+  status: "pending" | "approved" | "in-analysis" | "info-needed" | "rejected"
   description: string
-  requirements: string
-  contactName: string
-  contactPhone: string
-  contactEmail: string
-  status: "pendente" | "em_analise" | "info_adicional" | "aprovado" | "rejeitado"
-  progress: number
-  createdDate: string
-  assignedUsers: string[]
+  area?: string
+  type?: string
+  timeline?: string
+  contact?: {
+    name: string
+    email: string
+    phone: string
+  }
+  progress?: number
+  documents?: string[]
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Visita {
@@ -125,12 +133,24 @@ export interface Notification {
   link?: string
 }
 
+// Renamed Invites to Invitations and updated fields
 export interface Invite {
   id: string
   email: string
   name?: string
   role?: string
   status: "enviado" | "aceite" | "expirado"
+  sentDate: string
+  sentBy: string
+}
+
+// Renamed Invitation interface
+export interface Invitation {
+  id: string
+  email: string
+  name?: string
+  role?: string
+  status: "pending" | "accepted" | "expired"
   sentDate: string
   sentBy: string
 }
@@ -150,220 +170,1151 @@ interface DataContextType {
 
   // Obras
   obras: Obra[]
-  addObra: (obra: Omit<Obra, "id" | "status" | "progress" | "createdDate" | "assignedUsers">) => void
+  addObra: (obra: Omit<Obra, "id" | "createdAt" | "updatedAt">) => void
   updateObra: (id: string, obra: Partial<Obra>) => void
   deleteObra: (id: string) => void
 
   // Visitas
   visitas: Visita[]
-  addVisita: (visita: Omit<Visita, "id" | "status">) => void
+  addVisita: (visita: Omit<Visita, "id">) => void
   updateVisita: (id: string, visita: Partial<Visita>) => void
   deleteVisita: (id: string) => void
+  // Added cancelVisita
+  cancelVisita: (id: string) => void
 
   // Concursos
   concursos: Concurso[]
   inviteUserToConcurso: (concursoId: string, userId: string) => void
 
   // Messages
+  // Changed messages type to Message[]
+  messages: Message[]
   conversations: Conversation[]
-  messages: Record<string, Message[]>
-  sendMessage: (conversationId: string, content: string) => void
-  markConversationAsRead: (conversationId: string) => void
-
-  // Users
-  users: User[]
+  // Renamed sendMessage to addMessage and updated signature
+  addMessage: (message: Omit<Message, "id" | "timestamp">) => void
+  // Renamed markConversationAsRead to markAsRead
+  markAsRead: (conversationId: string) => void
 
   // Notifications
   notifications: Notification[]
   addNotification: (notification: Omit<Notification, "id" | "timestamp" | "read">) => void
   markNotificationAsRead: (id: string) => void
   markAllNotificationsAsRead: () => void
-  clearNotifications: () => void
+  // Added deleteNotification
+  deleteNotification: (id: string) => void
 
   // Invites
-  invites: Invite[]
-  sendInvite: (email: string, name?: string, role?: string) => void
-  sendBulkInvites: (emails: string[]) => void
+  // Renamed invites to invitations and updated type
+  invitations: Invite[]
+  // Renamed sendInvite to addInvitation
+  addInvitation: (invitation: Omit<Invite, "id" | "sentDate">) => void
+  // Renamed sendBulkInvites to addBulkInvitations
+  addBulkInvitations: (invitations: Omit<Invite, "id" | "sentDate">[]) => void
+  // Added updateInvitationStatus
+  updateInvitationStatus: (id: string, status: Invite["status"]) => void
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
 
-// Initial mock data
 const initialMaterials: Material[] = [
+  // MATERIALS - Estrutura
   {
-    id: "1",
+    id: "m1",
     name: "Cimento Portland",
     unit: "kg",
     price: 0.15,
     category: "Estrutura",
+    type: "material",
     region: "Nacional",
     lastUpdated: "2024-01-15",
   },
   {
-    id: "2",
-    name: "Tijolo Cerâmico",
-    unit: "un",
-    price: 0.45,
-    category: "Alvenaria",
-    region: "Nacional",
-    lastUpdated: "2024-01-15",
-  },
-  {
-    id: "3",
-    name: "Areia Grossa",
-    unit: "m³",
-    price: 45.0,
-    category: "Estrutura",
-    region: "Lisboa",
-    lastUpdated: "2024-01-10",
-  },
-  {
-    id: "4",
-    name: "Ferro CA-50 10mm",
-    unit: "kg",
-    price: 4.2,
-    category: "Estrutura",
-    region: "Nacional",
-    lastUpdated: "2024-01-12",
-  },
-  {
-    id: "5",
-    name: "Azulejo 30x30",
-    unit: "m²",
-    price: 18.5,
-    category: "Revestimentos",
-    region: "Norte",
-    lastUpdated: "2024-01-08",
-  },
-  {
-    id: "6",
-    name: "Tinta Acrílica",
-    unit: "L",
-    price: 12.0,
-    category: "Acabamentos",
-    region: "Nacional",
-    lastUpdated: "2024-01-14",
-  },
-  {
-    id: "7",
+    id: "m2",
     name: "Betão C25/30",
     unit: "m³",
     price: 85.0,
     category: "Estrutura",
+    type: "material",
     region: "Nacional",
     lastUpdated: "2024-01-11",
   },
   {
-    id: "8",
+    id: "m3",
+    name: "Areia Grossa",
+    unit: "m³",
+    price: 45.0,
+    category: "Estrutura",
+    type: "material",
+    region: "Lisboa",
+    lastUpdated: "2024-01-10",
+  },
+  {
+    id: "m4",
+    name: "Ferro CA-50 10mm",
+    unit: "kg",
+    price: 4.2,
+    category: "Estrutura",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2024-01-12",
+  },
+  {
+    id: "m5",
+    name: "Betão Celular",
+    unit: "m³",
+    price: 320.0,
+    category: "Estrutura",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m6",
+    name: "Estrutura LSF (aço leve)",
+    unit: "m²",
+    price: 42.5,
+    category: "Estrutura",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m7",
+    name: "Painel Sandwich 70mm",
+    unit: "m²",
+    price: 35.0,
+    category: "Estrutura",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // MATERIALS - Alvenaria
+  {
+    id: "m10",
+    name: "Tijolo Cerâmico 30x20x15",
+    unit: "un",
+    price: 0.45,
+    category: "Alvenaria",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2024-01-15",
+  },
+  {
+    id: "m11",
+    name: "Bloco de Betão",
+    unit: "un",
+    price: 1.8,
+    category: "Alvenaria",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // MATERIALS - Revestimentos
+  {
+    id: "m20",
+    name: "Azulejo 30x30",
+    unit: "m²",
+    price: 18.5,
+    category: "Revestimentos",
+    type: "material",
+    region: "Norte",
+    lastUpdated: "2024-01-08",
+  },
+  {
+    id: "m21",
+    name: "Azulejo 60x60 Beige Elovolution (Magres)",
+    unit: "m²",
+    price: 35.0,
+    category: "Revestimentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m22",
+    name: "Mosaico Terracota Algarvio 30x30",
+    unit: "m²",
+    price: 25.0,
+    category: "Revestimentos",
+    type: "material",
+    region: "Sul",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m23",
+    name: "Pedra Lioz",
+    unit: "m²",
+    price: 124.56,
+    category: "Revestimentos",
+    type: "material",
+    region: "Lisboa",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m24",
+    name: "Stone Panel Ardósia",
+    unit: "m²",
+    price: 87.19,
+    category: "Revestimentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m25",
+    name: "Sistema ETICS 8cm",
+    unit: "m²",
+    price: 42.5,
+    category: "Revestimentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m26",
+    name: "Placas OSB",
+    unit: "m²",
+    price: 15.0,
+    category: "Revestimentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // MATERIALS - Pavimentos
+  {
+    id: "m30",
+    name: "Pavimento Vinílico Flutuante",
+    unit: "m²",
+    price: 35.0,
+    category: "Pavimentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m31",
+    name: "Soalho Pinho Nacional 14mm",
+    unit: "m²",
+    price: 42.0,
+    category: "Pavimentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m32",
+    name: "Deck Casquinha Thermowood",
+    unit: "m²",
+    price: 72.24,
+    category: "Pavimentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m33",
+    name: "Rodapé MDF Hidrófugo Lacado",
+    unit: "ml",
+    price: 15.57,
+    category: "Pavimentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m34",
+    name: "Rodapé PVC",
+    unit: "ml",
+    price: 4.5,
+    category: "Pavimentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // MATERIALS - Isolamentos
+  {
+    id: "m40",
+    name: "XPS 80mm",
+    unit: "m²",
+    price: 12.5,
+    category: "Isolamentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m41",
+    name: "Lã de Rocha 200mm 40kg",
+    unit: "m²",
+    price: 18.0,
+    category: "Isolamentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m42",
+    name: "Tela Betuminosa Polyplas 30",
+    unit: "m²",
+    price: 8.5,
+    category: "Isolamentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m43",
+    name: "Manta Térmica Cobertura",
+    unit: "m²",
+    price: 12.0,
+    category: "Isolamentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // MATERIALS - Pinturas
+  {
+    id: "m50",
+    name: "Tinta Acrílica Exterior",
+    unit: "L",
+    price: 12.0,
+    category: "Pinturas",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2024-01-14",
+  },
+  {
+    id: "m51",
+    name: "Tinta Plástica Interior",
+    unit: "L",
+    price: 8.5,
+    category: "Pinturas",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m52",
+    name: "Primário de Aderência",
+    unit: "L",
+    price: 6.0,
+    category: "Pinturas",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // MATERIALS - Instalações
+  {
+    id: "m60",
     name: "Tubo PVC 110mm",
     unit: "m",
     price: 8.5,
     category: "Instalações",
+    type: "material",
     region: "Nacional",
     lastUpdated: "2024-01-09",
   },
   {
-    id: "9",
+    id: "m61",
+    name: "Tubo Multicamada",
+    unit: "m",
+    price: 4.2,
+    category: "Instalações",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m62",
     name: "Cabo Elétrico 2.5mm",
     unit: "m",
     price: 1.2,
     category: "Instalações",
+    type: "material",
     region: "Nacional",
     lastUpdated: "2024-01-13",
   },
   {
-    id: "10",
-    name: "Porta Interior",
-    unit: "un",
-    price: 120.0,
-    category: "Acabamentos",
+    id: "m63",
+    name: "Tubo Cobre DN22 Revestido PVC",
+    unit: "m",
+    price: 8.5,
+    category: "Instalações",
+    type: "material",
     region: "Nacional",
-    lastUpdated: "2024-01-07",
+    lastUpdated: "2025-01-15",
+  },
+
+  // MATERIALS - Carpintarias
+  {
+    id: "m70",
+    name: "Porta Interior MDF Lacada",
+    unit: "un",
+    price: 708.0,
+    category: "Carpintarias",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m71",
+    name: "Porta Correr MDF com Cassete",
+    unit: "un",
+    price: 1208.32,
+    category: "Carpintarias",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m72",
+    name: "Armário MDF Lacado",
+    unit: "ml",
+    price: 350.0,
+    category: "Carpintarias",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // MATERIALS - Caixilharias
+  {
+    id: "m80",
+    name: "Caixilharia Alumínio Corte Térmico",
+    unit: "m²",
+    price: 285.0,
+    category: "Caixilharias",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m81",
+    name: "Porta Entrada Pivotante Alumínio",
+    unit: "un",
+    price: 4094.6,
+    category: "Caixilharias",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m82",
+    name: "Caixilharia PVC",
+    unit: "m²",
+    price: 180.0,
+    category: "Caixilharias",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // MATERIALS - Loiças Sanitárias
+  {
+    id: "m90",
+    name: "Sanita Suspensa Roca Vitoria",
+    unit: "un",
+    price: 480.8,
+    category: "Loiças",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m91",
+    name: "Lavatório Roca Round 40",
+    unit: "un",
+    price: 255.35,
+    category: "Loiças",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m92",
+    name: "Base Duche 1400x700 Sanindusa",
+    unit: "un",
+    price: 747.36,
+    category: "Loiças",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m93",
+    name: "Banheira Acrílica Retangular",
+    unit: "un",
+    price: 700.0,
+    category: "Loiças",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m94",
+    name: "Misturadora Duche Bruma Lusa",
+    unit: "un",
+    price: 411.05,
+    category: "Loiças",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m95",
+    name: "Torneira Lavatório Roca",
+    unit: "un",
+    price: 173.14,
+    category: "Loiças",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m96",
+    name: "Móvel Lavatório Roca Tenet",
+    unit: "un",
+    price: 450.0,
+    category: "Loiças",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // MATERIALS - Equipamentos
+  {
+    id: "m100",
+    name: "Depósito Painéis Solares 300L",
+    unit: "un",
+    price: 2914.6,
+    category: "Equipamentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m101",
+    name: "Termoacumulador 300L",
+    unit: "un",
+    price: 4733.28,
+    category: "Equipamentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m102",
+    name: "Sistema VMC (Ventilação Mecânica)",
+    unit: "un",
+    price: 2500.0,
+    category: "Equipamentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m103",
+    name: "Fossa Sética 4000L",
+    unit: "un",
+    price: 1800.0,
+    category: "Equipamentos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // MATERIALS - Tetos Falsos
+  {
+    id: "m110",
+    name: "Gesso Cartonado Standard 13mm",
+    unit: "m²",
+    price: 23.67,
+    category: "Tetos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "m111",
+    name: "Gesso Cartonado Hidrófugo",
+    unit: "m²",
+    price: 26.16,
+    category: "Tetos",
+    type: "material",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // WORKS - Demolições e Movimentação
+  {
+    id: "w1",
+    name: "Demolição de Cobertura Existente",
+    unit: "vg",
+    price: 4900.0,
+    category: "Demolições",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w2",
+    name: "Demolição de Paredes Interiores",
+    unit: "vg",
+    price: 5300.0,
+    category: "Demolições",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w3",
+    name: "Picagem de Revestimentos",
+    unit: "vg",
+    price: 2400.0,
+    category: "Demolições",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w4",
+    name: "Movimentação e Recolha de Entulho",
+    unit: "vg",
+    price: 4000.0,
+    category: "Demolições",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w5",
+    name: "Transporte a Vazadouro",
+    unit: "vg",
+    price: 2643.2,
+    category: "Demolições",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // WORKS - Estaleiro
+  {
+    id: "w10",
+    name: "Montagem e Desmontagem de Estaleiro",
+    unit: "vg",
+    price: 1180.0,
+    category: "Estaleiro",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w11",
+    name: "Manutenção de Estaleiro",
+    unit: "mês",
+    price: 177.0,
+    category: "Estaleiro",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w12",
+    name: "Montagem e Manutenção de Andaimes",
+    unit: "vg",
+    price: 4720.0,
+    category: "Estaleiro",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w13",
+    name: "Direção de Obra com Alvará",
+    unit: "mês",
+    price: 146.02,
+    category: "Estaleiro",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // WORKS - Estruturas
+  {
+    id: "w20",
+    name: "Execução Estrutura Laje Betão",
+    unit: "vg",
+    price: 7080.0,
+    category: "Estrutura",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w21",
+    name: "Execução Estrutura Escada Betão",
+    unit: "vg",
+    price: 3540.0,
+    category: "Estrutura",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w22",
+    name: "Execução Estrutura LSF",
+    unit: "vg",
+    price: 64310.0,
+    category: "Estrutura",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w23",
+    name: "Execução Estrutura Metálica Mezzanine",
+    unit: "vg",
+    price: 7965.0,
+    category: "Estrutura",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // WORKS - Alvenarias
+  {
+    id: "w30",
+    name: "Execução Muros Alvenaria Tijolo",
+    unit: "ml",
+    price: 149.47,
+    category: "Alvenaria",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w31",
+    name: "Execução Paredes Alvenaria",
+    unit: "m²",
+    price: 29.89,
+    category: "Alvenaria",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w32",
+    name: "Criação Paredes Divisórias",
+    unit: "vg",
+    price: 4600.0,
+    category: "Alvenaria",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w33",
+    name: "Abertura e Tapamento de Roços",
+    unit: "vg",
+    price: 3540.0,
+    category: "Alvenaria",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // WORKS - Revestimentos
+  {
+    id: "w40",
+    name: "Execução Reboco Estuque Paredes",
+    unit: "m²",
+    price: 12.46,
+    category: "Revestimentos",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w41",
+    name: "Aplicação Cerâmica Parede",
+    unit: "m²",
+    price: 27.28,
+    category: "Revestimentos",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w42",
+    name: "Aplicação Stone Panel",
+    unit: "m²",
+    price: 45.0,
+    category: "Revestimentos",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w43",
+    name: "Reboco Cimentício Hidrófugo",
+    unit: "m²",
+    price: 18.5,
+    category: "Revestimentos",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // WORKS - Pavimentos
+  {
+    id: "w50",
+    name: "Betonilha Regularização",
+    unit: "m²",
+    price: 15.0,
+    category: "Pavimentos",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w51",
+    name: "Aplicação Auto-nivelante",
+    unit: "m²",
+    price: 12.5,
+    category: "Pavimentos",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w52",
+    name: "Assentamento Pavimento Cerâmico",
+    unit: "m²",
+    price: 25.0,
+    category: "Pavimentos",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w53",
+    name: "Assentamento Soalho Madeira",
+    unit: "m²",
+    price: 35.0,
+    category: "Pavimentos",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w54",
+    name: "Recuperação Pavimento Existente",
+    unit: "vg",
+    price: 3751.75,
+    category: "Pavimentos",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // WORKS - Pinturas
+  {
+    id: "w60",
+    name: "Pintura Paredes Interiores",
+    unit: "vg",
+    price: 7249.39,
+    category: "Pinturas",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w61",
+    name: "Pintura Fachadas Exteriores",
+    unit: "vg",
+    price: 10500.0,
+    category: "Pinturas",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w62",
+    name: "Pintura Tetos",
+    unit: "vg",
+    price: 3985.92,
+    category: "Pinturas",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // WORKS - Tetos
+  {
+    id: "w70",
+    name: "Execução Teto Falso Gesso Cartonado",
+    unit: "m²",
+    price: 23.67,
+    category: "Tetos",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w71",
+    name: "Teto Falso com Isolamento Acústico",
+    unit: "vg",
+    price: 5500.0,
+    category: "Tetos",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // WORKS - Coberturas
+  {
+    id: "w80",
+    name: "Execução Cobertura Horizontal Impermeabilizada",
+    unit: "vg",
+    price: 6608.0,
+    category: "Cobertura",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w81",
+    name: "Execução Cobertura Inclinada",
+    unit: "vg",
+    price: 10384.0,
+    category: "Cobertura",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w82",
+    name: "Assentamento Telhas",
+    unit: "vg",
+    price: 7000.0,
+    category: "Cobertura",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w83",
+    name: "Instalação Calhas e Condutores",
+    unit: "vg",
+    price: 1500.0,
+    category: "Cobertura",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // WORKS - Instalações
+  {
+    id: "w90",
+    name: "Execução Rede Água Quente e Fria",
+    unit: "vg",
+    price: 6228.0,
+    category: "Instalações",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w91",
+    name: "Execução Rede Esgotos Domésticos",
+    unit: "vg",
+    price: 2678.04,
+    category: "Instalações",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w92",
+    name: "Execução Rede Elétrica Completa",
+    unit: "vg",
+    price: 8844.1,
+    category: "Instalações",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w93",
+    name: "Execução Rede ITED",
+    unit: "vg",
+    price: 4690.5,
+    category: "Instalações",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w94",
+    name: "Execução Rede Gás",
+    unit: "vg",
+    price: 1494.72,
+    category: "Instalações",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w95",
+    name: "Pré-instalação Ar Condicionado",
+    unit: "ponto",
+    price: 354.0,
+    category: "Instalações",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // WORKS - Montagens
+  {
+    id: "w100",
+    name: "Montagem Loiças Sanitárias",
+    unit: "wc",
+    price: 1062.0,
+    category: "Montagens",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w101",
+    name: "Montagem Caixilharias",
+    unit: "vg",
+    price: 2500.0,
+    category: "Montagens",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w102",
+    name: "Montagem Carpintarias",
+    unit: "vg",
+    price: 1800.0,
+    category: "Montagens",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w103",
+    name: "Montagem Sistema Painéis Solares",
+    unit: "un",
+    price: 1500.0,
+    category: "Montagens",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+
+  // WORKS - Certificações e Limpezas
+  {
+    id: "w110",
+    name: "Certificação Instalação Elétrica",
+    unit: "vg",
+    price: 177.0,
+    category: "Certificações",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w111",
+    name: "Certificação ITED",
+    unit: "vg",
+    price: 177.0,
+    category: "Certificações",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
+  },
+  {
+    id: "w112",
+    name: "Limpeza Final de Obra",
+    unit: "vg",
+    price: 944.0,
+    category: "Limpezas",
+    type: "work",
+    region: "Nacional",
+    lastUpdated: "2025-01-15",
   },
 ]
 
 const initialObras: Obra[] = [
   {
     id: "1",
-    name: "Edifício Residencial Sol Nascente",
-    type: "Construção Nova",
-    region: "Lisboa e Vale do Tejo",
-    address: "Rua das Flores 123, 1200-123 Lisboa",
-    estimatedBudget: 2500000,
-    startDate: "2024-03-01",
-    endDate: "2025-06-30",
-    urgency: "media",
-    description:
-      "Construção de edifício residencial com 24 apartamentos em 6 pisos, incluindo 2 caves para estacionamento.",
-    requirements: "Certificação A+ de eficiência energética, painéis solares, materiais sustentáveis.",
-    contactName: "João Silva",
-    contactPhone: "+351 912 345 678",
-    contactEmail: "joao.silva@email.pt",
-    status: "aprovado",
-    progress: 85,
-    createdDate: "2024-01-10",
-    assignedUsers: ["2", "3"],
+    title: "Moradia Cobre - Reabilitação",
+    client: "João Bilbao",
+    location: "Cobre, Portugal",
+    category: "Residencial",
+    budget: 236749.95,
+    startDate: "2021-10-21",
+    endDate: "2022-04-21",
+    status: "approved",
+    description: "Reabilitação total de moradia incluindo estrutura, coberturas, instalações e acabamentos",
+    area: "280m²",
+    type: "Reabilitação",
+    timeline: "6 meses",
+    progress: 100,
+    createdAt: "2021-10-01T10:00:00Z",
+    updatedAt: "2022-04-21T15:30:00Z",
   },
   {
     id: "2",
-    name: "Renovação Hotel Mar Azul",
-    type: "Renovação",
-    region: "Algarve",
-    address: "Av. da Praia 456, 8000-456 Faro",
-    estimatedBudget: 850000,
-    startDate: "2024-04-15",
-    endDate: "2024-10-30",
-    urgency: "alta",
-    description: "Renovação completa de hotel de 50 quartos, incluindo áreas comuns, restaurante e piscina.",
-    requirements: "Manter operação parcial durante obras, materiais anti-ruído.",
-    contactName: "Maria Santos",
-    contactPhone: "+351 923 456 789",
-    contactEmail: "maria.santos@email.pt",
-    status: "em_analise",
-    progress: 45,
-    createdDate: "2024-01-12",
-    assignedUsers: ["4"],
+    title: "Moradia Colares - Bruno Ferreira",
+    client: "Bruno Ferreira",
+    location: "Rua dos Depósitos de Água 49, Sintra",
+    category: "Residencial",
+    budget: 355497.92,
+    startDate: "2024-12-01",
+    endDate: "2025-12-01",
+    status: "in-analysis",
+    description: "Construção de moradia inacabada com estrutura LSF, instalações completas e acabamentos",
+    area: "320m²",
+    type: "Construção Nova",
+    timeline: "12 meses",
+    progress: 15,
+    createdAt: "2024-11-18T09:00:00Z",
+    updatedAt: "2024-11-18T14:20:00Z",
   },
   {
     id: "3",
-    name: "Ampliação Escola Primária",
-    type: "Ampliação",
-    region: "Norte",
-    address: "Rua da Educação 789, 4000-789 Porto",
-    estimatedBudget: 450000,
-    startDate: "2024-07-01",
-    endDate: "2024-12-15",
-    urgency: "media",
-    description: "Ampliação de escola primária com novas salas de aula, ginásio e cantina.",
-    requirements: "Obras durante período de férias escolares, acessibilidade total.",
-    contactName: "Ana Ferreira",
-    contactPhone: "+351 934 567 890",
-    contactEmail: "ana.ferreira@email.pt",
-    status: "pendente",
-    progress: 20,
-    createdDate: "2024-01-15",
-    assignedUsers: [],
-  },
-  {
-    id: "4",
-    name: "Reabilitação Centro Histórico",
-    type: "Reabilitação",
-    region: "Centro",
-    address: "Praça Velha 12, 3000-012 Coimbra",
-    estimatedBudget: 1200000,
-    startDate: "2024-05-01",
-    endDate: "2025-03-30",
-    urgency: "baixa",
-    description:
-      "Reabilitação de edifício histórico para uso misto: comércio no piso térreo e habitação nos pisos superiores.",
-    requirements: "Aprovação DGPC, técnicas de restauro tradicionais, materiais compatíveis.",
-    contactName: "Pedro Costa",
-    contactPhone: "+351 945 678 901",
-    contactEmail: "pedro.costa@email.pt",
-    status: "info_adicional",
-    progress: 60,
-    createdDate: "2024-01-08",
-    assignedUsers: ["2"],
+    title: "Moradia Quinta do Anjo",
+    client: "Bernardo Rico",
+    location: "Rua Miguel Cândido 46C, Quinta do Anjo",
+    category: "Residencial",
+    budget: 157540.0,
+    startDate: "2025-03-15",
+    endDate: "2025-09-15",
+    status: "pending",
+    description: "Remodelação de moradia e anexo incluindo demolições, instalações e acabamentos",
+    area: "180m²",
+    type: "Remodelação",
+    timeline: "6 meses",
+    progress: 0,
+    contact: {
+      name: "Bernardo Rico",
+      email: "bernardo.rico@email.com",
+      phone: "+351 912 345 678",
+    },
+    createdAt: "2025-03-09T11:30:00Z",
+    updatedAt: "2025-03-09T11:30:00Z",
   },
 ]
 
@@ -593,64 +1544,59 @@ const initialConversations: Conversation[] = [
   },
 ]
 
-const initialMessages: Record<string, Message[]> = {
-  "conv-2": [
-    {
-      id: "m1",
-      senderId: "2",
-      senderName: "Carlos Mendes",
-      senderAvatar: "/professional-man.png",
-      receiverId: "1",
-      content: "Bom dia! Gostaria de discutir o orçamento da obra Sol Nascente.",
-      timestamp: "2024-01-28T09:00:00",
-      read: true,
-    },
-    {
-      id: "m2",
-      senderId: "1",
-      senderName: "Administrador",
-      senderAvatar: "/admin-avatar-professional.jpg",
-      receiverId: "2",
-      content: "Bom dia Carlos! Claro, podemos agendar uma reunião?",
-      timestamp: "2024-01-28T09:15:00",
-      read: true,
-    },
-    {
-      id: "m3",
-      senderId: "2",
-      senderName: "Carlos Mendes",
-      senderAvatar: "/professional-man.png",
-      receiverId: "1",
-      content: "Os materiais já chegaram à obra?",
-      timestamp: "2024-01-28T10:30:00",
-      read: false,
-    },
-  ],
-  "conv-3": [
-    {
-      id: "m4",
-      senderId: "3",
-      senderName: "Sofia Almeida",
-      senderAvatar: "/professional-woman.png",
-      receiverId: "1",
-      content: "Enviei as alterações ao projeto",
-      timestamp: "2024-01-27T16:00:00",
-      read: true,
-    },
-  ],
-  "conv-4": [
-    {
-      id: "m5",
-      senderId: "4",
-      senderName: "Ricardo Pereira",
-      senderAvatar: "/man-construction.jpg",
-      receiverId: "1",
-      content: "Reunião confirmada para amanhã",
-      timestamp: "2024-01-28T09:15:00",
-      read: false,
-    },
-  ],
-}
+// Updated initialMessages structure
+const initialMessages: Message[] = [
+  {
+    id: "m1",
+    senderId: "2",
+    senderName: "Carlos Mendes",
+    senderAvatar: "/professional-man.png",
+    receiverId: "1",
+    content: "Bom dia! Gostaria de discutir o orçamento da obra Sol Nascente.",
+    timestamp: "2024-01-28T09:00:00",
+    read: true,
+  },
+  {
+    id: "m2",
+    senderId: "1",
+    senderName: "Administrador",
+    senderAvatar: "/admin-avatar-professional.jpg",
+    receiverId: "2",
+    content: "Bom dia Carlos! Claro, podemos agendar uma reunião?",
+    timestamp: "2024-01-28T09:15:00",
+    read: true,
+  },
+  {
+    id: "m3",
+    senderId: "2",
+    senderName: "Carlos Mendes",
+    senderAvatar: "/professional-man.png",
+    receiverId: "1",
+    content: "Os materiais já chegaram à obra?",
+    timestamp: "2024-01-28T10:30:00",
+    read: false,
+  },
+  {
+    id: "m4",
+    senderId: "3",
+    senderName: "Sofia Almeida",
+    senderAvatar: "/professional-woman.png",
+    receiverId: "1",
+    content: "Enviei as alterações ao projeto",
+    timestamp: "2024-01-27T16:00:00",
+    read: true,
+  },
+  {
+    id: "m5",
+    senderId: "4",
+    senderName: "Ricardo Pereira",
+    senderAvatar: "/man-construction.jpg",
+    receiverId: "1",
+    content: "Reunião confirmada para amanhã",
+    timestamp: "2024-01-28T09:15:00",
+    read: false,
+  },
+]
 
 const initialNotifications: Notification[] = [
   {
@@ -682,7 +1628,8 @@ const initialNotifications: Notification[] = [
   },
 ]
 
-const initialInvites: Invite[] = [
+// Renamed initialInvites to initialInvitations
+const initialInvitations: Invite[] = [
   {
     id: "i1",
     email: "jose.ferreira@construcao.pt",
@@ -711,9 +1658,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [concursos, setConcursos] = useState<Concurso[]>(initialConcursos)
   const [users] = useState<User[]>(initialUsers)
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
-  const [messages, setMessages] = useState<Record<string, Message[]>>(initialMessages)
+  // Changed messages state to Message[]
+  const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications)
-  const [invites, setInvites] = useState<Invite[]>(initialInvites)
+  // Renamed invites to invitations
+  const [invitations, setInvitations] = useState<Invite[]>(initialInvitations)
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -726,7 +1675,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (data.obras) setObras(data.obras)
         if (data.visitas) setVisitas(data.visitas)
         if (data.notifications) setNotifications(data.notifications)
-        if (data.invites) setInvites(data.invites)
+        // Updated localStorage loading for invitations
+        if (data.invitations) setInvitations(data.invitations)
       } catch (e) {
         console.error("Error loading data:", e)
       }
@@ -735,8 +1685,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Save to localStorage on change
   useEffect(() => {
-    localStorage.setItem("moap_data", JSON.stringify({ materials, budgets, obras, visitas, notifications, invites }))
-  }, [materials, budgets, obras, visitas, notifications, invites])
+    localStorage.setItem(
+      "moap_data",
+      JSON.stringify({ materials, budgets, obras, visitas, notifications, invitations }),
+    )
+  }, [materials, budgets, obras, visitas, notifications, invitations])
 
   const generateId = () => Math.random().toString(36).substr(2, 9)
 
@@ -775,25 +1728,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   // Obras
-  const addObra = (obra: Omit<Obra, "id" | "status" | "progress" | "createdDate" | "assignedUsers">) => {
+  const addObra = (obra: Omit<Obra, "id" | "createdAt" | "updatedAt">) => {
     const newObra: Obra = {
       ...obra,
       id: generateId(),
-      status: "pendente",
+      // Updated default status and timestamps
+      status: "pending",
       progress: 0,
-      createdDate: new Date().toISOString().split("T")[0],
-      assignedUsers: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }
     setObras((prev) => [...prev, newObra])
     addNotification({
       type: "obra",
       title: "Nova Obra Submetida",
-      description: `${obra.name} foi submetida para análise.`,
+      description: `${obra.title} foi submetida para análise.`,
     })
   }
 
   const updateObra = (id: string, obra: Partial<Obra>) => {
-    setObras((prev) => prev.map((o) => (o.id === id ? { ...o, ...obra } : o)))
+    setObras((prev) => prev.map((o) => (o.id === id ? { ...o, ...obra, updatedAt: new Date().toISOString() } : o)))
   }
 
   const deleteObra = (id: string) => {
@@ -801,8 +1755,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   // Visitas
-  const addVisita = (visita: Omit<Visita, "id" | "status">) => {
-    const newVisita: Visita = { ...visita, id: generateId(), status: "agendada" }
+  const addVisita = (visita: Omit<Visita, "id">) => {
+    // Removed default status from here, it's handled in the UI or by initial data
+    const newVisita: Visita = { ...visita, id: generateId() }
     setVisitas((prev) => [...prev, newVisita])
     addNotification({
       type: "visit",
@@ -817,6 +1772,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const deleteVisita = (id: string) => {
     setVisitas((prev) => prev.filter((v) => v.id !== id))
+  }
+
+  // Added cancelVisita
+  const cancelVisita = (id: string) => {
+    setVisitas((prev) => prev.map((v) => (v.id === id ? { ...v, status: "cancelada" } : v)))
+    addNotification({
+      type: "visit",
+      title: "Visita Cancelada",
+      description: `A visita com o ID ${id} foi cancelada.`,
+    })
   }
 
   // Concursos
@@ -836,34 +1801,54 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   // Messages
-  const sendMessage = (conversationId: string, content: string) => {
+  // Renamed sendMessage to addMessage
+  const addMessage = (message: Omit<Message, "id" | "timestamp">) => {
     const newMessage: Message = {
+      ...message,
       id: generateId(),
-      senderId: "1",
-      senderName: "Administrador",
-      senderAvatar: "/admin-avatar-professional.jpg",
-      receiverId: conversations.find((c) => c.id === conversationId)?.participantId || "",
-      content,
       timestamp: new Date().toISOString(),
-      read: true,
+      read: false, // New messages are initially unread by the receiver
     }
 
-    setMessages((prev) => ({
-      ...prev,
-      [conversationId]: [...(prev[conversationId] || []), newMessage],
-    }))
+    // Find the conversation this message belongs to
+    let conversationId = ""
+    if (message.senderId === "1") {
+      // Assuming "1" is the current user's ID
+      conversationId = conversations.find((c) => c.participantId === message.receiverId)?.id || ""
+    } else {
+      conversationId = conversations.find((c) => c.participantId === message.senderId)?.id || ""
+    }
 
-    setConversations((prev) =>
-      prev.map((c) => (c.id === conversationId ? { ...c, lastMessage: content, lastMessageTime: "Agora" } : c)),
-    )
+    setMessages((prev) => [...prev, newMessage])
+
+    // Update conversation if it exists, otherwise create a new one (simplified here)
+    if (conversationId) {
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                lastMessage: message.content,
+                lastMessageTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                unread: c.online ? c.unread : c.unread + 1, // Increment unread if participant is offline
+              }
+            : c,
+        ),
+      )
+    }
   }
 
-  const markConversationAsRead = (conversationId: string) => {
+  // Renamed markConversationAsRead to markAsRead
+  const markAsRead = (conversationId: string) => {
     setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, unread: 0 } : c)))
-    setMessages((prev) => ({
-      ...prev,
-      [conversationId]: (prev[conversationId] || []).map((m) => ({ ...m, read: true })),
-    }))
+    setMessages((prev) =>
+      prev.map((m) =>
+        // Mark as read only if the message belongs to the specified conversation and is not from the current user
+        m.id.startsWith("conv-") && m.id.split("-")[1] === conversationId.split("-")[1] && m.senderId !== "1"
+          ? { ...m, read: true }
+          : m,
+      ),
+    )
   }
 
   // Notifications
@@ -885,35 +1870,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
   }
 
-  const clearNotifications = () => {
-    setNotifications([])
+  // Added deleteNotification
+  const deleteNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
   }
 
   // Invites
-  const sendInvite = (email: string, name?: string, role?: string) => {
-    const newInvite: Invite = {
+  // Renamed sendInvite to addInvitation
+  const addInvitation = (invitation: Omit<Invite, "id" | "sentDate">) => {
+    const newInvitation: Invite = {
+      ...invitation,
       id: generateId(),
-      email,
-      name,
-      role,
-      status: "enviado",
       sentDate: new Date().toISOString().split("T")[0],
-      sentBy: "Administrador",
+      status: "enviado", // Default status
     }
-    setInvites((prev) => [...prev, newInvite])
-    addNotification({ type: "system", title: "Convite Enviado", description: `Convite enviado para ${email}.` })
+    setInvitations((prev) => [...prev, newInvitation])
+    addNotification({
+      type: "system",
+      title: "Convite Enviado",
+      description: `Convite enviado para ${invitation.email}.`,
+    })
   }
 
-  const sendBulkInvites = (emails: string[]) => {
-    const newInvites = emails.map((email) => ({
+  // Renamed sendBulkInvites to addBulkInvitations
+  const addBulkInvitations = (invitationsData: Omit<Invite, "id" | "sentDate">[]) => {
+    const newInvitations = invitationsData.map((inv) => ({
+      ...inv,
       id: generateId(),
-      email,
-      status: "enviado" as const,
       sentDate: new Date().toISOString().split("T")[0],
-      sentBy: "Administrador",
+      status: "enviado" as const,
     }))
-    setInvites((prev) => [...prev, ...newInvites])
-    addNotification({ type: "system", title: "Convites Enviados", description: `${emails.length} convites enviados.` })
+    setInvitations((prev) => [...prev, ...newInvitations])
+    addNotification({
+      type: "system",
+      title: "Convites Enviados",
+      description: `${invitationsData.length} convites enviados.`,
+    })
+  }
+
+  // Added updateInvitationStatus
+  const updateInvitationStatus = (id: string, status: Invite["status"]) => {
+    setInvitations((prev) => prev.map((inv) => (inv.id === id ? { ...inv, status } : inv)))
   }
 
   return (
@@ -935,21 +1932,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addVisita,
         updateVisita,
         deleteVisita,
+        cancelVisita, // Added cancelVisita
         concursos,
         inviteUserToConcurso,
         conversations,
-        messages,
-        sendMessage,
-        markConversationAsRead,
+        messages, // Changed messages state
+        addMessage, // Renamed sendMessage
+        markAsRead, // Renamed markConversationAsRead
         users,
         notifications,
         addNotification,
         markNotificationAsRead,
         markAllNotificationsAsRead,
-        clearNotifications,
-        invites,
-        sendInvite,
-        sendBulkInvites,
+        deleteNotification, // Added deleteNotification
+        invitations, // Renamed invites
+        addInvitation, // Renamed sendInvite
+        addBulkInvitations, // Renamed sendBulkInvites
+        updateInvitationStatus, // Added updateInvitationStatus
       }}
     >
       {children}
