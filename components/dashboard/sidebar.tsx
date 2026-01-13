@@ -23,34 +23,36 @@ import {
 } from "lucide-react"
 import { useAuth, type UserRole } from "@/contexts/auth-context"
 import { useData } from "@/contexts/data-context"
+import { useLanguage } from "@/contexts/language-context"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 
 interface NavItem {
-  name: string
+  nameKey: string
   href: string
   icon: React.ComponentType<{ className?: string }>
-  roles: UserRole[] // Which roles can see this item
+  roles: UserRole[]
 }
 
 const navigation: NavItem[] = [
-  { name: "Visão Geral", href: "/dashboard", icon: LayoutGrid, roles: ["admin", "public", "tecnico"] },
-  { name: "Minhas Obras", href: "/dashboard/obras", icon: Building2, roles: ["admin"] },
-  { name: "Nova Obra", href: "/dashboard/obras/nova", icon: FileText, roles: ["admin", "public", "tecnico"] },
-  { name: "Análise de Orçamentos", href: "/dashboard/analise", icon: BarChart3, roles: ["admin", "public", "tecnico"] },
-  { name: "Agendar Visita", href: "/dashboard/visitas", icon: Calendar, roles: ["admin", "tecnico"] },
-  { name: "Orçamentos", href: "/dashboard/orcamentos", icon: Calculator, roles: ["admin", "tecnico"] },
-  { name: "Preços de Materiais", href: "/dashboard/prices", icon: DollarSign, roles: ["admin"] },
-  { name: "Mensagens", href: "/dashboard/messages", icon: MessageSquare, roles: ["admin", "public", "tecnico"] },
-  { name: "Utilizadores", href: "/dashboard/users", icon: Users, roles: ["admin", "public", "tecnico"] },
-  { name: "Notificações", href: "/dashboard/notificacoes", icon: Bell, roles: ["admin", "public", "tecnico"] },
-  { name: "Definições", href: "/dashboard/definicoes", icon: Settings, roles: ["admin", "public", "tecnico"] },
+  { nameKey: "overview", href: "/dashboard", icon: LayoutGrid, roles: ["admin", "public", "tecnico"] },
+  { nameKey: "projects", href: "/dashboard/obras", icon: Building2, roles: ["admin"] },
+  { nameKey: "newProject", href: "/dashboard/obras/nova", icon: FileText, roles: ["admin", "public", "tecnico"] },
+  { nameKey: "budgetAnalysis", href: "/dashboard/analise", icon: BarChart3, roles: ["admin", "public", "tecnico"] },
+  { nameKey: "scheduleVisit", href: "/dashboard/visitas", icon: Calendar, roles: ["admin", "tecnico"] },
+  { nameKey: "budgets", href: "/dashboard/orcamentos", icon: Calculator, roles: ["admin", "tecnico"] },
+  { nameKey: "materialPrices", href: "/dashboard/prices", icon: DollarSign, roles: ["admin"] },
+  { nameKey: "messages", href: "/dashboard/messages", icon: MessageSquare, roles: ["admin", "public", "tecnico"] },
+  { nameKey: "users", href: "/dashboard/users", icon: Users, roles: ["admin", "public", "tecnico"] },
+  { nameKey: "notifications", href: "/dashboard/notificacoes", icon: Bell, roles: ["admin", "public", "tecnico"] },
+  { nameKey: "settings", href: "/dashboard/definicoes", icon: Settings, roles: ["admin", "public", "tecnico"] },
 ]
 
 export function DashboardSidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
   const { notifications } = useData()
+  const { t } = useLanguage()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const unreadCount = notifications.filter((n) => !n.read).length
@@ -79,6 +81,7 @@ export function DashboardSidebar() {
 
       {/* Sidebar */}
       <aside
+        data-tutorial="sidebar"
         className={cn(
           "fixed top-0 left-0 z-40 h-screen w-64 bg-sidebar border-r border-sidebar-border transition-transform lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
@@ -101,7 +104,7 @@ export function DashboardSidebar() {
 
               return (
                 <Link
-                  key={item.name}
+                  key={item.nameKey}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
@@ -112,7 +115,7 @@ export function DashboardSidebar() {
                   )}
                 >
                   <item.icon className="h-5 w-5" />
-                  {item.name}
+                  {t(item.nameKey as any)}
                   {showBadge && (
                     <span className="absolute right-3 h-5 min-w-5 px-1 rounded-full bg-price-high text-[10px] font-bold flex items-center justify-center text-white">
                       {unreadCount > 9 ? "9+" : unreadCount}
@@ -151,7 +154,7 @@ export function DashboardSidebar() {
               }}
             >
               <LogOut className="h-4 w-4" />
-              Terminar Sessão
+              {t("logout")}
             </Button>
           </div>
         </div>

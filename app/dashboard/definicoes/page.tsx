@@ -11,10 +11,25 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/contexts/auth-context"
-import { User, Bell, Shield, Palette, Globe, Save, Camera, Key, Mail, Building } from "lucide-react"
+import { useTutorial } from "@/contexts/tutorial-context"
+import {
+  User,
+  Bell,
+  Shield,
+  Palette,
+  Globe,
+  Save,
+  Camera,
+  Key,
+  Mail,
+  Building,
+  Lightbulb,
+  RotateCcw,
+} from "lucide-react"
 
 export default function DefinicoesPage() {
   const { user } = useAuth()
+  const { startTutorial, hasCompletedTutorial } = useTutorial()
   const [saving, setSaving] = useState(false)
 
   const [profile, setProfile] = useState({
@@ -49,6 +64,11 @@ export default function DefinicoesPage() {
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000))
     setSaving(false)
+  }
+
+  const handleRestartTutorial = () => {
+    localStorage.removeItem("moap_tutorial_completed")
+    startTutorial()
   }
 
   return (
@@ -299,6 +319,32 @@ export default function DefinicoesPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-primary" />
+                Tutorial da Plataforma
+              </CardTitle>
+              <CardDescription>Aprenda a usar a plataforma com o nosso guia interativo.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Tour Guiado</p>
+                  <p className="text-sm text-muted-foreground">
+                    {hasCompletedTutorial
+                      ? "Já completou o tutorial. Pode reiniciá-lo a qualquer momento."
+                      : "Faça o tour guiado para conhecer todas as funcionalidades."}
+                  </p>
+                </div>
+                <Button variant="outline" onClick={handleRestartTutorial}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  {hasCompletedTutorial ? "Reiniciar Tutorial" : "Iniciar Tutorial"}
+                </Button>
               </div>
             </CardContent>
           </Card>

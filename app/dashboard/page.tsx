@@ -5,18 +5,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
+import { useLanguage } from "@/contexts/language-context"
 import { AlertTriangle, Building2, Calendar, Calculator, MessageSquare, ArrowRight, Clock } from "lucide-react"
-
-const statusConfig = {
-  pendente: { label: "Pendente", color: "bg-muted text-muted-foreground" },
-  em_analise: { label: "Em Análise", color: "bg-primary/20 text-primary" },
-  info_adicional: { label: "Info Adicional", color: "bg-price-above/20 text-price-above" },
-  aprovado: { label: "Aprovado", color: "bg-price-below/20 text-price-below" },
-  rejeitado: { label: "Rejeitado", color: "bg-price-high/20 text-price-high" },
-}
 
 export default function DashboardPage() {
   const { obras, budgets, visitas, conversations, notifications } = useData()
+  const { t, language } = useLanguage()
+
+  const statusConfig = {
+    pendente: { label: t("pending"), color: "bg-muted text-muted-foreground" },
+    em_analise: { label: t("inAnalysis"), color: "bg-primary/20 text-primary" },
+    info_adicional: { label: t("additionalInfo"), color: "bg-price-above/20 text-price-above" },
+    aprovado: { label: t("approved"), color: "bg-price-below/20 text-price-below" },
+    rejeitado: { label: t("rejected"), color: "bg-price-high/20 text-price-high" },
+  }
 
   const approvedObras = obras.filter((o) => o.status === "aprovado").length
   const pendingObras = obras.filter((o) => o.status === "pendente" || o.status === "em_analise").length
@@ -31,35 +33,35 @@ export default function DashboardPage() {
 
   const stats = [
     {
-      title: "Total de Obras",
+      title: t("projects"),
       value: obras.length.toString(),
-      description: `${approvedObras} aprovadas`,
+      description: `${approvedObras} ${t("approved").toLowerCase()}`,
       icon: Building2,
-      trend: `+${pendingObras} pendentes`,
+      trend: `+${pendingObras} ${t("pending").toLowerCase()}`,
       link: "/dashboard/obras",
     },
     {
-      title: "Orçamentos",
+      title: t("budgets"),
       value: budgets.length.toString(),
       description: `€${(totalBudgetValue / 1000).toFixed(0)}k total`,
       icon: Calculator,
-      trend: `${budgets.filter((b) => b.status === "finalizado").length} finalizados`,
+      trend: `${budgets.filter((b) => b.status === "finalizado").length} ${language === "pt" ? "finalizados" : language === "es" ? "finalizados" : "completed"}`,
       link: "/dashboard/orcamentos",
     },
     {
-      title: "Visitas Agendadas",
+      title: t("upcomingVisits"),
       value: upcomingVisits.toString(),
-      description: "Próximas visitas",
+      description: language === "pt" ? "Próximas visitas" : language === "es" ? "Próximas visitas" : "Upcoming visits",
       icon: Calendar,
-      trend: `${visitas.filter((v) => v.status === "realizada").length} realizadas`,
+      trend: `${visitas.filter((v) => v.status === "realizada").length} ${language === "pt" ? "realizadas" : language === "es" ? "realizadas" : "completed"}`,
       link: "/dashboard/visitas",
     },
     {
-      title: "Mensagens",
+      title: t("messages"),
       value: unreadMessages.toString(),
-      description: "Por ler",
+      description: language === "pt" ? "Por ler" : language === "es" ? "Sin leer" : "Unread",
       icon: MessageSquare,
-      trend: `${conversations.length} conversas`,
+      trend: `${conversations.length} ${language === "pt" ? "conversas" : language === "es" ? "conversaciones" : "conversations"}`,
       link: "/dashboard/messages",
     },
   ]
@@ -70,21 +72,23 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Visão Geral</h1>
-          <p className="text-muted-foreground">Bem-vindo de volta ao seu painel de controlo.</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("overview")}</h1>
+          <p className="text-muted-foreground">
+            {t("welcomeBack")} {t("dashboardSubtitle").toLowerCase()}.
+          </p>
         </div>
         {unreadNotifications > 0 && (
           <Link href="/dashboard/notificacoes">
             <Button variant="outline" size="sm">
               <AlertTriangle className="mr-2 h-4 w-4 text-price-above" />
-              {unreadNotifications} notificações por ler
+              {unreadNotifications} {t("notifications").toLowerCase()}
             </Button>
           </Link>
         )}
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" data-tutorial="stats">
         {stats.map((stat) => (
           <Link key={stat.title} href={stat.link}>
             <Card className="bg-card/50 hover:bg-card/80 transition-colors cursor-pointer h-full">
@@ -105,7 +109,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3" data-tutorial="quick-actions">
         <Link href="/dashboard/obras/nova">
           <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 hover:from-primary/20 hover:to-primary/10 transition-colors cursor-pointer">
             <CardContent className="pt-6">
@@ -114,8 +118,14 @@ export default function DashboardPage() {
                   <Building2 className="h-6 w-6 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold">Nova Obra</h3>
-                  <p className="text-sm text-muted-foreground">Submeter um novo projeto</p>
+                  <h3 className="font-semibold">{t("newProject")}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "pt"
+                      ? "Submeter um novo projeto"
+                      : language === "es"
+                        ? "Enviar un nuevo proyecto"
+                        : "Submit a new project"}
+                  </p>
                 </div>
                 <ArrowRight className="h-5 w-5 text-muted-foreground" />
               </div>
@@ -130,8 +140,14 @@ export default function DashboardPage() {
                   <Calculator className="h-6 w-6 text-price-below" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold">Criar Orçamento</h3>
-                  <p className="text-sm text-muted-foreground">Novo orçamento de materiais</p>
+                  <h3 className="font-semibold">{t("newBudget")}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "pt"
+                      ? "Novo orçamento de materiais"
+                      : language === "es"
+                        ? "Nuevo presupuesto de materiales"
+                        : "New materials budget"}
+                  </p>
                 </div>
                 <ArrowRight className="h-5 w-5 text-muted-foreground" />
               </div>
@@ -146,8 +162,14 @@ export default function DashboardPage() {
                   <Calendar className="h-6 w-6 text-price-average" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold">Agendar Visita</h3>
-                  <p className="text-sm text-muted-foreground">Marcar visita técnica</p>
+                  <h3 className="font-semibold">{t("scheduleVisit")}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "pt"
+                      ? "Marcar visita técnica"
+                      : language === "es"
+                        ? "Programar visita técnica"
+                        : "Schedule technical visit"}
+                  </p>
                 </div>
                 <ArrowRight className="h-5 w-5 text-muted-foreground" />
               </div>
@@ -161,12 +183,18 @@ export default function DashboardPage() {
         <Card className="bg-card/50">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Obras Recentes</CardTitle>
-              <CardDescription>As suas últimas obras submetidas</CardDescription>
+              <CardTitle>{t("recentDocuments")}</CardTitle>
+              <CardDescription>
+                {language === "pt"
+                  ? "As suas últimas obras submetidas"
+                  : language === "es"
+                    ? "Sus últimas obras enviadas"
+                    : "Your latest submitted projects"}
+              </CardDescription>
             </div>
             <Link href="/dashboard/obras">
               <Button variant="ghost" size="sm">
-                Ver todas
+                {language === "pt" ? "Ver todas" : language === "es" ? "Ver todas" : "View all"}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -190,7 +218,10 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <p className="text-sm font-medium">€{(obra.estimatedBudget / 1000).toFixed(0)}k</p>
-                          <p className="text-xs text-muted-foreground">{obra.progress}% completo</p>
+                          <p className="text-xs text-muted-foreground">
+                            {obra.progress}%{" "}
+                            {language === "pt" ? "completo" : language === "es" ? "completo" : "complete"}
+                          </p>
                         </div>
                         <Badge className={status.color}>{status.label}</Badge>
                       </div>
@@ -201,10 +232,16 @@ export default function DashboardPage() {
               {recentObras.length === 0 && (
                 <div className="text-center py-8">
                   <Building2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
-                  <p className="text-muted-foreground">Nenhuma obra encontrada</p>
+                  <p className="text-muted-foreground">
+                    {language === "pt"
+                      ? "Nenhuma obra encontrada"
+                      : language === "es"
+                        ? "No se encontraron obras"
+                        : "No projects found"}
+                  </p>
                   <Link href="/dashboard/obras/nova">
                     <Button className="mt-4" size="sm">
-                      Criar Nova Obra
+                      {t("createProject")}
                     </Button>
                   </Link>
                 </div>
@@ -217,12 +254,18 @@ export default function DashboardPage() {
         <Card className="bg-card/50">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Próximas Visitas</CardTitle>
-              <CardDescription>Visitas agendadas</CardDescription>
+              <CardTitle>{t("upcomingVisits")}</CardTitle>
+              <CardDescription>
+                {language === "pt"
+                  ? "Visitas agendadas"
+                  : language === "es"
+                    ? "Visitas programadas"
+                    : "Scheduled visits"}
+              </CardDescription>
             </div>
             <Link href="/dashboard/visitas">
               <Button variant="ghost" size="sm">
-                Ver todas
+                {language === "pt" ? "Ver todas" : language === "es" ? "Ver todas" : "View all"}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -245,20 +288,31 @@ export default function DashboardPage() {
                         <p className="font-medium">{visita.obraName}</p>
                         <p className="text-sm text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {new Date(visita.date).toLocaleDateString("pt-PT")} às {visita.time}
+                          {new Date(visita.date).toLocaleDateString(
+                            language === "pt" ? "pt-PT" : language === "es" ? "es-ES" : "en-GB",
+                          )}{" "}
+                          {language === "pt" ? "às" : language === "es" ? "a las" : "at"} {visita.time}
                         </p>
                       </div>
                     </div>
-                    <Badge className="bg-primary/20 text-primary">Agendada</Badge>
+                    <Badge className="bg-primary/20 text-primary">
+                      {language === "pt" ? "Agendada" : language === "es" ? "Programada" : "Scheduled"}
+                    </Badge>
                   </div>
                 ))}
               {visitas.filter((v) => v.status === "agendada").length === 0 && (
                 <div className="text-center py-8">
                   <Calendar className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
-                  <p className="text-muted-foreground">Nenhuma visita agendada</p>
+                  <p className="text-muted-foreground">
+                    {language === "pt"
+                      ? "Nenhuma visita agendada"
+                      : language === "es"
+                        ? "No hay visitas programadas"
+                        : "No scheduled visits"}
+                  </p>
                   <Link href="/dashboard/visitas">
                     <Button className="mt-4" size="sm">
-                      Agendar Visita
+                      {t("scheduleVisit")}
                     </Button>
                   </Link>
                 </div>

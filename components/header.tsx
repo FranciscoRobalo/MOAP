@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button"
 import { FileText, Menu, X } from "lucide-react"
 import { useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
+import { useLanguage } from "@/contexts/language-context"
+import { LanguageSwitcher } from "@/components/language-switcher"
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { user } = useAuth()
+  const { t } = useLanguage()
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl">
@@ -25,41 +28,45 @@ export function Header() {
             href="#funcionalidades"
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
-            Funcionalidades
+            {t("features")}
           </Link>
           <Link href="#como-funciona" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-            Como Funciona
+            {t("howItWorks")}
           </Link>
           <Link href="#relatorio" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-            Relatório
+            {t("report")}
           </Link>
           <Link href="#carregar" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-            Carregar Documento
+            {t("uploadDocument")}
           </Link>
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
+          <LanguageSwitcher />
           {user ? (
             <Link href="/dashboard">
-              <Button size="sm">Painel</Button>
+              <Button size="sm">{t("dashboard")}</Button>
             </Link>
           ) : (
             <>
               <Link href="/login">
                 <Button variant="ghost" size="sm">
-                  Entrar
+                  {t("login")}
                 </Button>
               </Link>
               <Link href="/login">
-                <Button size="sm">Começar Agora</Button>
+                <Button size="sm">{t("startNow")}</Button>
               </Link>
             </>
           )}
         </div>
 
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
+        <div className="flex items-center gap-2 md:hidden">
+          <LanguageSwitcher variant="compact" />
+          <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
       </div>
 
       {mobileMenuOpen && (
@@ -70,38 +77,38 @@ export function Header() {
               className="text-sm text-muted-foreground"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Funcionalidades
+              {t("features")}
             </Link>
             <Link
               href="#como-funciona"
               className="text-sm text-muted-foreground"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Como Funciona
+              {t("howItWorks")}
             </Link>
             <Link href="#relatorio" className="text-sm text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>
-              Relatório
+              {t("report")}
             </Link>
             <Link href="#carregar" className="text-sm text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>
-              Carregar Documento
+              {t("uploadDocument")}
             </Link>
             <div className="flex flex-col gap-2 pt-4">
               {user ? (
                 <Link href="/dashboard">
                   <Button size="sm" className="w-full">
-                    Painel
+                    {t("dashboard")}
                   </Button>
                 </Link>
               ) : (
                 <>
                   <Link href="/login">
                     <Button variant="ghost" size="sm" className="w-full">
-                      Entrar
+                      {t("login")}
                     </Button>
                   </Link>
                   <Link href="/login">
                     <Button size="sm" className="w-full">
-                      Começar Agora
+                      {t("startNow")}
                     </Button>
                   </Link>
                 </>

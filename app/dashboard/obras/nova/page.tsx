@@ -111,8 +111,7 @@ export default function NovaObraPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Project Info */}
-        <Card className="bg-card/50">
+        <Card className="bg-card/50" data-tutorial="obra-form">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-primary" />
@@ -192,8 +191,7 @@ export default function NovaObraPage() {
           </CardContent>
         </Card>
 
-        {/* Timeline & Budget */}
-        <Card className="bg-card/50">
+        <Card className="bg-card/50" data-tutorial="obra-details">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary" />
@@ -335,7 +333,7 @@ export default function NovaObraPage() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end" data-tutorial="obra-submit">
           <Button type="submit" size="lg">
             <Send className="mr-2 h-4 w-4" />
             Submeter Obra

@@ -4,6 +4,8 @@ import { Inter, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/auth-context"
 import { DataProvider } from "@/contexts/data-context"
+import { TutorialProvider } from "@/contexts/tutorial-context"
+import { LanguageProvider } from "@/contexts/language-context"
 import "./globals.css"
 
 const _inter = Inter({ subsets: ["latin"] })
@@ -24,9 +26,13 @@ export default function RootLayout({
   return (
     <html lang="pt">
       <body className={`font-sans antialiased`}>
-        <AuthProvider>
-          <DataProvider>{children}</DataProvider>
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <DataProvider>
+              <TutorialProvider>{children}</TutorialProvider>
+            </DataProvider>
+          </AuthProvider>
+        </LanguageProvider>
         <Analytics />
       </body>
     </html>

@@ -19,7 +19,6 @@ import {
   RefreshCw,
   Search,
   Info,
-  Euro,
   FileText,
   BarChart3,
   HelpCircle,
@@ -106,248 +105,204 @@ const ratingConfig = {
     label: "Sem Referência",
     shortLabel: "N/A",
     color: "text-muted-foreground",
-    bg: "bg-muted",
+    bg: "bg-muted/50",
     border: "border-muted",
     icon: HelpCircle,
-    description: "Material/trabalho não encontrado na base de dados",
+    description: "Não foi encontrada referência na base de dados",
   },
 }
 
-const regions = ["Lisboa", "Porto", "Faro", "Coimbra", "Braga", "Aveiro", "Setúbal", "Leiria", "Nacional"]
-
-function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Remove accents
-    .replace(/[^a-z0-9\s]/g, " ") // Replace special chars with space
-    .replace(/\s+/g, " ") // Normalize spaces
-    .trim()
-}
-
-function getWords(text: string): string[] {
-  return normalizeText(text)
-    .split(" ")
-    .filter((w) => w.length > 2)
-}
-
-function levenshteinDistance(a: string, b: string): number {
-  const matrix: number[][] = []
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i]
-  }
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j
-  }
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1]
-      } else {
-        matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
-      }
-    }
-  }
-  return matrix[b.length][a.length]
-}
-
-function calculateSimilarity(str1: string, str2: string): number {
-  const s1 = normalizeText(str1)
-  const s2 = normalizeText(str2)
-
-  if (s1 === s2) return 100
-
-  const maxLen = Math.max(s1.length, s2.length)
-  if (maxLen === 0) return 100
-
-  const distance = levenshteinDistance(s1, s2)
-  return Math.max(0, Math.round((1 - distance / maxLen) * 100))
-}
+const regions = ["Norte", "Centro", "Lisboa e Vale do Tejo", "Alentejo", "Algarve", "Açores", "Madeira"]
 
 export default function AnaliseContent() {
   const { materials } = useData()
-  const [isDragging, setIsDragging] = useState(false)
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analyzeProgress, setAnalyzeProgress] = useState(0)
-  const [selectedRegion, setSelectedRegion] = useState("Nacional")
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
+  const [selectedRegion, setSelectedRegion] = useState("Lisboa e Vale do Tejo")
   const [searchTerm, setSearchTerm] = useState("")
   const [filterRating, setFilterRating] = useState<string>("all")
+  const [activeTab, setActiveTab] = useState("all")
 
+  // Normalize text for matching
+  const normalizeText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  }
+
+  // Calculate Levenshtein distance
+  const levenshteinDistance = (str1: string, str2: string): number => {
+    const m = str1.length
+    const n = str2.length
+    const dp: number[][] = Array(m + 1)
+      .fill(null)
+      .map(() => Array(n + 1).fill(0))
+
+    for (let i = 0; i <= m; i++) dp[i][0] = i
+    for (let j = 0; j <= n; j++) dp[0][j] = j
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (str1[i - 1] === str2[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1]
+        } else {
+          dp[i][j] = Math.min(dp[i - 1][j - 1] + 1, dp[i - 1][j] + 1, dp[i][j - 1] + 1)
+        }
+      }
+    }
+    return dp[m][n]
+  }
+
+  // Find best match from database with improved fuzzy matching
   const findBestMatch = useCallback(
-    (itemName: string, itemUnit: string) => {
-      const normalizedInput = normalizeText(itemName)
-      const inputWords = getWords(itemName)
+    (itemName: string): { material: (typeof materials)[0] | null; confidence: number } => {
+      const normalizedItem = normalizeText(itemName)
+      const itemWords = normalizedItem.split(" ").filter((w) => w.length > 2)
 
-      let bestMatch = null
+      let bestMatch: (typeof materials)[0] | null = null
       let bestScore = 0
+
+      // Key construction terms in Portuguese
+      const keyTerms: Record<string, string[]> = {
+        betao: ["betao", "concreto", "cimento"],
+        demolicao: ["demolicao", "demolir", "derrube", "remocao"],
+        alvenaria: ["alvenaria", "tijolo", "bloco", "parede"],
+        reboco: ["reboco", "estuque", "embocar", "argamassa"],
+        pintura: ["pintura", "pintar", "tinta", "esmalte", "primario"],
+        pladur: ["pladur", "gesso", "cartonado", "drywall"],
+        pavimento: ["pavimento", "chao", "soalho", "mosaico", "ceramico", "flutuante"],
+        caixilharia: ["caixilharia", "janela", "porta", "aluminio", "pvc"],
+        canalizacao: ["canalizacao", "tubagem", "esgoto", "agua", "tubo"],
+        eletricidade: ["eletricidade", "eletrico", "tomada", "interruptor", "quadro", "cabo"],
+        impermeabilizacao: ["impermeabilizacao", "tela", "membrana", "isolamento"],
+        isolamento: ["isolamento", "termico", "acustico", "capoto", "eps", "xps", "la"],
+        cobertura: ["cobertura", "telha", "telhado", "zinco", "chapa"],
+        serralharia: ["serralharia", "metal", "ferro", "aco", "grade"],
+        carpintaria: ["carpintaria", "madeira", "rodape", "forra", "aro"],
+        revestimento: ["revestimento", "azulejo", "ceramica", "pedra", "marmore"],
+        aquecimento: ["aquecimento", "radiador", "caldeira", "piso radiante", "bomba calor"],
+        ar: ["ar condicionado", "avac", "hvac", "climatizacao"],
+        louca: ["louca", "sanita", "lavatorio", "banheira", "base duche", "bidé"],
+        torneira: ["torneira", "misturadora", "valvula"],
+      }
 
       for (const material of materials) {
         const normalizedMaterial = normalizeText(material.name)
-        const materialWords = getWords(material.name)
+        const materialWords = normalizedMaterial.split(" ").filter((w) => w.length > 2)
 
         let score = 0
 
-        // 1. Exact match (normalized)
-        if (normalizedMaterial === normalizedInput) {
-          score = 100
-        }
-        // 2. One contains the other
-        else if (normalizedMaterial.includes(normalizedInput) || normalizedInput.includes(normalizedMaterial)) {
-          score = 85
-        }
-        // 3. String similarity
-        else {
-          const stringSimilarity = calculateSimilarity(itemName, material.name)
-          score = Math.max(score, stringSimilarity * 0.8)
+        // Exact match
+        if (normalizedItem === normalizedMaterial) {
+          return { material, confidence: 100 }
         }
 
-        // 4. Word-based matching - check how many words match
-        const matchedWords = inputWords.filter((inputWord) =>
-          materialWords.some((materialWord) => {
-            // Exact word match
-            if (materialWord === inputWord) return true
-            // Word contains or is contained
-            if (materialWord.includes(inputWord) || inputWord.includes(materialWord)) return true
-            // Similar word (Levenshtein)
-            if (inputWord.length > 3 && materialWord.length > 3) {
-              const wordSimilarity = calculateSimilarity(inputWord, materialWord)
-              return wordSimilarity >= 75
-            }
-            return false
-          }),
+        // Contains match
+        if (normalizedMaterial.includes(normalizedItem) || normalizedItem.includes(normalizedMaterial)) {
+          score += 70
+        }
+
+        // Word overlap score
+        const commonWords = itemWords.filter(
+          (w) => materialWords.some((mw) => mw.includes(w) || w.includes(mw)) || materialWords.includes(w),
         )
+        const wordOverlapScore = (commonWords.length / Math.max(itemWords.length, materialWords.length)) * 50
+        score += wordOverlapScore
 
-        if (matchedWords.length > 0) {
-          const wordMatchRatio = matchedWords.length / Math.max(inputWords.length, 1)
-          const wordScore = 40 + wordMatchRatio * 50 // 40-90 based on word matches
-          score = Math.max(score, wordScore)
-        }
-
-        // 5. Check for key construction terms
-        const keyTerms = [
-          "demolicao",
-          "demolição",
-          "demolir",
-          "betao",
-          "betão",
-          "concreto",
-          "alvenaria",
-          "tijolo",
-          "bloco",
-          "reboco",
-          "estuque",
-          "gesso",
-          "pintura",
-          "tinta",
-          "pintar",
-          "azulejo",
-          "ceramica",
-          "ceramico",
-          "pavimento",
-          "piso",
-          "chao",
-          "caixilharia",
-          "janela",
-          "porta",
-          "eletrico",
-          "eletrica",
-          "electricidade",
-          "canalizacao",
-          "tubagem",
-          "agua",
-          "impermeabilizacao",
-          "impermeabilizar",
-          "pladur",
-          "gesso cartonado",
-          "divisoria",
-          "teto",
-          "tecto",
-          "falso teto",
-          "rodape",
-          "soleira",
-          "peitoril",
-          "sanita",
-          "lavatorio",
-          "base duche",
-          "aquecimento",
-          "radiador",
-          "piso radiante",
-        ]
-
-        for (const term of keyTerms) {
-          const normalizedTerm = normalizeText(term)
-          if (normalizedInput.includes(normalizedTerm) && normalizedMaterial.includes(normalizedTerm)) {
-            score = Math.max(score, 60) // Boost score if key term matches
+        // Key term matching
+        for (const [category, terms] of Object.entries(keyTerms)) {
+          const itemHasTerm = terms.some((t) => normalizedItem.includes(t))
+          const materialHasTerm = terms.some((t) => normalizedMaterial.includes(t))
+          if (itemHasTerm && materialHasTerm) {
+            score += 30
+            break
           }
         }
 
-        // Unit match bonus
-        if (material.unit.toLowerCase() === itemUnit.toLowerCase()) {
-          score += 5
+        // Levenshtein distance for similar strings
+        const maxLen = Math.max(normalizedItem.length, normalizedMaterial.length)
+        const distance = levenshteinDistance(normalizedItem, normalizedMaterial)
+        const similarity = ((maxLen - distance) / maxLen) * 40
+        score += similarity
+
+        // Partial word matching
+        for (const word of itemWords) {
+          for (const mWord of materialWords) {
+            if (word.length >= 4 && mWord.length >= 4) {
+              if (mWord.startsWith(word.substring(0, 4)) || word.startsWith(mWord.substring(0, 4))) {
+                score += 10
+              }
+            }
+          }
         }
 
-        if (score > bestScore && score >= 25) {
+        if (score > bestScore) {
           bestScore = score
           bestMatch = material
         }
       }
 
-      return { match: bestMatch, confidence: bestScore }
+      // Lower threshold to find more matches
+      const confidence = Math.min(bestScore, 100)
+      return {
+        material: confidence >= 20 ? bestMatch : null,
+        confidence: confidence >= 20 ? confidence : 0,
+      }
     },
     [materials],
   )
-
-  // Calculate rating based on variance
-  const calculateRating = (variance: number | null): BudgetItem["rating"] => {
-    if (variance === null) return "unknown"
-    if (variance < -10) return "below"
-    if (variance >= -10 && variance <= 10) return "average"
-    if (variance > 10 && variance < 50) return "above"
-    return "critical"
-  }
 
   const parseCSV = (content: string): Array<{ name: string; unit: string; quantity: number; price: number }> => {
     const lines = content.split("\n").filter((line) => line.trim())
     const items: Array<{ name: string; unit: string; quantity: number; price: number }> = []
 
-    // Try to detect delimiter
-    const firstDataLine = lines[1] || lines[0]
-    const delimiter = firstDataLine.includes(";") ? ";" : firstDataLine.includes("\t") ? "\t" : ","
+    // Try different delimiters
+    const delimiters = [";", ",", "\t"]
+    let bestDelimiter = ";"
+    let maxCols = 0
 
-    // Skip header row
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i]
-      const parts = line.split(delimiter).map((p) => p.trim().replace(/^["']|["']$/g, ""))
+    for (const delim of delimiters) {
+      const cols = lines[0]?.split(delim).length || 0
+      if (cols > maxCols) {
+        maxCols = cols
+        bestDelimiter = delim
+      }
+    }
 
-      if (parts.length >= 4) {
-        const name = parts[0]
-        const unit = parts[1] || "un"
-        const quantity = Number.parseFloat(parts[2].replace(",", ".").replace(/[^\d.-]/g, "")) || 1
-        const price =
-          Number.parseFloat(
-            parts[3]
-              .replace(",", ".")
-              .replace(/[€\s]/g, "")
-              .replace(/[^\d.-]/g, ""),
-          ) || 0
+    // Skip header row if it looks like headers
+    const startIndex = lines[0]?.toLowerCase().includes("nome") || lines[0]?.toLowerCase().includes("descri") ? 1 : 0
 
-        if (name && name.length > 1) {
-          items.push({ name, unit, quantity, price: price > 0 ? price : 0 })
+    for (let i = startIndex; i < lines.length; i++) {
+      const cols = lines[i].split(bestDelimiter).map((c) => c.trim().replace(/^["']|["']$/g, ""))
+
+      if (cols.length >= 2) {
+        const name = cols[0] || ""
+        let unit = "un"
+        let quantity = 1
+        let price = 0
+
+        // Try to find price (number with decimals)
+        for (let j = 1; j < cols.length; j++) {
+          const val = cols[j].replace(/[€$\s]/g, "").replace(",", ".")
+          const num = Number.parseFloat(val)
+          if (!isNaN(num)) {
+            if (num > 0 && num < 1000 && quantity === 1) {
+              quantity = num
+            } else if (num >= 0) {
+              price = num
+            }
+          } else if (cols[j].match(/^(un|m2|m3|ml|kg|vg|m|l)$/i)) {
+            unit = cols[j].toLowerCase()
+          }
         }
-      } else if (parts.length >= 2) {
-        // Try to extract at least name and price
-        const name = parts[0]
-        const price =
-          Number.parseFloat(
-            parts[parts.length - 1]
-              .replace(",", ".")
-              .replace(/[€\s]/g, "")
-              .replace(/[^\d.-]/g, ""),
-          ) || 0
 
-        if (name && name.length > 1) {
-          items.push({ name, unit: "un", quantity: 1, price: price > 0 ? price : 0 })
+        if (name && (price > 0 || quantity > 0)) {
+          items.push({ name, unit, quantity: quantity || 1, price: price || 0 })
         }
       }
     }
@@ -355,125 +310,169 @@ export default function AnaliseContent() {
     return items
   }
 
-  // Analyze budget
-  const analyzeBudget = useCallback(
-    async (file: File) => {
-      setIsAnalyzing(true)
-      setAnalyzeProgress(0)
+  const analyzeFile = async (file: File) => {
+    setIsAnalyzing(true)
+    setAnalyzeProgress(0)
 
-      try {
-        const content = await file.text()
-        const parsedItems = parseCSV(content)
+    try {
+      const content = await file.text()
+      const parsedItems = parseCSV(content)
 
-        const analyzedItems: BudgetItem[] = []
-        let totalBudget = 0
-        let totalReference = 0
-        let matchedCount = 0
+      const totalItems = parsedItems.length
+      const analyzedItems: BudgetItem[] = []
 
-        for (let i = 0; i < parsedItems.length; i++) {
-          const item = parsedItems[i]
-          const { match, confidence } = findBestMatch(item.name, item.unit)
+      let belowCount = 0,
+        avgCount = 0,
+        aboveCount = 0,
+        criticalCount = 0,
+        unknownCount = 0
+      let totalBudget = 0,
+        totalReference = 0
 
-          const itemTotal = item.quantity * item.price
-          totalBudget += itemTotal
+      for (let i = 0; i < parsedItems.length; i++) {
+        const item = parsedItems[i]
+        setAnalyzeProgress(Math.round(((i + 1) / totalItems) * 100))
 
-          let variance: number | null = null
-          let refMin: number | null = null
-          let refMax: number | null = null
-          let refAvg: number | null = null
+        const { material, confidence } = findBestMatch(item.name)
+        const itemTotal = item.quantity * item.price
+        totalBudget += itemTotal
 
-          if (match) {
-            matchedCount++
-            refMin = match.priceMin || match.price
-            refMax = match.priceMax || match.price
-            refAvg = (refMin + refMax) / 2
-            if (item.price > 0 && refAvg > 0) {
-              variance = ((item.price - refAvg) / refAvg) * 100
-            }
-            totalReference += item.quantity * refAvg
+        let rating: BudgetItem["rating"] = "unknown"
+        let variance: number | null = null
+        let refMin: number | null = null
+        let refMax: number | null = null
+        let refAvg: number | null = null
+
+        if (material && confidence >= 20) {
+          refMin = material.minPrice
+          refMax = material.maxPrice
+          refAvg = (material.minPrice + material.maxPrice) / 2
+          totalReference += item.quantity * refAvg
+
+          variance = ((item.price - refAvg) / refAvg) * 100
+
+          if (variance <= -10) {
+            rating = "below"
+            belowCount++
+          } else if (variance <= 10) {
+            rating = "average"
+            avgCount++
+          } else if (variance <= 49) {
+            rating = "above"
+            aboveCount++
+          } else {
+            rating = "critical"
+            criticalCount++
           }
-
-          analyzedItems.push({
-            id: `item-${i}`,
-            originalName: item.name,
-            matchedName: match?.name || null,
-            unit: item.unit,
-            quantity: item.quantity,
-            budgetPrice: item.price,
-            referenceMinPrice: refMin,
-            referenceMaxPrice: refMax,
-            referenceAvgPrice: refAvg,
-            variance,
-            rating: calculateRating(variance),
-            category: match?.category || "Outros",
-            matchConfidence: confidence,
-            type: match?.type || "work",
-          })
-
-          // Update progress
-          setAnalyzeProgress(Math.round(((i + 1) / parsedItems.length) * 100))
-          await new Promise((r) => setTimeout(r, 20))
+        } else {
+          unknownCount++
         }
 
-        const overallVariance = totalReference > 0 ? ((totalBudget - totalReference) / totalReference) * 100 : 0
-
-        const stats = {
-          totalItems: analyzedItems.length,
-          matchedItems: matchedCount,
-          belowAverage: analyzedItems.filter((i) => i.rating === "below").length,
-          average: analyzedItems.filter((i) => i.rating === "average").length,
-          aboveAverage: analyzedItems.filter((i) => i.rating === "above").length,
-          critical: analyzedItems.filter((i) => i.rating === "critical").length,
-          unknown: analyzedItems.filter((i) => i.rating === "unknown").length,
-        }
-
-        setAnalysisResult({
-          id: `analysis-${Date.now()}`,
-          fileName: file.name,
-          uploadDate: new Date().toISOString(),
-          region: selectedRegion,
-          totalBudget,
-          totalReference,
-          overallVariance,
-          overallRating: calculateRating(overallVariance),
-          items: analyzedItems,
-          stats,
+        analyzedItems.push({
+          id: `item-${i}`,
+          originalName: item.name,
+          matchedName: material?.name || null,
+          unit: item.unit,
+          quantity: item.quantity,
+          budgetPrice: item.price,
+          referenceMinPrice: refMin,
+          referenceMaxPrice: refMax,
+          referenceAvgPrice: refAvg,
+          variance,
+          rating,
+          category: material?.category || "Outros",
+          matchConfidence: confidence,
+          type: material?.type || "work",
         })
-      } catch (error) {
-        console.error("Error analyzing budget:", error)
-      } finally {
-        setIsAnalyzing(false)
-        setAnalyzeProgress(0)
-      }
-    },
-    [findBestMatch, selectedRegion],
-  )
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      setIsDragging(false)
-      const files = Array.from(e.dataTransfer.files)
-      const csvFile = files.find((f) => f.name.endsWith(".csv"))
-      if (csvFile) {
-        analyzeBudget(csvFile)
+        // Small delay for visual progress
+        await new Promise((r) => setTimeout(r, 10))
       }
-    },
-    [analyzeBudget],
-  )
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      analyzeBudget(e.target.files[0])
+      const overallVariance = totalReference > 0 ? ((totalBudget - totalReference) / totalReference) * 100 : 0
+      let overallRating: AnalysisResult["overallRating"] = "average"
+      if (overallVariance <= -10) overallRating = "below"
+      else if (overallVariance <= 10) overallRating = "average"
+      else if (overallVariance <= 49) overallRating = "above"
+      else overallRating = "critical"
+
+      setAnalysisResult({
+        id: `analysis-${Date.now()}`,
+        fileName: file.name,
+        uploadDate: new Date().toISOString(),
+        region: selectedRegion,
+        totalBudget,
+        totalReference,
+        overallVariance,
+        overallRating,
+        items: analyzedItems,
+        stats: {
+          totalItems,
+          matchedItems: totalItems - unknownCount,
+          belowAverage: belowCount,
+          average: avgCount,
+          aboveAverage: aboveCount,
+          critical: criticalCount,
+          unknown: unknownCount,
+        },
+      })
+    } catch (error) {
+      console.error("Error analyzing file:", error)
+    } finally {
+      setIsAnalyzing(false)
     }
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-PT", {
-      style: "currency",
-      currency: "EUR",
-      minimumFractionDigits: 2,
-    }).format(value)
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      analyzeFile(file)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      analyzeFile(file)
+    }
+  }
+
+  const exportResults = () => {
+    if (!analysisResult) return
+
+    const headers = [
+      "Item Original",
+      "Item Correspondente",
+      "Unidade",
+      "Quantidade",
+      "Preço Orçamento",
+      "Preço Ref. Min",
+      "Preço Ref. Max",
+      "Variação %",
+      "Classificação",
+      "Confiança %",
+    ]
+    const rows = analysisResult.items.map((item) => [
+      item.originalName,
+      item.matchedName || "N/A",
+      item.unit,
+      item.quantity,
+      item.budgetPrice.toFixed(2),
+      item.referenceMinPrice?.toFixed(2) || "N/A",
+      item.referenceMaxPrice?.toFixed(2) || "N/A",
+      item.variance?.toFixed(1) || "N/A",
+      ratingConfig[item.rating].label,
+      item.matchConfidence.toFixed(0),
+    ])
+
+    const csv = [headers, ...rows].map((row) => row.join(";")).join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `analise-${analysisResult.fileName}-${new Date().toISOString().split("T")[0]}.csv`
+    a.click()
   }
 
   const filteredItems =
@@ -481,260 +480,221 @@ export default function AnaliseContent() {
       const matchesSearch =
         item.originalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.matchedName?.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesFilter = filterRating === "all" || item.rating === filterRating
-      return matchesSearch && matchesFilter
+      const matchesRating = filterRating === "all" || item.rating === filterRating
+      const matchesTab = activeTab === "all" || item.type === activeTab
+      return matchesSearch && matchesRating && matchesTab
     }) || []
-
-  const exportReport = () => {
-    if (!analysisResult) return
-
-    let csvContent =
-      "Material;Correspondência;Unidade;Quantidade;Preço Orçamento;Preço Referência;Variação;Classificação;Confiança\n"
-
-    analysisResult.items.forEach((item) => {
-      csvContent += `"${item.originalName}";"${item.matchedName || "N/A"}";${item.unit};${item.quantity};${item.budgetPrice.toFixed(2)};${item.referenceAvgPrice?.toFixed(2) || "N/A"};${item.variance?.toFixed(1) || "N/A"}%;${ratingConfig[item.rating].label};${item.matchConfidence}%\n`
-    })
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    link.href = URL.createObjectURL(blob)
-    link.download = `relatorio_${analysisResult.fileName.replace(".csv", "")}_${new Date().toISOString().split("T")[0]}.csv`
-    link.click()
-  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Análise de Orçamentos</h1>
         <p className="text-muted-foreground">
-          Carregue um ficheiro CSV com o orçamento para comparar com os preços de referência. ({materials.length} itens
-          na base de dados)
+          Carregue um ficheiro CSV com o seu orçamento para comparar com os preços de referência.
         </p>
       </div>
 
-      {/* Legend */}
-      <Card className="bg-card/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Info className="h-4 w-4" />
-            Legenda de Classificação
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {Object.entries(ratingConfig).map(([key, config]) => (
-              <div key={key} className={cn("rounded-lg p-3 border", config.bg, config.border)}>
-                <div className="flex items-center gap-2">
-                  <config.icon className={cn("h-4 w-4", config.color)} />
-                  <span className={cn("font-medium text-sm", config.color)}>{config.shortLabel}</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">{config.label}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {!analysisResult ? (
-        <>
-          {/* Upload Area */}
-          <Card className="bg-card/50">
+      {/* Upload Section */}
+      {!analysisResult && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card className="bg-card/50" data-tutorial="analise-upload">
             <CardHeader>
-              <CardTitle>Carregar Orçamento</CardTitle>
-              <CardDescription>
-                O ficheiro CSV deve ter as colunas: Nome, Unidade, Quantidade, Preço Unitário
-              </CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5 text-primary" />
+                Carregar Orçamento
+              </CardTitle>
+              <CardDescription>Arraste um ficheiro CSV ou clique para selecionar</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-4 mb-6">
-                <div className="md:col-span-1">
-                  <label className="text-sm font-medium mb-2 block">Região</label>
-                  <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-                    <SelectTrigger className="bg-input/50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {regions.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {r}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
               <div
-                onDrop={handleDrop}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  setIsDragging(true)
-                }}
-                onDragLeave={() => setIsDragging(false)}
                 className={cn(
-                  "relative rounded-lg border-2 border-dashed p-12 text-center transition-colors",
-                  isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50",
+                  "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
+                  "hover:border-primary/50 hover:bg-primary/5",
+                  isAnalyzing && "pointer-events-none opacity-50",
                 )}
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
+                onClick={() => document.getElementById("file-upload")?.click()}
               >
                 <input
+                  id="file-upload"
                   type="file"
-                  accept=".csv"
-                  onChange={handleFileInput}
-                  className="absolute inset-0 cursor-pointer opacity-0"
+                  accept=".csv,.txt"
+                  onChange={handleFileUpload}
+                  className="hidden"
                   disabled={isAnalyzing}
                 />
-                <div className="flex flex-col items-center gap-4">
-                  {isAnalyzing ? (
-                    <>
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                        <RefreshCw className="h-8 w-8 text-primary animate-spin" />
-                      </div>
-                      <div className="w-full max-w-xs">
-                        <Progress value={analyzeProgress} className="h-2" />
-                        <p className="text-sm text-muted-foreground mt-2">A analisar... {analyzeProgress}%</p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                        <Upload className="h-8 w-8 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Arraste o ficheiro CSV ou clique para selecionar</p>
-                        <p className="text-sm text-muted-foreground">Formato: Nome;Unidade;Quantidade;Preço</p>
-                      </div>
-                    </>
-                  )}
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="font-medium mb-1">Arraste o ficheiro CSV aqui</p>
+                <p className="text-sm text-muted-foreground mb-4">ou clique para selecionar</p>
+                <Button variant="outline" disabled={isAnalyzing}>
+                  Selecionar Ficheiro
+                </Button>
+              </div>
+
+              {isAnalyzing && (
+                <div className="mt-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>A analisar...</span>
+                    <span>{analyzeProgress}%</span>
+                  </div>
+                  <Progress value={analyzeProgress} />
                 </div>
+              )}
+
+              <div className="mt-4">
+                <Label className="text-sm font-medium">Região</Label>
+                <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                  <SelectTrigger className="mt-1 bg-input/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {regions.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {r}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
 
-          {/* Example Format */}
-          <Card className="bg-card/50">
+          <Card className="bg-card/50" data-tutorial="analise-format">
             <CardHeader>
-              <CardTitle className="text-sm">Formato do Ficheiro CSV</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5 text-primary" />
+                Formato do Ficheiro
+              </CardTitle>
+              <CardDescription>Estrutura esperada do ficheiro CSV</CardDescription>
             </CardHeader>
-            <CardContent>
-              <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
-                {`Nome;Unidade;Quantidade;Preço
-Demolição de alvenaria;m2;50;12.50
-Reboco tradicional;m2;120;18.00
-Pintura interior;m2;200;6.50
-Betão C25/30;m3;10;95.00`}
-              </pre>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg bg-muted/50 p-4 font-mono text-sm">
+                <p className="text-muted-foreground mb-2"># Formato recomendado:</p>
+                <p>Nome;Unidade;Quantidade;Preço</p>
+                <p>Demolição de paredes;m2;50;12.50</p>
+                <p>Betão C25/30;m3;10;95.00</p>
+                <p>Pintura interior;m2;200;8.75</p>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm">Legenda de Classificações:</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(ratingConfig).map(([key, config]) => (
+                    <div key={key} className="flex items-center gap-2 text-sm">
+                      <div className={cn("w-3 h-3 rounded-full", config.bg, config.border, "border")} />
+                      <span className={config.color}>{config.shortLabel}</span>
+                      <span className="text-muted-foreground">- {config.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
-        </>
-      ) : (
-        <>
-          {/* Analysis Summary */}
+        </div>
+      )}
+
+      {/* Results Section */}
+      {analysisResult && (
+        <div className="space-y-6" data-tutorial="analise-results">
+          {/* Summary Cards */}
           <div className="grid gap-4 md:grid-cols-4">
             <Card className="bg-card/50">
               <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Orçamento</p>
-                    <p className="text-2xl font-bold">{formatCurrency(analysisResult.totalBudget)}</p>
-                  </div>
-                  <Euro className="h-8 w-8 text-muted-foreground" />
-                </div>
+                <div className="text-2xl font-bold">€{analysisResult.totalBudget.toLocaleString("pt-PT")}</div>
+                <p className="text-sm text-muted-foreground">Total do Orçamento</p>
               </CardContent>
             </Card>
             <Card className="bg-card/50">
               <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Referência Mercado</p>
-                    <p className="text-2xl font-bold">{formatCurrency(analysisResult.totalReference)}</p>
-                  </div>
-                  <BarChart3 className="h-8 w-8 text-muted-foreground" />
+                <div className="text-2xl font-bold">€{analysisResult.totalReference.toLocaleString("pt-PT")}</div>
+                <p className="text-sm text-muted-foreground">Total de Referência</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50">
+              <CardContent className="pt-6">
+                <div className={cn("text-2xl font-bold", ratingConfig[analysisResult.overallRating].color)}>
+                  {analysisResult.overallVariance > 0 ? "+" : ""}
+                  {analysisResult.overallVariance.toFixed(1)}%
                 </div>
+                <p className="text-sm text-muted-foreground">Variação Global</p>
               </CardContent>
             </Card>
             <Card className={cn("bg-card/50", ratingConfig[analysisResult.overallRating].bg)}>
               <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Variação Global</p>
-                    <p className={cn("text-2xl font-bold", ratingConfig[analysisResult.overallRating].color)}>
-                      {analysisResult.overallVariance > 0 ? "+" : ""}
-                      {analysisResult.overallVariance.toFixed(1)}%
-                    </p>
-                  </div>
-                  {analysisResult.overallVariance > 0 ? (
-                    <TrendingUp className={cn("h-8 w-8", ratingConfig[analysisResult.overallRating].color)} />
-                  ) : (
-                    <TrendingDown className="h-8 w-8 text-price-below" />
-                  )}
+                <div className={cn("text-2xl font-bold", ratingConfig[analysisResult.overallRating].color)}>
+                  {ratingConfig[analysisResult.overallRating].label}
                 </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-card/50">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Itens Correspondidos</p>
-                    <p className="text-2xl font-bold">
-                      {analysisResult.stats.matchedItems}/{analysisResult.stats.totalItems}
-                    </p>
-                  </div>
-                  <FileText className="h-8 w-8 text-muted-foreground" />
-                </div>
+                <p className="text-sm text-muted-foreground">Classificação Geral</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Stats by Rating */}
+          {/* Distribution */}
           <Card className="bg-card/50">
             <CardHeader>
-              <CardTitle className="text-lg">Distribuição por Classificação</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                Distribuição por Classificação
+              </CardTitle>
+              <CardDescription>
+                {analysisResult.stats.matchedItems} de {analysisResult.stats.totalItems} itens com referência
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-5 gap-4">
-                <div className="text-center p-4 rounded-lg bg-price-below/10">
-                  <p className="text-3xl font-bold text-price-below">{analysisResult.stats.belowAverage}</p>
-                  <p className="text-sm text-muted-foreground">Abaixo</p>
-                </div>
-                <div className="text-center p-4 rounded-lg bg-price-average/10">
-                  <p className="text-3xl font-bold text-price-average">{analysisResult.stats.average}</p>
-                  <p className="text-sm text-muted-foreground">Na Média</p>
-                </div>
-                <div className="text-center p-4 rounded-lg bg-price-above/10">
-                  <p className="text-3xl font-bold text-price-above">{analysisResult.stats.aboveAverage}</p>
-                  <p className="text-sm text-muted-foreground">Acima</p>
-                </div>
-                <div className="text-center p-4 rounded-lg bg-price-critical/10">
-                  <p className="text-3xl font-bold text-price-critical">{analysisResult.stats.critical}</p>
-                  <p className="text-sm text-muted-foreground">Crítico</p>
-                </div>
-                <div className="text-center p-4 rounded-lg bg-muted">
-                  <p className="text-3xl font-bold text-muted-foreground">{analysisResult.stats.unknown}</p>
-                  <p className="text-sm text-muted-foreground">S/ Ref.</p>
-                </div>
+              <div className="grid gap-4 md:grid-cols-5">
+                {[
+                  { key: "below", count: analysisResult.stats.belowAverage },
+                  { key: "average", count: analysisResult.stats.average },
+                  { key: "above", count: analysisResult.stats.aboveAverage },
+                  { key: "critical", count: analysisResult.stats.critical },
+                  { key: "unknown", count: analysisResult.stats.unknown },
+                ].map(({ key, count }) => {
+                  const config = ratingConfig[key as keyof typeof ratingConfig]
+                  const percentage = (count / analysisResult.stats.totalItems) * 100
+                  return (
+                    <div key={key} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className={cn("text-sm font-medium", config.color)}>{config.label}</span>
+                        <span className="text-sm text-muted-foreground">{count}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={cn("h-full transition-all", config.bg.replace("/20", ""))}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground text-center">{percentage.toFixed(0)}%</p>
+                    </div>
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
 
-          {/* Items List */}
+          {/* Items Table */}
           <Card className="bg-card/50">
             <CardHeader>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <CardTitle className="text-lg">Itens Analisados</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setAnalysisResult(null)}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle>Itens Analisados</CardTitle>
+                  <CardDescription>{analysisResult.fileName}</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setAnalysisResult(null)}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
                     Nova Análise
                   </Button>
-                  <Button variant="default" size="sm" onClick={exportReport}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Exportar
+                  <Button onClick={exportResults}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Exportar CSV
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col md:flex-row gap-4 mb-4">
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -745,102 +705,127 @@ Betão C25/30;m3;10;95.00`}
                   />
                 </div>
                 <Select value={filterRating} onValueChange={setFilterRating}>
-                  <SelectTrigger className="w-full md:w-48 bg-input/50">
+                  <SelectTrigger className="w-[180px] bg-input/50">
                     <SelectValue placeholder="Filtrar por..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="below">Abaixo da Média</SelectItem>
-                    <SelectItem value="average">Na Média</SelectItem>
-                    <SelectItem value="above">Acima da Média</SelectItem>
-                    <SelectItem value="critical">Crítico</SelectItem>
-                    <SelectItem value="unknown">Sem Referência</SelectItem>
+                    <SelectItem value="all">Todas Classificações</SelectItem>
+                    {Object.entries(ratingConfig).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        {config.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <Tabs defaultValue="all">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="all">Todos ({filteredItems.length})</TabsTrigger>
-                  <TabsTrigger value="materials">
-                    Materiais ({filteredItems.filter((i) => i.type === "material").length})
+              {/* Tabs */}
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="mb-4 bg-muted/50">
+                  <TabsTrigger value="all">Todos ({analysisResult.items.length})</TabsTrigger>
+                  <TabsTrigger value="material">
+                    Materiais ({analysisResult.items.filter((i) => i.type === "material").length})
                   </TabsTrigger>
-                  <TabsTrigger value="works">
-                    Trabalhos ({filteredItems.filter((i) => i.type === "work").length})
+                  <TabsTrigger value="work">
+                    Trabalhos ({analysisResult.items.filter((i) => i.type === "work").length})
                   </TabsTrigger>
                 </TabsList>
 
-                {["all", "materials", "works"].map((tab) => (
-                  <TabsContent key={tab} value={tab}>
+                <TabsContent value={activeTab}>
+                  <div className="rounded-lg border border-border/50 overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border">
-                            <th className="text-left p-3 font-medium">Item do Orçamento</th>
-                            <th className="text-left p-3 font-medium">Correspondência</th>
-                            <th className="text-center p-3 font-medium">Un.</th>
-                            <th className="text-right p-3 font-medium">Preço Orç.</th>
-                            <th className="text-right p-3 font-medium">Preço Ref.</th>
-                            <th className="text-right p-3 font-medium">Variação</th>
-                            <th className="text-center p-3 font-medium">Estado</th>
+                      <table className="w-full">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-sm font-medium">Item</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium">Correspondência</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">Qtd</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">Preço Orç.</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">Preço Ref.</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">Variação</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium">Classif.</th>
                           </tr>
                         </thead>
-                        <tbody>
-                          {filteredItems
-                            .filter(
-                              (item) =>
-                                tab === "all" ||
-                                (tab === "materials" ? item.type === "material" : item.type === "work"),
-                            )
-                            .map((item) => {
-                              const config = ratingConfig[item.rating]
-                              return (
-                                <tr key={item.id} className="border-b border-border/50 hover:bg-muted/50">
-                                  <td className="p-3">
-                                    <div className="font-medium">{item.originalName}</div>
-                                    <div className="text-xs text-muted-foreground">Qtd: {item.quantity}</div>
-                                  </td>
-                                  <td className="p-3">
-                                    {item.matchedName ? (
-                                      <div>
-                                        <div className="text-sm">{item.matchedName}</div>
-                                        <div className="text-xs text-muted-foreground">
-                                          {item.matchConfidence}% confiança
-                                        </div>
+                        <tbody className="divide-y divide-border/50">
+                          {filteredItems.map((item) => {
+                            const config = ratingConfig[item.rating]
+                            const Icon = config.icon
+                            return (
+                              <tr key={item.id} className="hover:bg-muted/30">
+                                <td className="px-4 py-3">
+                                  <div className="font-medium text-sm">{item.originalName}</div>
+                                  <div className="text-xs text-muted-foreground">{item.unit}</div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {item.matchedName ? (
+                                    <div>
+                                      <div className="text-sm">{item.matchedName}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {item.matchConfidence.toFixed(0)}% confiança
                                       </div>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">Não encontrado</span>
-                                    )}
-                                  </td>
-                                  <td className="p-3 text-center">{item.unit}</td>
-                                  <td className="p-3 text-right font-mono">{formatCurrency(item.budgetPrice)}</td>
-                                  <td className="p-3 text-right font-mono">
-                                    {item.referenceAvgPrice ? formatCurrency(item.referenceAvgPrice) : "-"}
-                                  </td>
-                                  <td className={cn("p-3 text-right font-mono font-medium", config.color)}>
-                                    {item.variance !== null
-                                      ? `${item.variance > 0 ? "+" : ""}${item.variance.toFixed(1)}%`
-                                      : "-"}
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    <Badge className={cn("gap-1", config.bg, config.color, "border", config.border)}>
-                                      <config.icon className="h-3 w-3" />
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm text-muted-foreground">Sem correspondência</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-right text-sm">{item.quantity}</td>
+                                <td className="px-4 py-3 text-right text-sm font-medium">
+                                  €{item.budgetPrice.toFixed(2)}
+                                </td>
+                                <td className="px-4 py-3 text-right text-sm">
+                                  {item.referenceAvgPrice ? (
+                                    <div>
+                                      <div>€{item.referenceAvgPrice.toFixed(2)}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        €{item.referenceMinPrice?.toFixed(2)} - €{item.referenceMaxPrice?.toFixed(2)}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground">N/A</span>
+                                  )}
+                                </td>
+                                <td className={cn("px-4 py-3 text-right text-sm font-medium", config.color)}>
+                                  {item.variance !== null ? (
+                                    <>
+                                      {item.variance > 0 ? "+" : ""}
+                                      {item.variance.toFixed(1)}%
+                                    </>
+                                  ) : (
+                                    "N/A"
+                                  )}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex justify-center">
+                                    <Badge className={cn(config.bg, config.color, "gap-1")}>
+                                      <Icon className="h-3 w-3" />
                                       {config.shortLabel}
                                     </Badge>
-                                  </td>
-                                </tr>
-                              )
-                            })}
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     </div>
-                  </TabsContent>
-                ))}
+                    {filteredItems.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Nenhum item encontrado com os filtros selecionados.
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
               </Tabs>
             </CardContent>
           </Card>
-        </>
+        </div>
       )}
     </div>
   )
 }
+
+const Label = ({ children, className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
+  <label className={cn("text-sm font-medium leading-none", className)} {...props}>
+    {children}
+  </label>
+)
