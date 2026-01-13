@@ -1,36 +1,38 @@
-import { FileUp, Cpu, FileBarChart } from "lucide-react"
+"use client"
 
-const steps = [
-  {
-    icon: FileUp,
-    number: "01",
-    title: "Carregue o Orçamento",
-    description:
-      "Faça upload do seu orçamento em formato PDF, Excel ou CSV. O sistema aceita diversos formatos e estruturas.",
-  },
-  {
-    icon: Cpu,
-    number: "02",
-    title: "Análise Automática",
-    description:
-      "O nosso algoritmo interpreta os descritivos, categoriza os trabalhos e compara com a nossa base de dados.",
-  },
-  {
-    icon: FileBarChart,
-    number: "03",
-    title: "Relatório Detalhado",
-    description:
-      "Receba um relatório completo com a análise de cada item e a comparação com os valores médios do mercado.",
-  },
-]
+import { FileUp, Cpu, FileBarChart } from "lucide-react"
+import { useLanguage } from "@/contexts/language-context"
 
 export function HowItWorks() {
+  const { t } = useLanguage()
+
+  const steps = [
+    {
+      icon: FileUp,
+      number: t("step1Number"),
+      title: t("step1Title"),
+      description: t("step1Desc"),
+    },
+    {
+      icon: Cpu,
+      number: t("step2Number"),
+      title: t("step2Title"),
+      description: t("step2Desc"),
+    },
+    {
+      icon: FileBarChart,
+      number: t("step3Number"),
+      title: t("step3Title"),
+      description: t("step3Desc"),
+    },
+  ]
+
   return (
     <section id="como-funciona" className="py-20 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Como Funciona</h2>
-          <p className="mt-4 text-muted-foreground">Três passos simples para analisar o seu orçamento</p>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{t("howItWorksTitle")}</h2>
+          <p className="mt-4 text-muted-foreground">{t("howItWorksSubtitle")}</p>
         </div>
 
         <div className="mt-16 grid gap-8 lg:grid-cols-3">

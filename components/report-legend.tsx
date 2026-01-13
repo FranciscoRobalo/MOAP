@@ -1,68 +1,68 @@
+"use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingDown, Minus, TrendingUp, AlertTriangle, HelpCircle } from "lucide-react"
-
-const priceIndicators = [
-  {
-    icon: TrendingDown,
-    label: "< -10%",
-    title: "Abaixo da Média",
-    description: "Preço unitário com uma variação de pelo menos -10% do valor médio",
-    color: "bg-chart-1",
-    textColor: "text-chart-1",
-  },
-  {
-    icon: Minus,
-    label: "-9% a +10%",
-    title: "Na Média",
-    description: "Preço unitário com uma variação entre -9% e +10% do valor médio",
-    color: "bg-chart-2",
-    textColor: "text-chart-2",
-  },
-  {
-    icon: TrendingUp,
-    label: "+11% a +49%",
-    title: "Acima da Média",
-    description: "Preço unitário com uma variação entre +11% e +49% do valor médio",
-    color: "bg-chart-3",
-    textColor: "text-chart-3",
-  },
-  {
-    icon: AlertTriangle,
-    label: "> +50%",
-    title: "Muito Acima",
-    description: "Preço unitário com uma variação superior a +50% do valor médio",
-    color: "bg-chart-4",
-    textColor: "text-chart-4",
-  },
-  {
-    icon: HelpCircle,
-    label: "N/A",
-    title: "Sem Dados",
-    description: "Não foi possível analisar devido a falta de informação",
-    color: "bg-chart-5",
-    textColor: "text-chart-5",
-  },
-]
+import { useLanguage } from "@/contexts/language-context"
 
 export function ReportLegend() {
+  const { t } = useLanguage()
+
+  const priceIndicators = [
+    {
+      icon: TrendingDown,
+      label: "< -10%",
+      title: t("reportBelowAvg"),
+      description: t("reportBelowAvgDesc"),
+      color: "bg-chart-1",
+      textColor: "text-chart-1",
+    },
+    {
+      icon: Minus,
+      label: "-9% a +10%",
+      title: t("reportAvg"),
+      description: t("reportAvgDesc"),
+      color: "bg-chart-2",
+      textColor: "text-chart-2",
+    },
+    {
+      icon: TrendingUp,
+      label: "+11% a +49%",
+      title: t("reportAboveAvg"),
+      description: t("reportAboveAvgDesc"),
+      color: "bg-chart-3",
+      textColor: "text-chart-3",
+    },
+    {
+      icon: AlertTriangle,
+      label: "> +50%",
+      title: t("reportMuchAbove"),
+      description: t("reportMuchAboveDesc"),
+      color: "bg-chart-4",
+      textColor: "text-chart-4",
+    },
+    {
+      icon: HelpCircle,
+      label: "N/A",
+      title: t("reportNoData"),
+      description: t("reportNoDataDesc"),
+      color: "bg-chart-5",
+      textColor: "text-chart-5",
+    },
+  ]
+
   return (
     <section id="relatorio" className="border-t border-border/40 bg-card/30 py-20 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Relatório MOAP</h2>
-          <p className="mt-4 text-pretty text-muted-foreground">
-            O relatório analisa os custos dos serviços de construção e compara com a média da nossa base de dados. A
-            classificação é baseada na variação entre o preço unitário e o valor médio.
-          </p>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{t("reportTitle")}</h2>
+          <p className="mt-4 text-pretty text-muted-foreground">{t("reportSubtitle")}</p>
         </div>
 
         <div className="mt-16">
           <Card className="border-border/40 bg-card/50">
             <CardHeader className="text-center">
-              <CardTitle>Variação em Relação à Média</CardTitle>
-              <CardDescription>
-                Os dados de comparação são relativos à região da obra com ponderação sobre a idade dos dados
-              </CardDescription>
+              <CardTitle>{t("reportVarianceTitle")}</CardTitle>
+              <CardDescription>{t("reportVarianceSubtitle")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -88,20 +88,26 @@ export function ReportLegend() {
         <div className="mt-12">
           <Card className="border-border/40 bg-card/50">
             <CardHeader>
-              <CardTitle>Exemplo de Análise</CardTitle>
-              <CardDescription>Visualização do formato de orçamento e análise</CardDescription>
+              <CardTitle>{t("reportExampleTitle")}</CardTitle>
+              <CardDescription>{t("reportExampleSubtitle")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border/60">
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nº</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Descritivo do Trabalho</th>
-                      <th className="px-4 py-3 text-center font-medium text-muted-foreground">Qtd.</th>
-                      <th className="px-4 py-3 text-center font-medium text-muted-foreground">Un.</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">P. Unit.</th>
-                      <th className="px-4 py-3 text-center font-medium text-muted-foreground">Análise</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t("reportTableNo")}</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t("reportTableDesc")}</th>
+                      <th className="px-4 py-3 text-center font-medium text-muted-foreground">{t("reportTableQty")}</th>
+                      <th className="px-4 py-3 text-center font-medium text-muted-foreground">
+                        {t("reportTableUnit")}
+                      </th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                        {t("reportTablePrice")}
+                      </th>
+                      <th className="px-4 py-3 text-center font-medium text-muted-foreground">
+                        {t("reportTableAnalysis")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>

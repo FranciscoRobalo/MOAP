@@ -1,7 +1,12 @@
+"use client"
+
 import Link from "next/link"
 import { FileText } from "lucide-react"
+import { useLanguage } from "@/contexts/language-context"
 
 export function Footer() {
+  const { t } = useLanguage()
+
   return (
     <footer className="border-t border-border/40 bg-card/30 py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -13,59 +18,56 @@ export function Footer() {
               </div>
               <span className="text-xl font-bold tracking-tight">MOAP</span>
             </Link>
-            <p className="mt-4 max-w-md text-sm text-muted-foreground">
-              Plataforma inteligente para análise de orçamentos de construção. Compare preços unitários com a média do
-              mercado e tome decisões informadas.
-            </p>
+            <p className="mt-4 max-w-md text-sm text-muted-foreground">{t("footerDescription")}</p>
           </div>
 
           <div>
-            <h4 className="font-semibold">Plataforma</h4>
+            <h4 className="font-semibold">{t("footerPlatform")}</h4>
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link href="#funcionalidades" className="hover:text-foreground">
-                  Funcionalidades
+                  {t("features")}
                 </Link>
               </li>
               <li>
                 <Link href="#como-funciona" className="hover:text-foreground">
-                  Como Funciona
+                  {t("howItWorks")}
                 </Link>
               </li>
               <li>
                 <Link href="#relatorio" className="hover:text-foreground">
-                  Relatório
+                  {t("report")}
                 </Link>
               </li>
               <li>
                 <Link href="#carregar" className="hover:text-foreground">
-                  Carregar Documento
+                  {t("uploadDocument")}
                 </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-semibold">Empresa</h4>
+            <h4 className="font-semibold">{t("footerCompany")}</h4>
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link href="#" className="hover:text-foreground">
-                  Sobre Nós
+                  {t("footerAboutUs")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="hover:text-foreground">
-                  Contacto
+                  {t("footerContact")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="hover:text-foreground">
-                  Privacidade
+                  {t("footerPrivacy")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="hover:text-foreground">
-                  Termos de Uso
+                  {t("footerTerms")}
                 </Link>
               </li>
             </ul>
@@ -73,7 +75,9 @@ export function Footer() {
         </div>
 
         <div className="mt-12 border-t border-border/40 pt-8 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} MOAP. Todos os direitos reservados.</p>
+          <p>
+            &copy; {new Date().getFullYear()} MOAP. {t("footerRights")}.
+          </p>
         </div>
       </div>
     </footer>

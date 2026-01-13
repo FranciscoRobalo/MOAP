@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,8 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FileUp, Upload, FileText, X, CheckCircle2 } from "lucide-react"
+import { useLanguage } from "@/contexts/language-context"
 
 export function UploadSection() {
+  const { t } = useLanguage()
   const [file, setFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [region, setRegion] = useState("")
@@ -56,13 +57,20 @@ export function UploadSection() {
     if (!file) return
 
     setIsUploading(true)
-    // Simulate upload
     await new Promise((resolve) => setTimeout(resolve, 2000))
     setIsUploading(false)
     setUploadComplete(true)
   }
 
-  const regions = ["Norte", "Centro", "Lisboa e Vale do Tejo", "Alentejo", "Algarve", "Açores", "Madeira"]
+  const regions = [
+    { value: "norte", label: t("regionNorth") },
+    { value: "centro", label: t("regionCenter") },
+    { value: "lisboa", label: t("regionLisbon") },
+    { value: "alentejo", label: t("regionAlentejo") },
+    { value: "algarve", label: t("regionAlgarve") },
+    { value: "acores", label: t("regionAzores") },
+    { value: "madeira", label: t("regionMadeira") },
+  ]
 
   const years = ["2024", "2023", "2022", "2021", "2020"]
 
@@ -70,17 +78,18 @@ export function UploadSection() {
     <section id="carregar" className="py-20 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Carregar Documento</h2>
-          <p className="mt-4 text-muted-foreground">Faça upload do seu orçamento para análise automática</p>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{t("uploadTitle")}</h2>
+          <p className="mt-4 text-muted-foreground">{t("uploadSubtitle")}</p>
         </div>
 
         <div className="mx-auto mt-12 max-w-2xl">
           <Card className="border-border/40 bg-card/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <FileUp className="h-5 w-5 text-primary" />O Seu Orçamento
+                <FileUp className="h-5 w-5 text-primary" />
+                {t("uploadYourBudget")}
               </CardTitle>
-              <CardDescription>Formatos aceites: PDF, Excel (.xlsx, .xls), CSV</CardDescription>
+              <CardDescription>{t("uploadAcceptedFormats")}</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -119,7 +128,7 @@ export function UploadSection() {
                         className="gap-1 text-destructive hover:text-destructive"
                       >
                         <X className="h-4 w-4" />
-                        Remover
+                        {t("uploadRemove")}
                       </Button>
                     </div>
                   ) : (
@@ -128,8 +137,8 @@ export function UploadSection() {
                         <Upload className="h-8 w-8 text-muted-foreground" />
                       </div>
                       <div>
-                        <p className="font-medium">Arraste o ficheiro aqui</p>
-                        <p className="text-sm text-muted-foreground">ou clique para selecionar</p>
+                        <p className="font-medium">{t("uploadDragHere")}</p>
+                        <p className="text-sm text-muted-foreground">{t("uploadOrClick")}</p>
                       </div>
                     </div>
                   )}
@@ -138,15 +147,15 @@ export function UploadSection() {
                 {/* Additional Fields */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="region">Região da Obra</Label>
+                    <Label htmlFor="region">{t("uploadRegion")}</Label>
                     <Select value={region} onValueChange={setRegion}>
                       <SelectTrigger id="region">
-                        <SelectValue placeholder="Selecione a região" />
+                        <SelectValue placeholder={t("uploadSelectRegion")} />
                       </SelectTrigger>
                       <SelectContent>
                         {regions.map((r) => (
-                          <SelectItem key={r} value={r}>
-                            {r}
+                          <SelectItem key={r.value} value={r.value}>
+                            {r.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -154,10 +163,10 @@ export function UploadSection() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="year">Ano do Orçamento</Label>
+                    <Label htmlFor="year">{t("uploadYear")}</Label>
                     <Select value={year} onValueChange={setYear}>
                       <SelectTrigger id="year">
-                        <SelectValue placeholder="Selecione o ano" />
+                        <SelectValue placeholder={t("uploadSelectYear")} />
                       </SelectTrigger>
                       <SelectContent>
                         {years.map((y) => (
@@ -171,7 +180,7 @@ export function UploadSection() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email para Receber o Relatório</Label>
+                  <Label htmlFor="email">{t("uploadEmail")}</Label>
                   <Input id="email" type="email" placeholder="exemplo@email.com" className="bg-background/50" />
                 </div>
 
@@ -179,26 +188,22 @@ export function UploadSection() {
                   {isUploading ? (
                     <>
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                      A processar...
+                      {t("uploadProcessing")}
                     </>
                   ) : uploadComplete ? (
                     <>
                       <CheckCircle2 className="h-5 w-5" />
-                      Documento Enviado!
+                      {t("uploadSent")}
                     </>
                   ) : (
                     <>
                       <Upload className="h-5 w-5" />
-                      Analisar Orçamento
+                      {t("uploadAnalyze")}
                     </>
                   )}
                 </Button>
 
-                {uploadComplete && (
-                  <p className="text-center text-sm text-chart-1">
-                    O seu relatório será enviado para o email indicado em breve.
-                  </p>
-                )}
+                {uploadComplete && <p className="text-center text-sm text-chart-1">{t("uploadSuccess")}</p>}
               </form>
             </CardContent>
           </Card>
