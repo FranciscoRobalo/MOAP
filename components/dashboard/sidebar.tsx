@@ -1,53 +1,50 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
   FileText,
-  Upload,
   DollarSign,
   MessageSquare,
   Users,
-  Star,
   LogOut,
   Menu,
   X,
   Building2,
-  ClipboardCheck,
   Calendar,
-  Briefcase,
-  UserPlus,
   Calculator,
-  FileSpreadsheet,
   LayoutGrid,
   Settings,
   Bell,
   BarChart3,
 } from "lucide-react"
-import { useAuth } from "@/contexts/auth-context"
+import { useAuth, type UserRole } from "@/contexts/auth-context"
 import { useData } from "@/contexts/data-context"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 
-const navigation = [
-  { name: "Visão Geral", href: "/dashboard", icon: LayoutGrid },
-  { name: "Minhas Obras", href: "/dashboard/obras", icon: Building2 },
-  { name: "Nova Obra", href: "/dashboard/obras/nova", icon: FileText },
-  { name: "Pré-Validação", href: "/dashboard/obras/validacao", icon: ClipboardCheck },
-  { name: "Agendar Visita", href: "/dashboard/visitas", icon: Calendar },
-  { name: "Concursos", href: "/dashboard/concursos", icon: Briefcase },
-  { name: "Orçamentos", href: "/dashboard/orcamentos", icon: Calculator },
-  { name: "Importar Documentos", href: "/dashboard/importar", icon: FileSpreadsheet },
-  { name: "Preços de Materiais", href: "/dashboard/prices", icon: DollarSign },
-  { name: "Análise de Orçamentos", href: "/dashboard/analise", icon: BarChart3 },
-  { name: "Carregar Documentos", href: "/dashboard/upload", icon: Upload },
-  { name: "Mensagens", href: "/dashboard/messages", icon: MessageSquare },
-  { name: "Utilizadores", href: "/dashboard/users", icon: Users },
-  { name: "Convidar", href: "/dashboard/convidar", icon: UserPlus },
-  { name: "Propostas", href: "/dashboard/proposals", icon: Star },
-  { name: "Notificações", href: "/dashboard/notificacoes", icon: Bell },
-  { name: "Definições", href: "/dashboard/definicoes", icon: Settings },
+interface NavItem {
+  name: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  roles: UserRole[] // Which roles can see this item
+}
+
+const navigation: NavItem[] = [
+  { name: "Visão Geral", href: "/dashboard", icon: LayoutGrid, roles: ["admin", "public", "tecnico"] },
+  { name: "Minhas Obras", href: "/dashboard/obras", icon: Building2, roles: ["admin"] },
+  { name: "Nova Obra", href: "/dashboard/obras/nova", icon: FileText, roles: ["admin", "public", "tecnico"] },
+  { name: "Análise de Orçamentos", href: "/dashboard/analise", icon: BarChart3, roles: ["admin", "public", "tecnico"] },
+  { name: "Agendar Visita", href: "/dashboard/visitas", icon: Calendar, roles: ["admin", "tecnico"] },
+  { name: "Orçamentos", href: "/dashboard/orcamentos", icon: Calculator, roles: ["admin", "tecnico"] },
+  { name: "Preços de Materiais", href: "/dashboard/prices", icon: DollarSign, roles: ["admin"] },
+  { name: "Mensagens", href: "/dashboard/messages", icon: MessageSquare, roles: ["admin", "public", "tecnico"] },
+  { name: "Utilizadores", href: "/dashboard/users", icon: Users, roles: ["admin", "public", "tecnico"] },
+  { name: "Notificações", href: "/dashboard/notificacoes", icon: Bell, roles: ["admin", "public", "tecnico"] },
+  { name: "Definições", href: "/dashboard/definicoes", icon: Settings, roles: ["admin", "public", "tecnico"] },
 ]
 
 export function DashboardSidebar() {
@@ -57,6 +54,8 @@ export function DashboardSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const unreadCount = notifications.filter((n) => !n.read).length
+
+  const filteredNavigation = navigation.filter((item) => user?.role && item.roles.includes(user.role))
 
   return (
     <>
@@ -96,7 +95,7 @@ export function DashboardSidebar() {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
-            {navigation.map((item) => {
+            {filteredNavigation.map((item) => {
               const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
               const showBadge = item.href === "/dashboard/notificacoes" && unreadCount > 0
 
@@ -137,6 +136,9 @@ export function DashboardSidebar() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</p>
                 <p className="text-xs text-sidebar-foreground/60 truncate">{user?.email}</p>
+                <span className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full bg-sidebar-primary/20 text-sidebar-primary capitalize">
+                  {user?.role}
+                </span>
               </div>
             </div>
             <Button

@@ -2,12 +2,15 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
+export type UserRole = "admin" | "public" | "tecnico"
+
 interface User {
   id: string
   username: string
   name: string
   email: string
   avatar?: string
+  role: UserRole
 }
 
 interface AuthContextType {
@@ -19,17 +22,40 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const VALID_CREDENTIALS = {
-  username: "admin",
-  password: "admin",
-}
-
-const ADMIN_USER: User = {
-  id: "1",
-  username: "admin",
-  name: "Administrador",
-  email: "admin@moap.pt",
-  avatar: "/admin-avatar-professional.jpg",
+const USERS: Record<string, { password: string; user: User }> = {
+  admin: {
+    password: "admin",
+    user: {
+      id: "1",
+      username: "admin",
+      name: "Administrador",
+      email: "admin@moap.pt",
+      avatar: "/admin-avatar-professional.jpg",
+      role: "admin",
+    },
+  },
+  public: {
+    password: "public",
+    user: {
+      id: "2",
+      username: "public",
+      name: "Utilizador Público",
+      email: "publico@moap.pt",
+      avatar: "/user-public.jpg",
+      role: "public",
+    },
+  },
+  tecnico: {
+    password: "tecnico",
+    user: {
+      id: "3",
+      username: "tecnico",
+      name: "Técnico MOAP",
+      email: "tecnico@moap.pt",
+      avatar: "/diverse-technician-team.png",
+      role: "tecnico",
+    },
+  },
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -46,9 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    if (username === VALID_CREDENTIALS.username && password === VALID_CREDENTIALS.password) {
-      setUser(ADMIN_USER)
-      localStorage.setItem("moap_user", JSON.stringify(ADMIN_USER))
+    const userEntry = USERS[username.toLowerCase()]
+    if (userEntry && userEntry.password === password) {
+      setUser(userEntry.user)
+      localStorage.setItem("moap_user", JSON.stringify(userEntry.user))
       return true
     }
     return false

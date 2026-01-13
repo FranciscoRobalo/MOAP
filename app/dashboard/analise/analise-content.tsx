@@ -11,9 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Upload,
-  FileSpreadsheet,
   AlertTriangle,
-  CheckCircle,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -117,6 +115,55 @@ const ratingConfig = {
 
 const regions = ["Lisboa", "Porto", "Faro", "Coimbra", "Braga", "Aveiro", "Setúbal", "Leiria", "Nacional"]
 
+function normalizeText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .replace(/[^a-z0-9\s]/g, " ") // Replace special chars with space
+    .replace(/\s+/g, " ") // Normalize spaces
+    .trim()
+}
+
+function getWords(text: string): string[] {
+  return normalizeText(text)
+    .split(" ")
+    .filter((w) => w.length > 2)
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = []
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i]
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j
+  }
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1]
+      } else {
+        matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
+      }
+    }
+  }
+  return matrix[b.length][a.length]
+}
+
+function calculateSimilarity(str1: string, str2: string): number {
+  const s1 = normalizeText(str1)
+  const s2 = normalizeText(str2)
+
+  if (s1 === s2) return 100
+
+  const maxLen = Math.max(s1.length, s2.length)
+  if (maxLen === 0) return 100
+
+  const distance = levenshteinDistance(s1, s2)
+  return Math.max(0, Math.round((1 - distance / maxLen) * 100))
+}
+
 export default function AnaliseContent() {
   const { materials } = useData()
   const [isDragging, setIsDragging] = useState(false)
@@ -127,43 +174,120 @@ export default function AnaliseContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterRating, setFilterRating] = useState<string>("all")
 
-  // Fuzzy match function to find similar items in database
   const findBestMatch = useCallback(
     (itemName: string, itemUnit: string) => {
-      const normalizedName = itemName.toLowerCase().trim()
+      const normalizedInput = normalizeText(itemName)
+      const inputWords = getWords(itemName)
+
       let bestMatch = null
       let bestScore = 0
 
       for (const material of materials) {
-        const materialName = material.name.toLowerCase()
+        const normalizedMaterial = normalizeText(material.name)
+        const materialWords = getWords(material.name)
 
-        // Calculate similarity score
         let score = 0
 
-        // Exact match
-        if (materialName === normalizedName) {
+        // 1. Exact match (normalized)
+        if (normalizedMaterial === normalizedInput) {
           score = 100
         }
-        // Contains match
-        else if (materialName.includes(normalizedName) || normalizedName.includes(materialName)) {
-          score = 80
+        // 2. One contains the other
+        else if (normalizedMaterial.includes(normalizedInput) || normalizedInput.includes(normalizedMaterial)) {
+          score = 85
         }
-        // Word matching
+        // 3. String similarity
         else {
-          const itemWords = normalizedName.split(/\s+/)
-          const materialWords = materialName.split(/\s+/)
-          const matchedWords = itemWords.filter((word) =>
-            materialWords.some((mw) => mw.includes(word) || word.includes(mw)),
-          )
-          score = (matchedWords.length / Math.max(itemWords.length, materialWords.length)) * 70
+          const stringSimilarity = calculateSimilarity(itemName, material.name)
+          score = Math.max(score, stringSimilarity * 0.8)
         }
 
-        // Bonus for unit match
+        // 4. Word-based matching - check how many words match
+        const matchedWords = inputWords.filter((inputWord) =>
+          materialWords.some((materialWord) => {
+            // Exact word match
+            if (materialWord === inputWord) return true
+            // Word contains or is contained
+            if (materialWord.includes(inputWord) || inputWord.includes(materialWord)) return true
+            // Similar word (Levenshtein)
+            if (inputWord.length > 3 && materialWord.length > 3) {
+              const wordSimilarity = calculateSimilarity(inputWord, materialWord)
+              return wordSimilarity >= 75
+            }
+            return false
+          }),
+        )
+
+        if (matchedWords.length > 0) {
+          const wordMatchRatio = matchedWords.length / Math.max(inputWords.length, 1)
+          const wordScore = 40 + wordMatchRatio * 50 // 40-90 based on word matches
+          score = Math.max(score, wordScore)
+        }
+
+        // 5. Check for key construction terms
+        const keyTerms = [
+          "demolicao",
+          "demolição",
+          "demolir",
+          "betao",
+          "betão",
+          "concreto",
+          "alvenaria",
+          "tijolo",
+          "bloco",
+          "reboco",
+          "estuque",
+          "gesso",
+          "pintura",
+          "tinta",
+          "pintar",
+          "azulejo",
+          "ceramica",
+          "ceramico",
+          "pavimento",
+          "piso",
+          "chao",
+          "caixilharia",
+          "janela",
+          "porta",
+          "eletrico",
+          "eletrica",
+          "electricidade",
+          "canalizacao",
+          "tubagem",
+          "agua",
+          "impermeabilizacao",
+          "impermeabilizar",
+          "pladur",
+          "gesso cartonado",
+          "divisoria",
+          "teto",
+          "tecto",
+          "falso teto",
+          "rodape",
+          "soleira",
+          "peitoril",
+          "sanita",
+          "lavatorio",
+          "base duche",
+          "aquecimento",
+          "radiador",
+          "piso radiante",
+        ]
+
+        for (const term of keyTerms) {
+          const normalizedTerm = normalizeText(term)
+          if (normalizedInput.includes(normalizedTerm) && normalizedMaterial.includes(normalizedTerm)) {
+            score = Math.max(score, 60) // Boost score if key term matches
+          }
+        }
+
+        // Unit match bonus
         if (material.unit.toLowerCase() === itemUnit.toLowerCase()) {
-          score += 10
+          score += 5
         }
 
-        if (score > bestScore && score >= 40) {
+        if (score > bestScore && score >= 25) {
           bestScore = score
           bestMatch = material
         }
@@ -183,26 +307,47 @@ export default function AnaliseContent() {
     return "critical"
   }
 
-  // Parse CSV content
   const parseCSV = (content: string): Array<{ name: string; unit: string; quantity: number; price: number }> => {
     const lines = content.split("\n").filter((line) => line.trim())
     const items: Array<{ name: string; unit: string; quantity: number; price: number }> = []
 
+    // Try to detect delimiter
+    const firstDataLine = lines[1] || lines[0]
+    const delimiter = firstDataLine.includes(";") ? ";" : firstDataLine.includes("\t") ? "\t" : ","
+
     // Skip header row
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i]
-      // Handle both comma and semicolon delimiters
-      const delimiter = line.includes(";") ? ";" : ","
       const parts = line.split(delimiter).map((p) => p.trim().replace(/^["']|["']$/g, ""))
 
       if (parts.length >= 4) {
         const name = parts[0]
-        const unit = parts[1]
-        const quantity = Number.parseFloat(parts[2].replace(",", ".")) || 1
-        const price = Number.parseFloat(parts[3].replace(",", ".").replace(/[€\s]/g, "")) || 0
+        const unit = parts[1] || "un"
+        const quantity = Number.parseFloat(parts[2].replace(",", ".").replace(/[^\d.-]/g, "")) || 1
+        const price =
+          Number.parseFloat(
+            parts[3]
+              .replace(",", ".")
+              .replace(/[€\s]/g, "")
+              .replace(/[^\d.-]/g, ""),
+          ) || 0
 
-        if (name && price > 0) {
-          items.push({ name, unit, quantity, price })
+        if (name && name.length > 1) {
+          items.push({ name, unit, quantity, price: price > 0 ? price : 0 })
+        }
+      } else if (parts.length >= 2) {
+        // Try to extract at least name and price
+        const name = parts[0]
+        const price =
+          Number.parseFloat(
+            parts[parts.length - 1]
+              .replace(",", ".")
+              .replace(/[€\s]/g, "")
+              .replace(/[^\d.-]/g, ""),
+          ) || 0
+
+        if (name && name.length > 1) {
+          items.push({ name, unit: "un", quantity: 1, price: price > 0 ? price : 0 })
         }
       }
     }
@@ -239,10 +384,12 @@ export default function AnaliseContent() {
 
           if (match) {
             matchedCount++
-            refMin = match.priceMin
-            refMax = match.priceMax
-            refAvg = (match.priceMin + match.priceMax) / 2
-            variance = ((item.price - refAvg) / refAvg) * 100
+            refMin = match.priceMin || match.price
+            refMax = match.priceMax || match.price
+            refAvg = (refMin + refMax) / 2
+            if (item.price > 0 && refAvg > 0) {
+              variance = ((item.price - refAvg) / refAvg) * 100
+            }
             totalReference += item.quantity * refAvg
           }
 
@@ -260,12 +407,12 @@ export default function AnaliseContent() {
             rating: calculateRating(variance),
             category: match?.category || "Outros",
             matchConfidence: confidence,
-            type: match?.type || "material",
+            type: match?.type || "work",
           })
 
           // Update progress
           setAnalyzeProgress(Math.round(((i + 1) / parsedItems.length) * 100))
-          await new Promise((r) => setTimeout(r, 30)) // Small delay for visual feedback
+          await new Promise((r) => setTimeout(r, 20))
         }
 
         const overallVariance = totalReference > 0 ? ((totalBudget - totalReference) / totalReference) * 100 : 0
@@ -341,10 +488,11 @@ export default function AnaliseContent() {
   const exportReport = () => {
     if (!analysisResult) return
 
-    let csvContent = "Material;Unidade;Quantidade;Preço Orçamento;Preço Referência;Variação;Classificação\n"
+    let csvContent =
+      "Material;Correspondência;Unidade;Quantidade;Preço Orçamento;Preço Referência;Variação;Classificação;Confiança\n"
 
     analysisResult.items.forEach((item) => {
-      csvContent += `"${item.originalName}";${item.unit};${item.quantity};${item.budgetPrice.toFixed(2)};${item.referenceAvgPrice?.toFixed(2) || "N/A"};${item.variance?.toFixed(1) || "N/A"}%;${ratingConfig[item.rating].label}\n`
+      csvContent += `"${item.originalName}";"${item.matchedName || "N/A"}";${item.unit};${item.quantity};${item.budgetPrice.toFixed(2)};${item.referenceAvgPrice?.toFixed(2) || "N/A"};${item.variance?.toFixed(1) || "N/A"}%;${ratingConfig[item.rating].label};${item.matchConfidence}%\n`
     })
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
@@ -359,7 +507,8 @@ export default function AnaliseContent() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Análise de Orçamentos</h1>
         <p className="text-muted-foreground">
-          Carregue um ficheiro CSV com o orçamento para comparar com os preços de referência.
+          Carregue um ficheiro CSV com o orçamento para comparar com os preços de referência. ({materials.length} itens
+          na base de dados)
         </p>
       </div>
 
@@ -472,7 +621,7 @@ export default function AnaliseContent() {
 Demolição de alvenaria;m2;50;12.50
 Reboco tradicional;m2;120;18.00
 Pintura interior;m2;200;6.50
-Azulejo cerâmico 30x60;m2;45;35.00`}
+Betão C25/30;m3;10;95.00`}
               </pre>
             </CardContent>
           </Card>
@@ -525,7 +674,7 @@ Azulejo cerâmico 30x60;m2;45;35.00`}
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Itens Analisados</p>
+                    <p className="text-sm text-muted-foreground">Itens Correspondidos</p>
                     <p className="text-2xl font-bold">
                       {analysisResult.stats.matchedItems}/{analysisResult.stats.totalItems}
                     </p>
@@ -567,22 +716,17 @@ Azulejo cerâmico 30x60;m2;45;35.00`}
             </CardContent>
           </Card>
 
-          {/* Items Table */}
+          {/* Items List */}
           <Card className="bg-card/50">
             <CardHeader>
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <CardTitle>Itens do Orçamento</CardTitle>
-                  <CardDescription>
-                    {analysisResult.fileName} - {new Date(analysisResult.uploadDate).toLocaleDateString("pt-PT")}
-                  </CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setAnalysisResult(null)}>
-                    <Upload className="h-4 w-4 mr-2" />
+                <CardTitle className="text-lg">Itens Analisados</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setAnalysisResult(null)}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
                     Nova Análise
                   </Button>
-                  <Button onClick={exportReport}>
+                  <Button variant="default" size="sm" onClick={exportReport}>
                     <Download className="h-4 w-4 mr-2" />
                     Exportar
                   </Button>
@@ -590,34 +734,33 @@ Azulejo cerâmico 30x60;m2;45;35.00`}
               </div>
             </CardHeader>
             <CardContent>
-              {/* Filters */}
-              <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <div className="flex flex-col md:flex-row gap-4 mb-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Pesquisar material ou trabalho..."
+                    placeholder="Pesquisar itens..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-input/50"
+                    className="pl-9 bg-input/50"
                   />
                 </div>
                 <Select value={filterRating} onValueChange={setFilterRating}>
-                  <SelectTrigger className="w-[200px] bg-input/50">
-                    <SelectValue placeholder="Filtrar por classificação" />
+                  <SelectTrigger className="w-full md:w-48 bg-input/50">
+                    <SelectValue placeholder="Filtrar por..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todas as classificações</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="below">Abaixo da Média</SelectItem>
                     <SelectItem value="average">Na Média</SelectItem>
                     <SelectItem value="above">Acima da Média</SelectItem>
-                    <SelectItem value="critical">Muito Acima</SelectItem>
+                    <SelectItem value="critical">Crítico</SelectItem>
                     <SelectItem value="unknown">Sem Referência</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <Tabs defaultValue="all">
-                <TabsList>
+                <TabsList className="mb-4">
                   <TabsTrigger value="all">Todos ({filteredItems.length})</TabsTrigger>
                   <TabsTrigger value="materials">
                     Materiais ({filteredItems.filter((i) => i.type === "material").length})
@@ -628,80 +771,68 @@ Azulejo cerâmico 30x60;m2;45;35.00`}
                 </TabsList>
 
                 {["all", "materials", "works"].map((tab) => (
-                  <TabsContent key={tab} value={tab} className="mt-4">
+                  <TabsContent key={tab} value={tab}>
                     <div className="overflow-x-auto">
-                      <table className="w-full">
+                      <table className="w-full text-sm">
                         <thead>
-                          <tr className="border-b">
-                            <th className="pb-3 text-left text-sm font-medium text-muted-foreground">Item</th>
-                            <th className="pb-3 text-left text-sm font-medium text-muted-foreground">Un.</th>
-                            <th className="pb-3 text-right text-sm font-medium text-muted-foreground">Qtd.</th>
-                            <th className="pb-3 text-right text-sm font-medium text-muted-foreground">Preço Orç.</th>
-                            <th className="pb-3 text-right text-sm font-medium text-muted-foreground">Preço Ref.</th>
-                            <th className="pb-3 text-right text-sm font-medium text-muted-foreground">Variação</th>
-                            <th className="pb-3 text-center text-sm font-medium text-muted-foreground">Class.</th>
+                          <tr className="border-b border-border">
+                            <th className="text-left p-3 font-medium">Item do Orçamento</th>
+                            <th className="text-left p-3 font-medium">Correspondência</th>
+                            <th className="text-center p-3 font-medium">Un.</th>
+                            <th className="text-right p-3 font-medium">Preço Orç.</th>
+                            <th className="text-right p-3 font-medium">Preço Ref.</th>
+                            <th className="text-right p-3 font-medium">Variação</th>
+                            <th className="text-center p-3 font-medium">Estado</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y">
+                        <tbody>
                           {filteredItems
-                            .filter((item) => {
-                              if (tab === "all") return true
-                              if (tab === "materials") return item.type === "material"
-                              return item.type === "work"
-                            })
+                            .filter(
+                              (item) =>
+                                tab === "all" ||
+                                (tab === "materials" ? item.type === "material" : item.type === "work"),
+                            )
                             .map((item) => {
-                              const rating = ratingConfig[item.rating]
-                              const RatingIcon = rating.icon
-
+                              const config = ratingConfig[item.rating]
                               return (
-                                <tr key={item.id} className="group hover:bg-muted/50">
-                                  <td className="py-4">
-                                    <div>
-                                      <p className="font-medium">{item.originalName}</p>
-                                      {item.matchedName && item.matchedName !== item.originalName && (
-                                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                          <CheckCircle className="h-3 w-3 text-price-below" />
-                                          {item.matchedName} ({item.matchConfidence.toFixed(0)}% match)
-                                        </p>
-                                      )}
-                                    </div>
+                                <tr key={item.id} className="border-b border-border/50 hover:bg-muted/50">
+                                  <td className="p-3">
+                                    <div className="font-medium">{item.originalName}</div>
+                                    <div className="text-xs text-muted-foreground">Qtd: {item.quantity}</div>
                                   </td>
-                                  <td className="py-4 text-muted-foreground">{item.unit}</td>
-                                  <td className="py-4 text-right">{item.quantity}</td>
-                                  <td className="py-4 text-right font-medium">{formatCurrency(item.budgetPrice)}</td>
-                                  <td className="py-4 text-right text-muted-foreground">
-                                    {item.referenceAvgPrice ? formatCurrency(item.referenceAvgPrice) : "—"}
-                                  </td>
-                                  <td className="py-4 text-right">
-                                    {item.variance !== null ? (
-                                      <span className={cn("font-medium", rating.color)}>
-                                        {item.variance > 0 ? "+" : ""}
-                                        {item.variance.toFixed(1)}%
-                                      </span>
+                                  <td className="p-3">
+                                    {item.matchedName ? (
+                                      <div>
+                                        <div className="text-sm">{item.matchedName}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                          {item.matchConfidence}% confiança
+                                        </div>
+                                      </div>
                                     ) : (
-                                      <span className="text-muted-foreground">—</span>
+                                      <span className="text-muted-foreground text-xs">Não encontrado</span>
                                     )}
                                   </td>
-                                  <td className="py-4">
-                                    <div className="flex justify-center">
-                                      <Badge className={cn("gap-1", rating.bg, rating.color)}>
-                                        <RatingIcon className="h-3 w-3" />
-                                        {rating.shortLabel}
-                                      </Badge>
-                                    </div>
+                                  <td className="p-3 text-center">{item.unit}</td>
+                                  <td className="p-3 text-right font-mono">{formatCurrency(item.budgetPrice)}</td>
+                                  <td className="p-3 text-right font-mono">
+                                    {item.referenceAvgPrice ? formatCurrency(item.referenceAvgPrice) : "-"}
+                                  </td>
+                                  <td className={cn("p-3 text-right font-mono font-medium", config.color)}>
+                                    {item.variance !== null
+                                      ? `${item.variance > 0 ? "+" : ""}${item.variance.toFixed(1)}%`
+                                      : "-"}
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <Badge className={cn("gap-1", config.bg, config.color, "border", config.border)}>
+                                      <config.icon className="h-3 w-3" />
+                                      {config.shortLabel}
+                                    </Badge>
                                   </td>
                                 </tr>
                               )
                             })}
                         </tbody>
                       </table>
-
-                      {filteredItems.length === 0 && (
-                        <div className="py-12 text-center">
-                          <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                          <p className="text-muted-foreground">Nenhum item encontrado com os filtros selecionados.</p>
-                        </div>
-                      )}
                     </div>
                   </TabsContent>
                 ))}
