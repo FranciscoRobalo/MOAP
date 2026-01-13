@@ -23,6 +23,7 @@ import {
   LayoutGrid,
   Settings,
   Bell,
+  BarChart3,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useData } from "@/contexts/data-context"
@@ -39,6 +40,7 @@ const navigation = [
   { name: "Orçamentos", href: "/dashboard/orcamentos", icon: Calculator },
   { name: "Importar Documentos", href: "/dashboard/importar", icon: FileSpreadsheet },
   { name: "Preços de Materiais", href: "/dashboard/prices", icon: DollarSign },
+  { name: "Análise de Orçamentos", href: "/dashboard/analise", icon: BarChart3 },
   { name: "Carregar Documentos", href: "/dashboard/upload", icon: Upload },
   { name: "Mensagens", href: "/dashboard/messages", icon: MessageSquare },
   { name: "Utilizadores", href: "/dashboard/users", icon: Users },
