@@ -6,6 +6,7 @@ import { AuthProvider } from "@/contexts/auth-context"
 import { DataProvider } from "@/contexts/data-context"
 import { TutorialProvider } from "@/contexts/tutorial-context"
 import { LanguageProvider } from "@/contexts/language-context"
+import { ThemeProvider } from "@/contexts/theme-context"
 import "./globals.css"
 
 const _inter = Inter({ subsets: ["latin"] })
@@ -24,15 +25,17 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt">
+    <html lang="pt" suppressHydrationWarning>
       <body className={`font-sans antialiased`}>
-        <LanguageProvider>
-          <AuthProvider>
-            <DataProvider>
-              <TutorialProvider>{children}</TutorialProvider>
-            </DataProvider>
-          </AuthProvider>
-        </LanguageProvider>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <DataProvider>
+                <TutorialProvider>{children}</TutorialProvider>
+              </DataProvider>
+            </AuthProvider>
+          </LanguageProvider>
+        </ThemeProvider>
         <Analytics />
       </body>
     </html>

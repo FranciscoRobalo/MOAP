@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { TutorialOverlay } from "@/components/tutorial/tutorial-overlay"
+import { CommandPalette } from "@/components/command-palette"
 
 export default function DashboardLayout({
   children,
@@ -43,6 +44,7 @@ export default function DashboardLayout({
         <main className="flex-1 p-6">{children}</main>
       </div>
       <TutorialOverlay />
+      <CommandPalette />
     </div>
   )
 }

@@ -20,6 +20,8 @@ import {
   Settings,
   Bell,
   BarChart3,
+  TrendingUp,
+  HelpCircle,
 } from "lucide-react"
 import { useAuth, type UserRole } from "@/contexts/auth-context"
 import { useData } from "@/contexts/data-context"
@@ -39,11 +41,13 @@ const navigation: NavItem[] = [
   { nameKey: "projects", href: "/dashboard/obras", icon: Building2, roles: ["admin"] },
   { nameKey: "newProject", href: "/dashboard/obras/nova", icon: FileText, roles: ["admin", "public", "tecnico"] },
   { nameKey: "budgetAnalysis", href: "/dashboard/analise", icon: BarChart3, roles: ["admin", "public", "tecnico"] },
+  { nameKey: "analytics", href: "/dashboard/analytics", icon: TrendingUp, roles: ["admin"] },
   { nameKey: "scheduleVisit", href: "/dashboard/visitas", icon: Calendar, roles: ["admin", "tecnico"] },
   { nameKey: "budgets", href: "/dashboard/orcamentos", icon: Calculator, roles: ["admin", "tecnico"] },
   { nameKey: "materialPrices", href: "/dashboard/prices", icon: DollarSign, roles: ["admin"] },
   { nameKey: "messages", href: "/dashboard/messages", icon: MessageSquare, roles: ["admin", "public", "tecnico"] },
   { nameKey: "users", href: "/dashboard/users", icon: Users, roles: ["admin", "public", "tecnico"] },
+  { nameKey: "help", href: "/dashboard/ajuda", icon: HelpCircle, roles: ["admin", "public", "tecnico"] },
   { nameKey: "notifications", href: "/dashboard/notificacoes", icon: Bell, roles: ["admin", "public", "tecnico"] },
   { nameKey: "settings", href: "/dashboard/definicoes", icon: Settings, roles: ["admin", "public", "tecnico"] },
 ]

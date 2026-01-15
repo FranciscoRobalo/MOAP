@@ -68,6 +68,8 @@ const translations = {
     invite: "Convidar",
     notifications: "Notificações",
     settings: "Definições",
+    analytics: "Estatísticas",
+    help: "Ajuda",
 
     // Dashboard
     welcomeBack: "Bem-vindo de volta",
@@ -358,6 +360,8 @@ const translations = {
     invite: "Invite",
     notifications: "Notifications",
     settings: "Settings",
+    analytics: "Analytics",
+    help: "Help",
 
     // Dashboard
     welcomeBack: "Welcome back",
@@ -644,6 +648,8 @@ const translations = {
     invite: "Invitar",
     notifications: "Notificaciones",
     settings: "Configuración",
+    analytics: "Análisis",
+    help: "Ayuda",
 
     // Dashboard
     welcomeBack: "Bienvenido de nuevo",
