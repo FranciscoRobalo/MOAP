@@ -4291,7 +4291,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error("Error loading data:", e)
       }
     }
-    localStorage.removeItem("moap_data")
+    // localStorage.removeItem("moap_data") // Removed this line to persist data across refreshes
   }, [])
 
   // Save to localStorage on change
@@ -4423,8 +4423,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     // Find the conversation this message belongs to
     let conversationId = ""
-    if (message.senderId === "1") {
-      // Assuming "1" is the current user's ID
+    // Assuming "1" is the current user's ID. This should be dynamically determined.
+    // For now, hardcoding to simulate sender/receiver logic.
+    const currentUserId = "1"
+    if (message.senderId === currentUserId) {
       conversationId = conversations.find((c) => c.participantId === message.receiverId)?.id || ""
     } else {
       conversationId = conversations.find((c) => c.participantId === message.senderId)?.id || ""
@@ -4432,7 +4434,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     setMessages((prev) => [...prev, newMessage])
 
-    // Update conversation if it exists, otherwise create a new one (simplified here)
+    // Update conversation if it exists
     if (conversationId) {
       setConversations((prev) =>
         prev.map((c) =>
@@ -4441,25 +4443,57 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 ...c,
                 lastMessage: message.content,
                 lastMessageTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                unread: c.online ? c.unread : c.unread + 1, // Increment unread if participant is offline
+                // Increment unread count only if the receiver is the current user and is offline
+                unread: c.participantId === currentUserId && !c.online ? c.unread + 1 : c.unread,
               }
             : c,
         ),
       )
+    } else {
+      // If conversation doesn't exist, create a new one (simplified)
+      // This logic might need to be more robust, depending on how conversations are managed
+      const participant = users.find((u) => u.id === message.receiverId || u.id === message.senderId)
+      if (participant) {
+        const newConversation: Conversation = {
+          id: `conv-${generateId()}`,
+          participantId: participant.id === currentUserId ? message.receiverId : message.senderId,
+          participantName: participant.name,
+          participantAvatar: participant.avatar,
+          participantRole: participant.role,
+          lastMessage: message.content,
+          lastMessageTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          unread: 1, // New conversation, message is unread
+          online: participant.online ?? false,
+        }
+        setConversations((prev) => [...prev, newConversation])
+      }
     }
   }
 
   // Renamed markConversationAsRead to markAsRead
   const markAsRead = (conversationId: string) => {
-    setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, unread: 0 } : c)))
-    setMessages((prev) =>
-      prev.map((m) =>
-        // Mark as read only if the message belongs to the specified conversation and is not from the current user
-        m.id.startsWith("conv-") && m.id.split("-")[1] === conversationId.split("-")[1] && m.senderId !== "1"
-          ? { ...m, read: true }
-          : m,
-      ),
-    )
+    // Find the conversation to update
+    const conversationToUpdate = conversations.find((c) => c.id === conversationId)
+
+    if (conversationToUpdate) {
+      // Update the conversation object in the state
+      setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, unread: 0 } : c)))
+
+      // Update messages associated with this conversation to mark them as read
+      // Assuming senderId '1' is the current user
+      const currentUserId = "1"
+      setMessages((prev) =>
+        prev.map((m) =>
+          // Check if the message belongs to the conversation and is from the other participant
+          m.id.startsWith("m") && // Basic check for message ID format
+          ((m.senderId === conversationToUpdate.participantId && m.receiverId === currentUserId) ||
+            (m.senderId === currentUserId && m.receiverId === conversationToUpdate.participantId)) &&
+          m.read === false // Only update if it's currently unread
+            ? { ...m, read: true }
+            : m,
+        ),
+      )
+    }
   }
 
   // Notifications
