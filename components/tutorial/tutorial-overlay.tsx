@@ -28,6 +28,7 @@ export function TutorialOverlay() {
   const router = useRouter()
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
   const [showStartPrompt, setShowStartPrompt] = useState(false)
+  const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number } | null>(null)
 
   // Show tutorial start prompt for public users who haven't completed it
   useEffect(() => {
@@ -43,6 +44,7 @@ export function TutorialOverlay() {
   const updateTargetPosition = useCallback(() => {
     if (!currentStepData || currentStepData.placement === "center") {
       setTargetRect(null)
+      setTooltipPosition(null)
       return
     }
 
@@ -50,8 +52,61 @@ export function TutorialOverlay() {
     if (target) {
       const rect = target.getBoundingClientRect()
       setTargetRect(rect)
+
+      const padding = 16
+      const tooltipWidth = 380
+      const tooltipHeight = 280
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+
+      let top = 0
+      let left = 0
+      let actualPlacement = currentStepData.placement
+
+      // Check if preferred placement fits, otherwise find best alternative
+      const fitsTop = rect.top - tooltipHeight - padding > 0
+      const fitsBottom = rect.bottom + tooltipHeight + padding < viewportHeight
+      const fitsLeft = rect.left - tooltipWidth - padding > 0
+      const fitsRight = rect.right + tooltipWidth + padding < viewportWidth
+
+      // Determine best placement
+      if (actualPlacement === "top" && !fitsTop) {
+        actualPlacement = fitsBottom ? "bottom" : fitsRight ? "right" : "left"
+      } else if (actualPlacement === "bottom" && !fitsBottom) {
+        actualPlacement = fitsTop ? "top" : fitsRight ? "right" : "left"
+      } else if (actualPlacement === "left" && !fitsLeft) {
+        actualPlacement = fitsRight ? "right" : fitsBottom ? "bottom" : "top"
+      } else if (actualPlacement === "right" && !fitsRight) {
+        actualPlacement = fitsLeft ? "left" : fitsBottom ? "bottom" : "top"
+      }
+
+      switch (actualPlacement) {
+        case "top":
+          top = rect.top - tooltipHeight - padding
+          left = rect.left + rect.width / 2 - tooltipWidth / 2
+          break
+        case "bottom":
+          top = rect.bottom + padding
+          left = rect.left + rect.width / 2 - tooltipWidth / 2
+          break
+        case "left":
+          top = rect.top + rect.height / 2 - tooltipHeight / 2
+          left = rect.left - tooltipWidth - padding
+          break
+        case "right":
+          top = rect.top + rect.height / 2 - tooltipHeight / 2
+          left = rect.right + padding
+          break
+      }
+
+      // Clamp to viewport boundaries with safe margins
+      top = Math.max(padding, Math.min(top, viewportHeight - tooltipHeight - padding))
+      left = Math.max(padding, Math.min(left, viewportWidth - tooltipWidth - padding))
+
+      setTooltipPosition({ top, left })
     } else {
       setTargetRect(null)
+      setTooltipPosition(null)
     }
   }, [currentStepData])
 
@@ -79,9 +134,8 @@ export function TutorialOverlay() {
     }
   }, [isActive, currentStepData, pathname, router])
 
-  // Calculate tooltip position
   const getTooltipStyle = (): React.CSSProperties => {
-    if (!currentStepData || currentStepData.placement === "center" || !targetRect) {
+    if (!currentStepData || currentStepData.placement === "center" || !tooltipPosition) {
       return {
         position: "fixed",
         top: "50%",
@@ -91,53 +145,11 @@ export function TutorialOverlay() {
       }
     }
 
-    const padding = 16
-    const tooltipWidth = 400
-    const tooltipHeight = 250
-
-    switch (currentStepData.placement) {
-      case "top":
-        return {
-          position: "fixed",
-          top: targetRect.top - tooltipHeight - padding,
-          left: Math.min(
-            Math.max(targetRect.left + targetRect.width / 2 - tooltipWidth / 2, padding),
-            window.innerWidth - tooltipWidth - padding,
-          ),
-          zIndex: 10001,
-        }
-      case "bottom":
-        return {
-          position: "fixed",
-          top: targetRect.bottom + padding,
-          left: Math.min(
-            Math.max(targetRect.left + targetRect.width / 2 - tooltipWidth / 2, padding),
-            window.innerWidth - tooltipWidth - padding,
-          ),
-          zIndex: 10001,
-        }
-      case "left":
-        return {
-          position: "fixed",
-          top: Math.max(targetRect.top + targetRect.height / 2 - tooltipHeight / 2, padding),
-          left: targetRect.left - tooltipWidth - padding,
-          zIndex: 10001,
-        }
-      case "right":
-        return {
-          position: "fixed",
-          top: Math.max(targetRect.top + targetRect.height / 2 - tooltipHeight / 2, padding),
-          left: targetRect.right + padding,
-          zIndex: 10001,
-        }
-      default:
-        return {
-          position: "fixed",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          zIndex: 10001,
-        }
+    return {
+      position: "fixed",
+      top: tooltipPosition.top,
+      left: tooltipPosition.left,
+      zIndex: 10001,
     }
   }
 
@@ -193,52 +205,97 @@ export function TutorialOverlay() {
 
   return (
     <>
-      {/* Overlay backdrop */}
-      <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-[9999]" />
-
-      {/* Highlight box for target element */}
-      {targetRect && currentStepData.placement !== "center" && (
-        <div
-          className="fixed border-2 border-primary rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] z-[10000] pointer-events-none transition-all duration-300"
-          style={{
-            top: targetRect.top - 8,
-            left: targetRect.left - 8,
-            width: targetRect.width + 16,
-            height: targetRect.height + 16,
-          }}
-        />
+      {targetRect && currentStepData.placement !== "center" ? (
+        <>
+          {/* Top overlay */}
+          <div
+            className="fixed bg-black/60 z-[9999]"
+            style={{
+              top: 0,
+              left: 0,
+              right: 0,
+              height: Math.max(0, targetRect.top - 8),
+            }}
+          />
+          {/* Bottom overlay */}
+          <div
+            className="fixed bg-black/60 z-[9999]"
+            style={{
+              top: targetRect.bottom + 8,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+          />
+          {/* Left overlay */}
+          <div
+            className="fixed bg-black/60 z-[9999]"
+            style={{
+              top: targetRect.top - 8,
+              left: 0,
+              width: Math.max(0, targetRect.left - 8),
+              height: targetRect.height + 16,
+            }}
+          />
+          {/* Right overlay */}
+          <div
+            className="fixed bg-black/60 z-[9999]"
+            style={{
+              top: targetRect.top - 8,
+              left: targetRect.right + 8,
+              right: 0,
+              height: targetRect.height + 16,
+            }}
+          />
+          {/* Highlight border around target */}
+          <div
+            className="fixed border-2 border-primary rounded-lg z-[10000] pointer-events-none transition-all duration-300 ring-4 ring-primary/30"
+            style={{
+              top: targetRect.top - 8,
+              left: targetRect.left - 8,
+              width: targetRect.width + 16,
+              height: targetRect.height + 16,
+            }}
+          />
+        </>
+      ) : (
+        /* Full overlay for center placement */
+        <div className="fixed inset-0 bg-black/60 z-[9999]" />
       )}
 
       {/* Tutorial tooltip */}
-      <Card className="w-[400px] shadow-2xl border-primary/20 z-[10001]" style={getTooltipStyle()}>
+      <Card
+        className="w-[380px] shadow-2xl border-primary/20 z-[10001] max-h-[90vh] overflow-auto"
+        style={getTooltipStyle()}
+      >
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold shrink-0">
                 {currentStep + 1}
               </div>
-              <CardTitle className="text-lg">{currentStepData.title}</CardTitle>
+              <CardTitle className="text-lg leading-tight">{currentStepData.title}</CardTitle>
             </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={skipTutorial}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={skipTutorial}>
               <X className="h-4 w-4" />
             </Button>
           </div>
           <Progress value={progress} className="h-1 mt-2" />
         </CardHeader>
         <CardContent className="pb-4">
-          <p className="text-muted-foreground">{currentStepData.content}</p>
+          <p className="text-muted-foreground text-sm">{currentStepData.content}</p>
           {currentStepData.action && (
             <div className="mt-3 p-2 rounded-md bg-primary/10 border border-primary/20">
               <p className="text-sm text-primary font-medium flex items-center gap-2">
-                <Lightbulb className="h-4 w-4" />
-                {currentStepData.action}
+                <Lightbulb className="h-4 w-4 shrink-0" />
+                <span>{currentStepData.action}</span>
               </p>
             </div>
           )}
         </CardContent>
         <CardFooter className="flex items-center justify-between border-t pt-4">
           <div className="text-sm text-muted-foreground">
-            Passo {currentStep + 1} de {totalSteps}
+            {currentStep + 1} / {totalSteps}
           </div>
           <div className="flex items-center gap-2">
             {currentStep > 0 && (
