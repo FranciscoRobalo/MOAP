@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -20,9 +20,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
   const { login } = useAuth()
   const router = useRouter()
   const { t } = useLanguage()
+
+  useEffect(() => {
+    setIsVisible(true)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,22 +46,38 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute top-1/4 left-1/4 h-[500px] w-[500px] rounded-full bg-primary/10 blur-[120px] animate-pulse-glow" />
+        <div className="absolute bottom-1/4 right-1/4 h-[400px] w-[400px] rounded-full bg-chart-1/10 blur-[100px] animate-float animate-delay-300" />
+      </div>
+
       <div className="w-full max-w-md">
-        {/* Language switcher */}
-        <div className="flex justify-end mb-4">
+        <div
+          className={`flex justify-end mb-4 transition-all duration-500 ${
+            isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"
+          }`}
+        >
           <LanguageSwitcher />
         </div>
 
-        {/* Logo */}
-        <Link href="/" className="flex items-center justify-center gap-2 mb-8">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+        <Link
+          href="/"
+          className={`flex items-center justify-center gap-2 mb-8 transition-all duration-700 delay-100 ${
+            isVisible ? "opacity-100 scale-100" : "opacity-0 scale-90"
+          }`}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary animate-pulse-glow">
             <FileText className="h-6 w-6 text-primary-foreground" />
           </div>
           <span className="text-2xl font-bold tracking-tight">MOAP</span>
         </Link>
 
-        <Card className="border-border/50 bg-card/50 backdrop-blur">
+        <Card
+          className={`border-border/50 bg-card/50 backdrop-blur glass transition-all duration-700 delay-200 ${
+            isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+          }`}
+        >
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">{t("welcomeBack")}</CardTitle>
             <CardDescription>{t("loginSubtitle")}</CardDescription>
@@ -64,13 +85,17 @@ export default function LoginPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive animate-fade-in-down">
                   <AlertCircle className="h-4 w-4" />
                   {error}
                 </div>
               )}
 
-              <div className="space-y-2">
+              <div
+                className={`space-y-2 transition-all duration-500 delay-300 ${
+                  isVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
+                }`}
+              >
                 <Label htmlFor="username">{t("username")}</Label>
                 <Input
                   id="username"
@@ -79,11 +104,15 @@ export default function LoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
-                  className="bg-input/50"
+                  className="bg-input/50 transition-all duration-300 focus:scale-[1.01]"
                 />
               </div>
 
-              <div className="space-y-2">
+              <div
+                className={`space-y-2 transition-all duration-500 delay-400 ${
+                  isVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
+                }`}
+              >
                 <Label htmlFor="password">{t("password")}</Label>
                 <div className="relative">
                   <Input
@@ -93,7 +122,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="bg-input/50 pr-10"
+                    className="bg-input/50 pr-10 transition-all duration-300 focus:scale-[1.01]"
                   />
                   <Button
                     type="button"
@@ -111,13 +140,30 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? t("loading") : t("loginButton")}
+              <Button
+                type="submit"
+                className={`w-full btn-ripple hover-glow transition-all duration-500 delay-500 ${
+                  isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+                }`}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    {t("loading")}
+                  </span>
+                ) : (
+                  t("loginButton")
+                )}
               </Button>
             </form>
 
-            <div className="mt-6 text-center text-sm text-muted-foreground">
-              <Link href="/" className="hover:text-foreground transition-colors">
+            <div
+              className={`mt-6 text-center text-sm text-muted-foreground transition-all duration-500 delay-600 ${
+                isVisible ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              <Link href="/" className="hover:text-foreground transition-colors hover-scale inline-block">
                 {t("back")}
               </Link>
             </div>
