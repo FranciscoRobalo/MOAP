@@ -201,6 +201,7 @@ interface DataContextType {
   markAllNotificationsAsRead: () => void
   // Added deleteNotification
   deleteNotification: (id: string) => void
+  clearNotifications: () => void
 
   // Invites
   // Renamed invites to invitations and updated type
@@ -4520,6 +4521,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.filter((n) => n.id !== id))
   }
 
+  const clearNotifications = () => {
+    setNotifications([])
+  }
+
   // Invites
   // Renamed sendInvite to addInvitation
   const addInvitation = (invitation: Omit<Invite, "id" | "sentDate">) => {
@@ -4590,6 +4595,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         markNotificationAsRead,
         markAllNotificationsAsRead,
         deleteNotification, // Added deleteNotification
+        clearNotifications, // Added clearNotifications
         invitations, // Renamed invites
         addInvitation, // Renamed sendInvite
         addBulkInvitations, // Renamed sendBulkInvites
