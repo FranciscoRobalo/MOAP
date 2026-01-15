@@ -158,12 +158,17 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div
-              className={`mt-6 text-center text-sm text-muted-foreground transition-all duration-500 delay-600 ${
-                isVisible ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              <Link href="/" className="hover:text-foreground transition-colors hover-scale inline-block">
+            <div className="mt-6 text-center space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {t("noAccount")}{" "}
+                <Link href="/register" className="text-primary hover:underline font-medium">
+                  {t("registerHere")}
+                </Link>
+              </p>
+              <Link
+                href="/"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors hover-scale inline-block"
+              >
                 {t("back")}
               </Link>
             </div>

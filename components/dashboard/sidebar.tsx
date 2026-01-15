@@ -22,6 +22,7 @@ import {
   BarChart3,
   TrendingUp,
   HelpCircle,
+  UserPlus,
 } from "lucide-react"
 import { useAuth, type UserRole } from "@/contexts/auth-context"
 import { useData } from "@/contexts/data-context"
@@ -45,6 +46,7 @@ const navigation: NavItem[] = [
   { nameKey: "scheduleVisit", href: "/dashboard/visitas", icon: Calendar, roles: ["admin", "tecnico"] },
   { nameKey: "budgets", href: "/dashboard/orcamentos", icon: Calculator, roles: ["admin", "tecnico"] },
   { nameKey: "materialPrices", href: "/dashboard/prices", icon: DollarSign, roles: ["admin"] },
+  { nameKey: "pendingRegistrations", href: "/dashboard/registos", icon: UserPlus, roles: ["admin"] },
   { nameKey: "messages", href: "/dashboard/messages", icon: MessageSquare, roles: ["admin", "public", "tecnico"] },
   { nameKey: "users", href: "/dashboard/users", icon: Users, roles: ["admin", "public", "tecnico"] },
   { nameKey: "help", href: "/dashboard/ajuda", icon: HelpCircle, roles: ["admin", "public", "tecnico"] },
@@ -54,12 +56,13 @@ const navigation: NavItem[] = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
-  const { user, logout } = useAuth()
+  const { user, logout, pendingRegistrations } = useAuth()
   const { notifications } = useData()
   const { t } = useLanguage()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const unreadCount = notifications.filter((n) => !n.read).length
+  const pendingRegCount = pendingRegistrations.filter((r) => r.status === "pending").length
 
   const filteredNavigation = navigation.filter((item) => user?.role && item.roles.includes(user.role))
 
@@ -104,7 +107,8 @@ export function DashboardSidebar() {
           <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
             {filteredNavigation.map((item) => {
               const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
-              const showBadge = item.href === "/dashboard/notificacoes" && unreadCount > 0
+              const showNotificationBadge = item.href === "/dashboard/notificacoes" && unreadCount > 0
+              const showRegBadge = item.href === "/dashboard/registos" && pendingRegCount > 0
 
               return (
                 <Link
@@ -120,9 +124,14 @@ export function DashboardSidebar() {
                 >
                   <item.icon className="h-5 w-5" />
                   {t(item.nameKey as any)}
-                  {showBadge && (
+                  {showNotificationBadge && (
                     <span className="absolute right-3 h-5 min-w-5 px-1 rounded-full bg-price-high text-[10px] font-bold flex items-center justify-center text-white">
                       {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                  {showRegBadge && (
+                    <span className="absolute right-3 h-5 min-w-5 px-1 rounded-full bg-yellow-500 text-[10px] font-bold flex items-center justify-center text-white animate-pulse">
+                      {pendingRegCount > 9 ? "9+" : pendingRegCount}
                     </span>
                   )}
                 </Link>
