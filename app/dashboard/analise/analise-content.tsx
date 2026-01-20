@@ -322,115 +322,152 @@ export default function AnaliseContent() {
     return isNaN(num) ? 0 : num
   }
 
-  // Parse Portuguese budget PDF text - handles concatenated format like "m.l.18,50100,00 €1 850,00 €"
+  // Parse Portuguese budget PDF text - handles various formats
   const parsePDFText = (text: string): Array<{ name: string; unit: string; quantity: number; price: number }> => {
     const items: Array<{ name: string; unit: string; quantity: number; price: number }> = []
-    const lines = text.split(/\n|\r/)
     
-    // Store description from previous lines to combine with data lines
+    // First, normalize the text - join lines and split by meaningful patterns
+    const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+    const lines = normalizedText.split("\n").filter(l => l.trim().length > 0)
+    
+
+    
+    // Store description from previous lines
     let currentDescription = ""
     
-    // Pattern to detect lines with budget data (unit + quantity + prices)
-    // Examples: "v.g.1,0022 000,00 €22 000,00 €" or "m235,2030,00 €1 056,00 €" or "m.l.18,50100,00 €1 850,00 €"
-    const budgetLinePattern = /^(v\.?g\.?|m\.?l\.?|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|degrau)(\d+[.,]?\d*).*€/i
-    
-    // Pattern for lines that are just prices (like "36 620,88 €" section totals)
-    const sectionTotalPattern = /^[\d\s.,]+\s*€$/
-    
     // Skip patterns
-    const skipPatterns = /^(Nº\s*Artigo|Designação|total|subtotal|iva|nota\s*:|observ|página|page|Empresa:|A\/C:|Telefone:|Ref\.ª|Obra:|ORÇAMENTO|Contacto|De:|Data:|Cliente:|Nº\s*Ref)/i
+    const skipPatterns = /^(Nº\s*Artigo|Designação|Unidade|Quantidade|Preço|total|subtotal|iva|nota\s*:|observ|página|page|Empresa:|A\/C:|Telefone:|Ref\.ª|Obra:|ORÇAMENTO|Contacto|De:|Data:|Cliente:|Nº\s*Ref|Condições|Garantia|Assinatura)/i
+    
+    // Pattern for budget data line: unit + quantity + prices
+    // Examples: "v.g.1,0022 000,00 €22 000,00 €", "m235,2030,00 €1 056,00 €", "m.l.18,50100,00 €1 850,00 €"
+    const budgetLinePattern = /^(Betão|Ferro|Cofragem|v\.?g\.?|vg|m\.?l\.?|ml|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|degrau)(\d+[.,]?\d*)/i
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim()
       
       if (line.length < 2) continue
       if (skipPatterns.test(line)) continue
-      if (sectionTotalPattern.test(line)) continue
       
-      // Check if this is a budget data line (has unit + quantity + price)
+      // Check if line is just a section total (number followed by €)
+      if (/^[\d\s.,]+\s*€$/.test(line)) continue
+      
+      // Check if this is a budget data line
       const budgetMatch = line.match(budgetLinePattern)
       
       if (budgetMatch) {
-        // Parse the budget line
-        const unit = budgetMatch[1].toLowerCase().replace(/\./g, "").replace("²", "2").replace("³", "3")
+        // Extract unit
+        let unit = budgetMatch[1].toLowerCase().replace(/\./g, "").replace("²", "2").replace("³", "3")
         
-        // Extract all numbers from the line
-        // Format: unit + quantity + unitPrice€ + totalPrice€
-        // Example: "m235,2030,00 €1 056,00 €" -> m2, 35,20, 30,00€, 1 056,00€
+        // Handle special cases like "Betão", "Ferro", "Cofragem" which have unit embedded after
+        if (["betão", "ferro", "cofragem"].includes(unit)) {
+          // Look for actual unit in the rest of the line
+          const unitMatch = line.match(/(m3|m2|kg|m\.?l\.?|v\.?g\.?)/i)
+          if (unitMatch) {
+            unit = unitMatch[1].toLowerCase().replace(/\./g, "")
+          }
+        }
         
-        // Find all price patterns (numbers followed by €)
-        const priceMatches = line.match(/(\d[\d\s]*[.,]\d{2})\s*€/g)
+        // Get the part after the initial unit/name
+        const afterUnit = line.substring(budgetMatch[0].length - budgetMatch[2].length)
+        
+        // Extract quantity - first number
+        const qtyMatch = afterUnit.match(/^(\d+[.,]?\d*)/)
+        let quantity = 1
+        if (qtyMatch) {
+          quantity = parsePortugueseNumber(qtyMatch[1])
+          if (quantity > 10000) quantity = 1 // Sanity check
+        }
+        
+        // Find prices (numbers ending with €)
+        const priceMatches = line.match(/([\d\s]+[.,]\d{2})\s*€/g)
         
         if (priceMatches && priceMatches.length >= 1) {
-          // Get the quantity - it's the number after the unit but before the first price
-          const afterUnit = line.substring(budgetMatch[1].length)
-          
-          // Extract quantity - first number sequence before a price
-          let quantity = 1
-          const qtyMatch = afterUnit.match(/^(\d+[.,]?\d*)/)
-          if (qtyMatch) {
-            quantity = parsePortugueseNumber(qtyMatch[1])
-          }
-          
-          // Get prices - first is unit price, second (if exists) is total
           const prices = priceMatches.map(p => parsePortugueseNumber(p))
           const unitPrice = prices[0]
           
-          // Use description from previous non-data lines
-          if (currentDescription && unitPrice > 0) {
+          // Build description from stored text or use the special unit name
+          let description = currentDescription
+          if (!description && ["betão", "ferro", "cofragem"].includes(budgetMatch[1].toLowerCase())) {
+            description = budgetMatch[1] // Use "Betão", "Ferro", etc. as description
+          }
+          
+          if (description && unitPrice > 0) {
             items.push({
-              name: currentDescription,
+              name: description,
               unit: unit,
               quantity: quantity || 1,
               price: unitPrice
             })
+
           }
           
           currentDescription = ""
         }
       } else if (/^\d+[.,]?\d*$/.test(line)) {
-        // Line is just a number (like section number "0", "1", "2") - skip
+        // Line is just a number (section number "0", "1", "2") - skip
         continue
-      } else if (/^[\d.,]+\s*€/.test(line)) {
-        // Line starts with price - skip (probably a continuation or subtotal)
+      } else if (/^[\d.,\s]+€/.test(line) && line.length < 20) {
+        // Short line starting with price - skip
         continue
       } else {
-        // This is a description line - accumulate it
-        // Clean up the line
+        // This is a description line
         let cleanLine = line
-          .replace(/^\d+[.,]\d*\s*/, "") // Remove leading article numbers like "0,01", "1,02"
-          .replace(/€[\d\s.,]+€?/g, "") // Remove any prices
+          .replace(/^\d+[.,]\d*\s*/, "") // Remove article numbers like "0,01", "1,02"
+          .replace(/([\d\s]+[.,]\d{2})\s*€/g, "") // Remove prices
+          .replace(/\s+/g, " ")
           .trim()
         
-        if (cleanLine.length > 2 && !/^[\d.,\s€]+$/.test(cleanLine)) {
-          if (currentDescription) {
-            currentDescription += " " + cleanLine
-          } else {
-            currentDescription = cleanLine
-          }
+        // Skip if too short or just numbers/symbols
+        if (cleanLine.length < 3) continue
+        if (/^[\d.,\s€\-–—:;]+$/.test(cleanLine)) continue
+        
+        // Accumulate description
+        if (currentDescription) {
+          currentDescription += " " + cleanLine
+        } else {
+          currentDescription = cleanLine
         }
       }
     }
     
+
     return items
   }
   
-  // Read PDF file - handles browser PDF reading
+  // Read PDF file - use API route for server-side parsing or fallback to client-side
   const parsePDF = async (file: File): Promise<Array<{ name: string; unit: string; quantity: number; price: number }>> => {
-    // For browser environment, read PDF as text directly
-    // Most budget PDFs are text-based and can be read this way
-    const text = await file.text()
+    // First try the API route
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      
+      const response = await fetch("/api/parse-pdf", {
+        method: "POST",
+        body: formData
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.items && data.items.length > 0) {
+          return data.items
+        }
+      }
+    } catch (apiError) {
+      // API failed, continue to fallback
+    }
     
-    // Check if we got text content
-    if (text && text.length > 50) {
+    // Fallback: try reading file as text directly and parse client-side
+    try {
+      const text = await file.text()
       const items = parsePDFText(text)
       if (items.length > 0) {
         return items
       }
+    } catch (textError) {
+      // Text reading failed
     }
     
-    // If no items found, throw a helpful error
-    throw new Error("Não foi possível extrair itens do PDF. O ficheiro pode estar protegido ou ser uma imagem digitalizada. Por favor, converta para CSV.")
+    throw new Error("Não foi possível extrair itens do PDF. Por favor, converta para CSV.")
   }
 
   const analyzeFile = async (file: File) => {
