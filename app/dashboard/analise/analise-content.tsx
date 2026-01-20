@@ -310,13 +310,115 @@ export default function AnaliseContent() {
     return items
   }
 
+  // Parse PDF content - extracts text and tries to find budget items
+  const parsePDF = async (file: File): Promise<Array<{ name: string; unit: string; quantity: number; price: number }>> => {
+    // Use pdf.js to extract text from PDF
+    const arrayBuffer = await file.arrayBuffer()
+    const pdfjsLib = await import("pdfjs-dist")
+    
+    // Set worker path
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+    
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+    let fullText = ""
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const textContent = await page.getTextContent()
+      const pageText = textContent.items.map((item: any) => item.str).join(" ")
+      fullText += pageText + "\n"
+    }
+    
+    // Parse the extracted text to find budget items
+    return parsePDFText(fullText)
+  }
+
+  // Parse text extracted from PDF to find budget items
+  const parsePDFText = (text: string): Array<{ name: string; unit: string; quantity: number; price: number }> => {
+    const items: Array<{ name: string; unit: string; quantity: number; price: number }> = []
+    const lines = text.split(/\n|\r/).filter(line => line.trim().length > 5)
+    
+    // Common unit patterns
+    const unitPattern = /\b(un|m2|m²|m3|m³|ml|kg|vg|m|l|pc|pç|und|unid|metro|litro)\b/i
+    // Price pattern - numbers with decimals, possibly with € symbol
+    const pricePattern = /€?\s*(\d+[.,]\d{2})\s*€?|\b(\d+[.,]\d{2})\b/g
+    // Quantity pattern
+    const quantityPattern = /\b(\d+[.,]?\d*)\s*(un|m2|m²|m3|m³|ml|kg|vg|m|l|pc|pç|und|unid)?\b/i
+    
+    for (const line of lines) {
+      // Skip lines that are too short or look like headers
+      if (line.length < 10) continue
+      if (/^(total|subtotal|iva|desconto|página|page|data|date)/i.test(line.trim())) continue
+      
+      // Try to extract price from the line
+      const prices: number[] = []
+      let match: RegExpExecArray | null = pricePattern.exec(line)
+      pricePattern.lastIndex = 0
+      
+      while ((match = pricePattern.exec(line)) !== null) {
+        const priceStr = (match[1] || match[2]).replace(",", ".")
+        const price = Number.parseFloat(priceStr)
+        if (!isNaN(price) && price > 0) {
+          prices.push(price)
+        }
+      }
+      
+      if (prices.length === 0) continue
+      
+      // Extract unit
+      const unitMatch = line.match(unitPattern)
+      const unit = unitMatch ? unitMatch[1].toLowerCase().replace("²", "2").replace("³", "3") : "un"
+      
+      // Extract quantity
+      const qtyMatch = line.match(/\b(\d+[.,]?\d*)\s*(?:un|m2|m²|m3|m³|ml|kg|vg|pc|pç|und|unid)?\b/i)
+      let quantity = 1
+      if (qtyMatch) {
+        const qtyVal = Number.parseFloat(qtyMatch[1].replace(",", "."))
+        if (!isNaN(qtyVal) && qtyVal > 0 && qtyVal < 10000) {
+          quantity = qtyVal
+        }
+      }
+      
+      // Extract name - remove prices and quantities from the line
+      let name = line
+        .replace(/€?\s*\d+[.,]\d{2}\s*€?/g, "")
+        .replace(/\b\d+[.,]?\d*\s*(un|m2|m²|m3|m³|ml|kg|vg|m|l|pc|pç|und|unid)\b/gi, "")
+        .replace(/\s+/g, " ")
+        .trim()
+      
+      // Skip if name is too short or just numbers
+      if (name.length < 3 || /^\d+$/.test(name)) continue
+      
+      // Use the last price (usually the total/unit price)
+      const price = prices[prices.length - 1]
+      
+      items.push({ name, unit, quantity, price })
+    }
+    
+    return items
+  }
+
   const analyzeFile = async (file: File) => {
     setIsAnalyzing(true)
     setAnalyzeProgress(0)
 
     try {
-      const content = await file.text()
-      const parsedItems = parseCSV(content)
+      let parsedItems: Array<{ name: string; unit: string; quantity: number; price: number }> = []
+      
+      // Check file type and parse accordingly
+      if (file.name.toLowerCase().endsWith(".pdf")) {
+        try {
+          parsedItems = await parsePDF(file)
+        } catch (pdfError) {
+          console.error("PDF parsing error:", pdfError)
+          // Fallback: try to read as text (some PDFs are text-based)
+          const content = await file.text()
+          parsedItems = parsePDFText(content)
+        }
+      } else {
+        const content = await file.text()
+        parsedItems = parseCSV(content)
+      }
 
       const totalItems = parsedItems.length
       const analyzedItems: BudgetItem[] = []
@@ -344,12 +446,18 @@ export default function AnaliseContent() {
         let refAvg: number | null = null
 
         if (material && confidence >= 20) {
-          refMin = material.minPrice
-          refMax = material.maxPrice
-          refAvg = (material.minPrice + material.maxPrice) / 2
+          // Use price as min and priceMax as max (matching Material interface in data-context)
+          refMin = material.price
+          refMax = material.priceMax || material.price
+          refAvg = (refMin + refMax) / 2
           totalReference += item.quantity * refAvg
 
-          variance = ((item.price - refAvg) / refAvg) * 100
+          // Calculate variance only if we have valid reference price
+          if (refAvg > 0) {
+            variance = ((item.price - refAvg) / refAvg) * 100
+          } else {
+            variance = null
+          }
 
           if (variance <= -10) {
             rating = "below"
@@ -519,14 +627,14 @@ export default function AnaliseContent() {
                 <input
                   id="file-upload"
                   type="file"
-                  accept=".csv,.txt"
+                  accept=".csv,.txt,.pdf"
                   onChange={handleFileUpload}
                   className="hidden"
                   disabled={isAnalyzing}
                 />
                 <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="font-medium mb-1">Arraste o ficheiro CSV aqui</p>
-                <p className="text-sm text-muted-foreground mb-4">ou clique para selecionar</p>
+                <p className="font-medium mb-1">Arraste o ficheiro CSV ou PDF aqui</p>
+                <p className="text-sm text-muted-foreground mb-4">Formatos aceites: CSV, TXT, PDF</p>
                 <Button variant="outline" disabled={isAnalyzing}>
                   Selecionar Ficheiro
                 </Button>
@@ -564,17 +672,24 @@ export default function AnaliseContent() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Info className="h-5 w-5 text-primary" />
-                Formato do Ficheiro
+                Formatos Aceites
               </CardTitle>
-              <CardDescription>Estrutura esperada do ficheiro CSV</CardDescription>
+              <CardDescription>CSV, TXT ou PDF com orçamento de construção</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-lg bg-muted/50 p-4 font-mono text-sm">
-                <p className="text-muted-foreground mb-2"># Formato recomendado:</p>
+                <p className="text-muted-foreground mb-2"># Formato CSV recomendado:</p>
                 <p>Nome;Unidade;Quantidade;Preço</p>
                 <p>Demolição de paredes;m2;50;12.50</p>
                 <p>Betão C25/30;m3;10;95.00</p>
                 <p>Pintura interior;m2;200;8.75</p>
+              </div>
+              
+              <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-4 text-sm">
+                <p className="font-medium text-blue-400 mb-1">Ficheiros PDF</p>
+                <p className="text-muted-foreground">
+                  PDFs de orçamentos são automaticamente processados. O sistema extrai texto e identifica itens, quantidades e preços.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -785,7 +900,7 @@ export default function AnaliseContent() {
                                   )}
                                 </td>
                                 <td className={cn("px-4 py-3 text-right text-sm font-medium", config.color)}>
-                                  {item.variance !== null ? (
+                                  {item.variance !== null && !isNaN(item.variance) ? (
                                     <>
                                       {item.variance > 0 ? "+" : ""}
                                       {item.variance.toFixed(1)}%
