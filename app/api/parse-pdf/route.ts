@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { extractText } from "unpdf"
 
 // Parse Portuguese number format: "1 234,56" or "1.234,56" -> 1234.56
 function parsePortugueseNumber(str: string): number {
@@ -29,9 +30,29 @@ function parseBudgetText(text: string): Array<{ name: string; unit: string; quan
     if (/^[\d\s.,]+€$/.test(line)) continue // Just a price
     if (line.length < 3) continue
     
+    // Pattern for lines with description+unit+quantity+prices (like "Betãom338,58200,00 €7 716,00 €")
+    const descUnitQtyPricePattern = /^(Betão|Ferro|Cofragem)(m2|m3|m²|m³|kg)(\d+[.,]?\d*)(.*€)/i
+    const descMatch = line.match(descUnitQtyPricePattern)
+    
+    if (descMatch) {
+      const description = descMatch[1]
+      const unit = descMatch[2].toLowerCase().replace("²", "2").replace("³", "3")
+      const quantity = parsePortugueseNumber(descMatch[3])
+      const priceSection = descMatch[4]
+      const prices = priceSection.match(/([\d\s]+[.,]\d{2})\s*€/g)
+      
+      if (prices && prices.length > 0) {
+        const unitPrice = parsePortugueseNumber(prices[0])
+        if (unitPrice > 0) {
+          items.push({ name: description, unit, quantity: quantity || 1, price: unitPrice })
+        }
+      }
+      continue
+    }
+    
     // Pattern for lines with unit+quantity+prices concatenated
     // Examples: "v.g.1,0022 000,00 €22 000,00 €", "m235,2030,00 €1 056,00 €"
-    const unitQtyPricePattern = /^(v\.?g\.?|vg|m\.?l\.?|ml|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|degrau)(\d+[.,]?\d*)(.*€.*€?)/i
+    const unitQtyPricePattern = /^(v\.?g\.?|vg|m\.?l\.?|ml|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|degrau)(\d+[.,]?\d*)(.*€)/i
     const match = line.match(unitQtyPricePattern)
     
     if (match) {
@@ -56,7 +77,7 @@ function parseBudgetText(text: string): Array<{ name: string; unit: string; quan
         currentDescription = ""
       }
     } else if (/^\d+[.,]?\d*$/.test(line)) {
-      // Just a number - skip
+      // Just a number (like article number "0", "1", "0,01") - skip
       continue
     } else if (/^[\d\s.,€]+$/.test(line)) {
       // Just numbers and currency - skip
@@ -87,17 +108,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
     
-    // Read file content as text - for text-based PDFs
-    const textContent = await file.text()
+    // Read file as ArrayBuffer and extract text using unpdf
+    const arrayBuffer = await file.arrayBuffer()
+    const { text } = await extractText(arrayBuffer, { mergePages: true })
     
-    // Parse the text content directly
-    const items = parseBudgetText(textContent)
+    // Parse the extracted text
+    const items = parseBudgetText(text)
     
     return NextResponse.json({ 
       success: true, 
       items,
-      textLength: textContent.length,
-      linesCount: textContent.split("\n").length
+      textLength: text.length,
+      linesCount: text.split("\n").length
     })
   } catch (error) {
     console.error("PDF parsing error:", error)
