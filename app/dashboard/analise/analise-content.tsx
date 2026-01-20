@@ -310,92 +310,166 @@ export default function AnaliseContent() {
     return items
   }
 
-  // Parse PDF content - extracts text and tries to find budget items
-  const parsePDF = async (file: File): Promise<Array<{ name: string; unit: string; quantity: number; price: number }>> => {
-    // Use pdf.js to extract text from PDF
-    const arrayBuffer = await file.arrayBuffer()
-    const pdfjsLib = await import("pdfjs-dist")
-    
-    // Set worker path
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-    
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-    let fullText = ""
-    
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i)
-      const textContent = await page.getTextContent()
-      const pageText = textContent.items.map((item: any) => item.str).join(" ")
-      fullText += pageText + "\n"
+  // Parse Portuguese number format: "1 234,56" or "1.234,56" or "1234,56" -> 1234.56
+  const parsePortugueseNumber = (str: string): number => {
+    if (!str) return 0
+    // Remove € symbol and spaces
+    let cleaned = str.replace(/€/g, "").trim()
+    // Handle format like "1 234,56" (space as thousand separator, comma as decimal)
+    cleaned = cleaned.replace(/\s+/g, "")
+    // Handle format like "1.234,56" (dot as thousand separator, comma as decimal)
+    if (cleaned.includes(",")) {
+      cleaned = cleaned.replace(/\./g, "").replace(",", ".")
     }
-    
-    // Parse the extracted text to find budget items
-    return parsePDFText(fullText)
+    const num = Number.parseFloat(cleaned)
+    return isNaN(num) ? 0 : num
   }
 
-  // Parse text extracted from PDF to find budget items
+  // Parse text extracted from PDF to find budget items - handles Portuguese budget formats
   const parsePDFText = (text: string): Array<{ name: string; unit: string; quantity: number; price: number }> => {
     const items: Array<{ name: string; unit: string; quantity: number; price: number }> = []
-    const lines = text.split(/\n|\r/).filter(line => line.trim().length > 5)
+    const lines = text.split(/\n|\r/).filter(line => line.trim().length > 3)
     
-    // Common unit patterns
-    const unitPattern = /\b(un|m2|m²|m3|m³|ml|kg|vg|m|l|pc|pç|und|unid|metro|litro)\b/i
-    // Price pattern - numbers with decimals, possibly with € symbol
-    const pricePattern = /€?\s*(\d+[.,]\d{2})\s*€?|\b(\d+[.,]\d{2})\b/g
-    // Quantity pattern
-    const quantityPattern = /\b(\d+[.,]?\d*)\s*(un|m2|m²|m3|m³|ml|kg|vg|m|l|pc|pç|und|unid)?\b/i
+    // Pattern for Portuguese price format: € 1 234,56 or €1.234,56 or 1234,56 €
+    const pricePattern = /€\s*([\d\s.,]+)|(\d[\d\s.,]*)\s*€/g
+    
+    // Units commonly found in Portuguese budgets
+    const unitPatterns = /\b(v\.?g\.?|vg|m\.?l\.?|ml|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|m)\b/gi
+    
+    // Skip patterns - headers, totals, company info
+    const skipPatterns = /^(total|subtotal|iva|desconto|página|page|data:|valor|artigo|descrição|quant|morada|contribuinte|capital|alvará|termos|condições|garantia|prazo|observações|dono|assinatura|\d{1,2}\/\d{1,2}\/\d{2,4})/i
     
     for (const line of lines) {
-      // Skip lines that are too short or look like headers
-      if (line.length < 10) continue
-      if (/^(total|subtotal|iva|desconto|página|page|data|date)/i.test(line.trim())) continue
+      const trimmedLine = line.trim()
       
-      // Try to extract price from the line
+      // Skip short lines, headers, and company info
+      if (trimmedLine.length < 10) continue
+      if (skipPatterns.test(trimmedLine)) continue
+      if (/^REVIVE|^Orçamento nº|^Cliente:/i.test(trimmedLine)) continue
+      
+      // Find all prices in the line
       const prices: number[] = []
-      let match: RegExpExecArray | null = pricePattern.exec(line)
-      pricePattern.lastIndex = 0
+      let priceMatch: RegExpExecArray | null
+      const priceRegex = /€\s*([\d\s.,]+)|([\d][\d\s.,]*)\s*€/g
       
-      while ((match = pricePattern.exec(line)) !== null) {
-        const priceStr = (match[1] || match[2]).replace(",", ".")
-        const price = Number.parseFloat(priceStr)
-        if (!isNaN(price) && price > 0) {
+      while ((priceMatch = priceRegex.exec(trimmedLine)) !== null) {
+        const priceStr = priceMatch[1] || priceMatch[2]
+        const price = parsePortugueseNumber(priceStr)
+        if (price > 0) {
           prices.push(price)
         }
       }
       
-      if (prices.length === 0) continue
-      
-      // Extract unit
-      const unitMatch = line.match(unitPattern)
-      const unit = unitMatch ? unitMatch[1].toLowerCase().replace("²", "2").replace("³", "3") : "un"
-      
-      // Extract quantity
-      const qtyMatch = line.match(/\b(\d+[.,]?\d*)\s*(?:un|m2|m²|m3|m³|ml|kg|vg|pc|pç|und|unid)?\b/i)
-      let quantity = 1
-      if (qtyMatch) {
-        const qtyVal = Number.parseFloat(qtyMatch[1].replace(",", "."))
-        if (!isNaN(qtyVal) && qtyVal > 0 && qtyVal < 10000) {
-          quantity = qtyVal
+      // If no prices found with € symbol, try to find numbers that look like prices
+      if (prices.length === 0) {
+        const numberMatches = trimmedLine.match(/(\d[\d\s]*[.,]\d{2})/g)
+        if (numberMatches) {
+          for (const numStr of numberMatches) {
+            const price = parsePortugueseNumber(numStr)
+            if (price > 0.5 && price < 1000000) {
+              prices.push(price)
+            }
+          }
         }
       }
       
-      // Extract name - remove prices and quantities from the line
-      let name = line
-        .replace(/€?\s*\d+[.,]\d{2}\s*€?/g, "")
-        .replace(/\b\d+[.,]?\d*\s*(un|m2|m²|m3|m³|ml|kg|vg|m|l|pc|pç|und|unid)\b/gi, "")
+      // Skip lines without prices
+      if (prices.length === 0) continue
+      
+      // Extract unit
+      const unitMatch = trimmedLine.match(unitPatterns)
+      let unit = "un"
+      if (unitMatch) {
+        unit = unitMatch[0].toLowerCase()
+          .replace(/\./g, "")
+          .replace("²", "2")
+          .replace("³", "3")
+      }
+      
+      // Extract quantity - look for patterns like "1,0 vg" or "50 m2" or just "3"
+      let quantity = 1
+      const qtyPatterns = [
+        /(\d+[.,]?\d*)\s*(?:v\.?g\.?|vg|m\.?l\.?|ml|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç)\b/i,
+        /\b(\d+[.,]\d+)\s+€/,
+        /^\s*(\d+[.,]?\d*)\s/
+      ]
+      
+      for (const qtyPattern of qtyPatterns) {
+        const qtyMatch = trimmedLine.match(qtyPattern)
+        if (qtyMatch) {
+          const qtyVal = parsePortugueseNumber(qtyMatch[1])
+          if (qtyVal > 0 && qtyVal < 10000) {
+            quantity = qtyVal
+            break
+          }
+        }
+      }
+      
+      // Extract item name - remove prices, quantities with units, and clean up
+      let name = trimmedLine
+        // Remove prices with € symbol
+        .replace(/€\s*[\d\s.,]+|[\d][\d\s.,]*\s*€/g, "")
+        // Remove quantity + unit patterns
+        .replace(/\d+[.,]?\d*\s*(?:v\.?g\.?|vg|m\.?l\.?|ml|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|m)\b/gi, "")
+        // Remove standalone numbers
+        .replace(/\b\d+[.,]?\d*\b/g, "")
+        // Clean up multiple spaces
         .replace(/\s+/g, " ")
         .trim()
       
-      // Skip if name is too short or just numbers
-      if (name.length < 3 || /^\d+$/.test(name)) continue
+      // Skip if name is too short, just symbols, or looks like a total line
+      if (name.length < 3) continue
+      if (/^[\-–—:;,.\s]+$/.test(name)) continue
+      if (/subtotal|total/i.test(name)) continue
       
-      // Use the last price (usually the total/unit price)
-      const price = prices[prices.length - 1]
+      // For Portuguese budgets, typically the first price is unit price, second is total
+      // We want the unit price for comparison
+      const price = prices.length >= 2 ? prices[0] : prices[0]
       
       items.push({ name, unit, quantity, price })
     }
     
     return items
+  }
+  
+  // Read PDF file - try multiple methods
+  const parsePDF = async (file: File): Promise<Array<{ name: string; unit: string; quantity: number; price: number }>> => {
+    // First, try to read PDF as text directly (works for text-based PDFs)
+    try {
+      const text = await file.text()
+      // Check if we got meaningful text content
+      if (text && text.length > 100 && /[a-zA-ZÀ-ÿ]/.test(text)) {
+        const items = parsePDFText(text)
+        if (items.length > 0) {
+          return items
+        }
+      }
+    } catch (e) {
+      console.log("[v0] Direct text read failed, trying pdf.js")
+    }
+    
+    // Try using pdf.js for scanned/image PDFs
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const pdfjsLib = await import("pdfjs-dist")
+      
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+      
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+      let fullText = ""
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i)
+        const textContent = await page.getTextContent()
+        const pageText = textContent.items.map((item: any) => item.str).join(" ")
+        fullText += pageText + "\n"
+      }
+      
+      return parsePDFText(fullText)
+    } catch (pdfError) {
+      console.error("[v0] PDF.js parsing failed:", pdfError)
+      throw new Error("Não foi possível processar o PDF. Por favor, tente converter para CSV.")
+    }
   }
 
   const analyzeFile = async (file: File) => {

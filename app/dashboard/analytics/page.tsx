@@ -91,13 +91,18 @@ export default function AnalyticsPage() {
   const materialsCount = materials.filter((m) => m.type === "material").length
   const worksCount = materials.filter((m) => m.type === "work").length
 
-  // Pie chart data for project status
-  const statusData = [
-    { name: labels.approved, value: statusCounts.aprovado, color: "hsl(142, 76%, 36%)" },
-    { name: labels.pending, value: statusCounts.pendente, color: "hsl(48, 96%, 53%)" },
-    { name: labels.inAnalysis, value: statusCounts.em_analise, color: "hsl(221, 83%, 53%)" },
-    { name: labels.rejected, value: statusCounts.rejeitado, color: "hsl(0, 84%, 60%)" },
+  // Pie chart data for project status - always keep at least one item to prevent empty chart errors
+  const statusDataRaw = [
+    { name: labels.approved, value: statusCounts.aprovado, color: "#22c55e" },
+    { name: labels.pending, value: statusCounts.pendente, color: "#eab308" },
+    { name: labels.inAnalysis, value: statusCounts.em_analise, color: "#3b82f6" },
+    { name: labels.rejected, value: statusCounts.rejeitado, color: "#ef4444" },
   ].filter((d) => d.value > 0)
+  
+  // Ensure we always have data to prevent undefined color errors
+  const statusData = statusDataRaw.length > 0 
+    ? statusDataRaw 
+    : [{ name: language === "pt" ? "Sem dados" : language === "es" ? "Sin datos" : "No data", value: 1, color: "#6b7280" }]
 
   // Monthly data simulation
   const monthlyData = [
@@ -117,7 +122,10 @@ export default function AnalyticsPage() {
         acc[cat] = { count: 0, avgPrice: 0, totalPrice: 0 }
       }
       acc[cat].count++
-      acc[cat].totalPrice += (m.priceMin + m.priceMax) / 2
+      // Use price and priceMax (matching Material interface)
+      const minPrice = m.price || 0
+      const maxPrice = m.priceMax || m.price || 0
+      acc[cat].totalPrice += (minPrice + maxPrice) / 2
       acc[cat].avgPrice = acc[cat].totalPrice / acc[cat].count
       return acc
     },
@@ -132,11 +140,15 @@ export default function AnalyticsPage() {
     }))
     .slice(0, 10)
 
-  // Materials vs Works distribution
-  const typeDistribution = [
-    { name: labels.materials, value: materialsCount, color: "hsl(221, 83%, 53%)" },
-    { name: labels.works, value: worksCount, color: "hsl(142, 76%, 36%)" },
-  ]
+  // Materials vs Works distribution - use hex colors and ensure we have data
+  const typeDistributionRaw = [
+    { name: labels.materials, value: materialsCount, color: "#3b82f6" },
+    { name: labels.works, value: worksCount, color: "#22c55e" },
+  ].filter((d) => d.value > 0)
+  
+  const typeDistribution = typeDistributionRaw.length > 0
+    ? typeDistributionRaw
+    : [{ name: language === "pt" ? "Sem dados" : language === "es" ? "Sin datos" : "No data", value: 1, color: "#6b7280" }]
 
   return (
     <div className="space-y-6">
