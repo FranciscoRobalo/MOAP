@@ -316,7 +316,7 @@ export default function OrcamentosPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {budgets.map((budget) => {
-                const status = statusConfig[budget.status]
+                const status = statusConfig[budget.status as keyof typeof statusConfig] || { label: budget.status || "Unknown", color: "bg-muted text-muted-foreground" }
                 const isExpanded = expandedBudget === budget.id
 
                 return (
@@ -401,8 +401,8 @@ export default function OrcamentosPage() {
                     <CardDescription>{selectedBudget.obraName}</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className={statusConfig[selectedBudget.status].color}>
-                      {statusConfig[selectedBudget.status].label}
+                    <Badge className={(statusConfig[selectedBudget.status as keyof typeof statusConfig] || { label: "Unknown", color: "bg-muted text-muted-foreground" }).color}>
+                      {(statusConfig[selectedBudget.status as keyof typeof statusConfig] || { label: "Unknown", color: "bg-muted text-muted-foreground" }).label}
                     </Badge>
                     <Button variant="ghost" size="icon" onClick={() => setSelectedBudget(null)}>
                       <X className="h-4 w-4" />

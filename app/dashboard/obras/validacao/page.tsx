@@ -104,7 +104,7 @@ export default function ValidacaoObrasPage() {
       {/* Obras List */}
       <div className="space-y-4">
         {filteredObras.map((obra) => {
-          const status = statusConfig[obra.status]
+          const status = statusConfig[obra.status as ValidationStatus] || { label: obra.status || "Unknown", color: "bg-muted text-muted-foreground", icon: Clock }
           const StatusIcon = status.icon
 
           return (

@@ -66,8 +66,8 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
     )
   }
 
-  const status = statusConfig[obra.status]
-  const urgency = urgencyConfig[obra.urgency as keyof typeof urgencyConfig]
+  const status = statusConfig[obra.status as keyof typeof statusConfig] || { label: obra.status || "Unknown", color: "bg-muted text-muted-foreground", icon: Clock }
+  const urgency = urgencyConfig[obra.urgency as keyof typeof urgencyConfig] || { label: obra.urgency || "Normal", color: "text-muted-foreground" }
   const StatusIcon = status.icon
 
   const handleDelete = () => {

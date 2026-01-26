@@ -481,7 +481,8 @@ function ProposalCard({
   formatCurrency: (value: number) => string
   formatDate: (date: string) => string
 }) {
-  const StatusIcon = statusConfig[proposal.status].icon
+  const statusEntry = statusConfig[proposal.status as keyof typeof statusConfig] || { label: proposal.status || "Unknown", color: "bg-muted text-muted-foreground", icon: Clock }
+  const StatusIcon = statusEntry.icon
 
   return (
     <Card
@@ -493,9 +494,9 @@ function ProposalCard({
           <div className="space-y-1 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold">{proposal.name}</h3>
-              <Badge className={cn("text-xs", statusConfig[proposal.status].color)}>
+              <Badge className={cn("text-xs", statusEntry.color)}>
                 <StatusIcon className="h-3 w-3 mr-1" />
-                {statusConfig[proposal.status].label}
+                {statusEntry.label}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">{proposal.client}</p>

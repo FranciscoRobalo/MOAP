@@ -935,7 +935,7 @@ export default function AnaliseContent() {
                         </thead>
                         <tbody className="divide-y divide-border/50">
                           {filteredItems.map((item) => {
-                            const config = ratingConfig[item.rating]
+                            const config = ratingConfig[item.rating as keyof typeof ratingConfig] || ratingConfig.unknown
                             const Icon = config.icon
                             return (
                               <tr key={item.id} className="hover:bg-muted/30">
