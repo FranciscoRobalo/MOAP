@@ -24,8 +24,14 @@ import {
 import { TrendingUp, Building2, Calculator, Euro, Calendar } from "lucide-react"
 
 export default function AnalyticsPage() {
-  const { obras, budgets, materials, visitas } = useData()
+  const data = useData()
   const { language } = useLanguage()
+  
+  // Safety checks - ensure arrays are defined
+  const obras = data?.obras || []
+  const budgets = data?.budgets || []
+  const materials = data?.materials || []
+  const visitas = data?.visitas || []
 
   const labels = {
     title:
@@ -241,7 +247,7 @@ export default function AnalyticsPage() {
                         label={({ name, value }) => `${name}: ${value}`}
                       >
                         {statusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry?.color || "#6b7280"} />
                         ))}
                       </Pie>
                       <Tooltip />
@@ -279,7 +285,7 @@ export default function AnalyticsPage() {
                         label={({ name, value }) => `${name}: ${value}`}
                       >
                         {typeDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry?.color || "#6b7280"} />
                         ))}
                       </Pie>
                       <Tooltip />
