@@ -29,11 +29,11 @@ import {
 } from "lucide-react"
 
 const statusConfig = {
-  pendente: { label: "Pendente", color: "bg-muted text-muted-foreground", icon: Clock },
-  em_analise: { label: "Em Análise", color: "bg-primary/20 text-primary", icon: Clock },
-  info_adicional: { label: "Info Adicional", color: "bg-price-above/20 text-price-above", icon: AlertCircle },
-  aprovado: { label: "Aprovado", color: "bg-price-below/20 text-price-below", icon: Calendar },
-  rejeitado: { label: "Rejeitado", color: "bg-price-high/20 text-price-high", icon: AlertCircle },
+  pending: { label: "Pendente", color: "bg-muted text-muted-foreground", icon: Clock },
+  "in-analysis": { label: "Em Análise", color: "bg-primary/20 text-primary", icon: Clock },
+  "info-needed": { label: "Info Adicional", color: "bg-price-above/20 text-price-above", icon: AlertCircle },
+  approved: { label: "Aprovado", color: "bg-price-below/20 text-price-below", icon: Calendar },
+  rejected: { label: "Rejeitado", color: "bg-price-high/20 text-price-high", icon: AlertCircle },
 }
 
 const urgencyConfig = {
@@ -51,7 +51,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
   const obra = obras.find((o) => o.id === id)
   const obraBudgets = budgets.filter((b) => b.obraId === id)
   const obraVisitas = visitas.filter((v) => v.obraId === id)
-  const assignedUsersList = users.filter((u) => obra?.assignedUsers.includes(u.id))
+  const assignedUsersList = users.filter((u) => (obra as any)?.assignedUsers?.includes(u.id))
 
   if (!obra) {
     return (
@@ -94,7 +94,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
           </Button>
           <div>
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold tracking-tight">{obra.name}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">{obra.title}</h1>
               <Badge className={status.color}>
                 <StatusIcon className="mr-1 h-3 w-3" />
                 {status.label}
@@ -107,7 +107,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
             </div>
             <p className="text-muted-foreground flex items-center gap-1 mt-1">
               <MapPin className="h-4 w-4" />
-              {obra.address || obra.region}
+              {obra.location}
             </p>
           </div>
         </div>
@@ -149,7 +149,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Orçamento Estimado</p>
-                <p className="text-lg font-bold">€{obra.estimatedBudget.toLocaleString("pt-PT")}</p>
+                <p className="text-lg font-bold">€{(obra.budget || 0).toLocaleString("pt-PT")}</p>
               </div>
             </div>
           </CardContent>

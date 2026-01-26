@@ -28,7 +28,7 @@ export default function ValidacaoObrasPage() {
 
   const filteredObras = obras.filter((obra) => {
     const matchesStatus = filterStatus === "all" || obra.status === filterStatus
-    const matchesSearch = obra.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = obra.title.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesStatus && matchesSearch
   })
 
@@ -114,23 +114,23 @@ export default function ValidacaoObrasPage() {
                   <div className="flex-1 space-y-2">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <h3 className="font-semibold text-lg">{obra.name}</h3>
+                        <h3 className="font-semibold text-lg">{obra.title}</h3>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mt-1">
                           <span className="flex items-center gap-1">
                             <Building2 className="h-3.5 w-3.5" />
-                            {obra.type}
+                            {obra.type || obra.category}
                           </span>
                           <span className="flex items-center gap-1">
                             <MapPin className="h-3.5 w-3.5" />
-                            {obra.region}
+                            {obra.location}
                           </span>
                           <span className="flex items-center gap-1">
                             <Euro className="h-3.5 w-3.5" />
-                            {obra.estimatedBudget.toLocaleString("pt-PT")}€
+                            {(obra.budget || 0).toLocaleString("pt-PT")}€
                           </span>
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5" />
-                            {new Date(obra.createdDate).toLocaleDateString("pt-PT")}
+                            {new Date(obra.createdAt).toLocaleDateString("pt-PT")}
                           </span>
                         </div>
                       </div>
