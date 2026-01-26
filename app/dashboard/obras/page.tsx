@@ -11,42 +11,36 @@ import { useData } from "@/contexts/data-context"
 import { Building2, MapPin, Calendar, Euro, Search, Plus, Eye, Filter, ArrowUpDown, Clock } from "lucide-react"
 
 const statusConfig = {
-  pendente: { label: "Pendente", color: "bg-muted text-muted-foreground" },
-  em_analise: { label: "Em Análise", color: "bg-primary/20 text-primary" },
-  info_adicional: { label: "Info Adicional", color: "bg-price-above/20 text-price-above" },
-  aprovado: { label: "Aprovado", color: "bg-price-below/20 text-price-below" },
-  rejeitado: { label: "Rejeitado", color: "bg-price-high/20 text-price-high" },
-}
-
-const urgencyConfig = {
-  baixa: { label: "Baixa", color: "text-muted-foreground" },
-  media: { label: "Média", color: "text-price-average" },
-  alta: { label: "Alta", color: "text-price-above" },
-  urgente: { label: "Urgente", color: "text-price-high" },
+  pending: { label: "Pendente", color: "bg-muted text-muted-foreground" },
+  "in-analysis": { label: "Em Análise", color: "bg-primary/20 text-primary" },
+  "info-needed": { label: "Info Adicional", color: "bg-price-above/20 text-price-above" },
+  approved: { label: "Aprovado", color: "bg-price-below/20 text-price-below" },
+  rejected: { label: "Rejeitado", color: "bg-price-high/20 text-price-high" },
 }
 
 export default function ObrasListPage() {
   const { obras } = useData()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [regionFilter, setRegionFilter] = useState<string>("all")
+  const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("date")
 
-  const regions = [...new Set(obras.map((o) => o.region))]
+  const categories = [...new Set(obras.map((o) => o.category).filter(Boolean))]
 
   const filteredObras = obras
     .filter((obra) => {
       const matchesSearch =
-        obra.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        obra.address.toLowerCase().includes(searchTerm.toLowerCase())
+        (obra.title?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+        (obra.location?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+        (obra.client?.toLowerCase() || "").includes(searchTerm.toLowerCase())
       const matchesStatus = statusFilter === "all" || obra.status === statusFilter
-      const matchesRegion = regionFilter === "all" || obra.region === regionFilter
-      return matchesSearch && matchesStatus && matchesRegion
+      const matchesCategory = categoryFilter === "all" || obra.category === categoryFilter
+      return matchesSearch && matchesStatus && matchesCategory
     })
     .sort((a, b) => {
-      if (sortBy === "date") return new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime()
-      if (sortBy === "budget") return b.estimatedBudget - a.estimatedBudget
-      if (sortBy === "name") return a.name.localeCompare(b.name)
+      if (sortBy === "date") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      if (sortBy === "budget") return (b.budget || 0) - (a.budget || 0)
+      if (sortBy === "name") return (a.title || "").localeCompare(b.title || "")
       return 0
     })
 
@@ -93,16 +87,16 @@ export default function ObrasListPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={regionFilter} onValueChange={setRegionFilter}>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="w-[160px] bg-input/50">
-                  <MapPin className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Região" />
+                  <Building2 className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas Regiões</SelectItem>
-                  {regions.map((region) => (
-                    <SelectItem key={region} value={region}>
-                      {region}
+                  <SelectItem value="all">Todas Categorias</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -142,12 +136,12 @@ export default function ObrasListPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Aprovadas</p>
                 <p className="text-2xl font-bold text-price-below">
-                  {obras.filter((o) => o.status === "aprovado").length}
+                  {obras.filter((o) => o.status === "approved").length}
                 </p>
               </div>
               <div className="h-8 w-8 rounded-full bg-price-below/20 flex items-center justify-center">
                 <span className="text-price-below font-bold">
-                  {Math.round((obras.filter((o) => o.status === "aprovado").length / obras.length) * 100)}%
+                  {obras.length > 0 ? Math.round((obras.filter((o) => o.status === "approved").length / obras.length) * 100) : 0}%
                 </span>
               </div>
             </div>
@@ -159,7 +153,7 @@ export default function ObrasListPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Em Análise</p>
                 <p className="text-2xl font-bold text-primary">
-                  {obras.filter((o) => o.status === "em_analise" || o.status === "pendente").length}
+                  {obras.filter((o) => o.status === "in-analysis" || o.status === "pending").length}
                 </p>
               </div>
               <Clock className="h-8 w-8 text-primary/50" />
@@ -172,7 +166,7 @@ export default function ObrasListPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Orçamento Total</p>
                 <p className="text-2xl font-bold">
-                  €{(obras.reduce((sum, o) => sum + o.estimatedBudget, 0) / 1000000).toFixed(1)}M
+                  €{(obras.reduce((sum, o) => sum + (o.budget || 0), 0) / 1000000).toFixed(1)}M
                 </p>
               </div>
               <Euro className="h-8 w-8 text-primary/50" />
@@ -185,17 +179,16 @@ export default function ObrasListPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredObras.map((obra) => {
           const status = statusConfig[obra.status as keyof typeof statusConfig] || { label: obra.status || "Unknown", color: "bg-muted text-muted-foreground" }
-          const urgency = urgencyConfig[obra.urgency as keyof typeof urgencyConfig] || { label: obra.urgency || "Normal", color: "text-muted-foreground" }
 
           return (
             <Card key={obra.id} className="bg-card/50 hover:bg-card/80 transition-colors group">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg truncate">{obra.name}</CardTitle>
+                    <CardTitle className="text-lg truncate">{obra.title}</CardTitle>
                     <CardDescription className="flex items-center gap-1 mt-1">
                       <MapPin className="h-3 w-3" />
-                      {obra.region}
+                      {obra.location}
                     </CardDescription>
                   </div>
                   <Badge className={status.color}>{status.label}</Badge>
@@ -207,7 +200,7 @@ export default function ObrasListPage() {
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Euro className="h-4 w-4 text-muted-foreground" />
-                    <span>€{(obra.estimatedBudget / 1000).toFixed(0)}k</span>
+                    <span>€{((obra.budget || 0) / 1000).toFixed(0)}k</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -221,12 +214,12 @@ export default function ObrasListPage() {
                 <div>
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className="text-muted-foreground">Progresso</span>
-                    <span className={urgency?.color}>{obra.progress}%</span>
+                    <span className="text-muted-foreground">{obra.progress || 0}%</span>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-primary transition-all duration-500"
-                      style={{ width: `${obra.progress}%` }}
+                      style={{ width: `${obra.progress || 0}%` }}
                     />
                   </div>
                 </div>
