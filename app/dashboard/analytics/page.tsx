@@ -23,15 +23,26 @@ import {
 } from "recharts"
 import { TrendingUp, Building2, Calculator, Euro, Calendar } from "lucide-react"
 
+const FALLBACK_COLOR = "#6b7280"
+
 export default function AnalyticsPage() {
   const data = useData()
   const { language } = useLanguage()
   
   // Safety checks - ensure arrays are defined
-  const obras = data?.obras || []
-  const budgets = data?.budgets || []
-  const materials = data?.materials || []
-  const visitas = data?.visitas || []
+  const obras = data?.obras ?? []
+  const budgets = data?.budgets ?? []
+  const materials = data?.materials ?? []
+  const visitas = data?.visitas ?? []
+  
+  // Show loading state while data is being fetched
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    )
+  }
 
   const labels = {
     title:
@@ -246,8 +257,8 @@ export default function AnalyticsPage() {
                         dataKey="value"
                         label={({ name, value }) => `${name}: ${value}`}
                       >
-                        {statusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry?.color || "#6b7280"} />
+                        {(statusData || []).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry?.color ?? FALLBACK_COLOR} />
                         ))}
                       </Pie>
                       <Tooltip />
@@ -284,8 +295,8 @@ export default function AnalyticsPage() {
                         dataKey="value"
                         label={({ name, value }) => `${name}: ${value}`}
                       >
-                        {typeDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry?.color || "#6b7280"} />
+                        {(typeDistribution || []).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry?.color ?? FALLBACK_COLOR} />
                         ))}
                       </Pie>
                       <Tooltip />
