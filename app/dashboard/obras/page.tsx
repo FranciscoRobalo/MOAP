@@ -11,11 +11,11 @@ import { useData } from "@/contexts/data-context"
 import { Building2, MapPin, Calendar, Euro, Search, Plus, Eye, Filter, ArrowUpDown, Clock } from "lucide-react"
 
 const statusConfig = {
-  pending: { label: "Pendente", color: "bg-muted text-muted-foreground" },
-  "in-analysis": { label: "Em Análise", color: "bg-primary/20 text-primary" },
-  "info-needed": { label: "Info Adicional", color: "bg-price-above/20 text-price-above" },
-  approved: { label: "Aprovado", color: "bg-price-below/20 text-price-below" },
-  rejected: { label: "Rejeitado", color: "bg-price-high/20 text-price-high" },
+  pendente: { label: "Pendente", color: "bg-muted text-muted-foreground" },
+  em_analise: { label: "Em Análise", color: "bg-primary/20 text-primary" },
+  info_adicional: { label: "Info Adicional", color: "bg-price-above/20 text-price-above" },
+  aprovado: { label: "Aprovado", color: "bg-price-below/20 text-price-below" },
+  rejeitado: { label: "Rejeitado", color: "bg-price-high/20 text-price-high" },
 }
 
 const urgencyConfig = {
@@ -32,21 +32,21 @@ export default function ObrasListPage() {
   const [regionFilter, setRegionFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("date")
 
-  const regions = [...new Set(obras.map((o) => o.location))]
+  const regions = [...new Set(obras.map((o) => o.region))]
 
   const filteredObras = obras
     .filter((obra) => {
       const matchesSearch =
-        obra.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (obra.location || "").toLowerCase().includes(searchTerm.toLowerCase())
+        obra.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        obra.address.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesStatus = statusFilter === "all" || obra.status === statusFilter
-      const matchesRegion = regionFilter === "all" || obra.location === regionFilter
+      const matchesRegion = regionFilter === "all" || obra.region === regionFilter
       return matchesSearch && matchesStatus && matchesRegion
     })
     .sort((a, b) => {
-      if (sortBy === "date") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      if (sortBy === "budget") return (b.budget || 0) - (a.budget || 0)
-      if (sortBy === "name") return a.title.localeCompare(b.title)
+      if (sortBy === "date") return new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime()
+      if (sortBy === "budget") return b.estimatedBudget - a.estimatedBudget
+      if (sortBy === "name") return a.name.localeCompare(b.name)
       return 0
     })
 
@@ -192,10 +192,10 @@ export default function ObrasListPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg truncate">{obra.title}</CardTitle>
+                    <CardTitle className="text-lg truncate">{obra.name}</CardTitle>
                     <CardDescription className="flex items-center gap-1 mt-1">
                       <MapPin className="h-3 w-3" />
-                      {obra.location}
+                      {obra.region}
                     </CardDescription>
                   </div>
                   <Badge className={status.color}>{status.label}</Badge>
@@ -207,7 +207,7 @@ export default function ObrasListPage() {
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Euro className="h-4 w-4 text-muted-foreground" />
-                    <span>€{((obra.budget || 0) / 1000).toFixed(0)}k</span>
+                    <span>€{(obra.estimatedBudget / 1000).toFixed(0)}k</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -221,12 +221,12 @@ export default function ObrasListPage() {
                 <div>
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className="text-muted-foreground">Progresso</span>
-                    <span className={urgency?.color}>{obra.progress || 0}%</span>
+                    <span className={urgency?.color}>{obra.progress}%</span>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-primary transition-all duration-500"
-                      style={{ width: `${obra.progress || 0}%` }}
+                      style={{ width: `${obra.progress}%` }}
                     />
                   </div>
                 </div>

@@ -19,15 +19,15 @@ export default function DashboardPage() {
   }, [])
 
   const statusConfig = {
-    pending: { label: t("pending"), color: "bg-muted text-muted-foreground" },
-    "in-analysis": { label: t("inAnalysis"), color: "bg-primary/20 text-primary" },
-    "info-needed": { label: t("additionalInfo"), color: "bg-price-above/20 text-price-above" },
-    approved: { label: t("approved"), color: "bg-price-below/20 text-price-below" },
-    rejected: { label: t("rejected"), color: "bg-price-high/20 text-price-high" },
+    pendente: { label: t("pending"), color: "bg-muted text-muted-foreground" },
+    em_analise: { label: t("inAnalysis"), color: "bg-primary/20 text-primary" },
+    info_adicional: { label: t("additionalInfo"), color: "bg-price-above/20 text-price-above" },
+    aprovado: { label: t("approved"), color: "bg-price-below/20 text-price-below" },
+    rejeitado: { label: t("rejected"), color: "bg-price-high/20 text-price-high" },
   }
 
-  const approvedObras = obras.filter((o) => o.status === "approved").length
-  const pendingObras = obras.filter((o) => o.status === "pending" || o.status === "in-analysis").length
+  const approvedObras = obras.filter((o) => o.status === "aprovado").length
+  const pendingObras = obras.filter((o) => o.status === "pendente" || o.status === "em_analise").length
   const upcomingVisits = visitas.filter((v) => v.status === "agendada").length
   const unreadMessages = conversations.reduce((sum, c) => sum + c.unread, 0)
   const unreadNotifications = notifications.filter((n) => !n.read).length
@@ -249,15 +249,15 @@ export default function DashboardPage() {
                           <Building2 className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium">{obra.title}</p>
-                          <p className="text-sm text-muted-foreground">{obra.location}</p>
+                          <p className="font-medium">{obra.name}</p>
+                          <p className="text-sm text-muted-foreground">{obra.region}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <p className="text-sm font-medium">€{((obra.budget || 0) / 1000).toFixed(0)}k</p>
+                          <p className="text-sm font-medium">€{(obra.estimatedBudget / 1000).toFixed(0)}k</p>
                           <p className="text-xs text-muted-foreground">
-                            {obra.progress || 0}%{" "}
+                            {obra.progress}%{" "}
                             {language === "pt" ? "completo" : language === "es" ? "completo" : "complete"}
                           </p>
                         </div>

@@ -404,33 +404,32 @@ export default function ProposalsPage() {
                   </div>
 
                   {selectedProposal.status !== "analyzing" && (() => {
-                    const indicator = priceIndicatorConfig[selectedProposal.priceIndicator as keyof typeof priceIndicatorConfig] || priceIndicatorConfig.average
+                    const priceConfig = priceIndicatorConfig[selectedProposal.priceIndicator as keyof typeof priceIndicatorConfig] || priceIndicatorConfig.average
                     return (
-                    <div className={cn("rounded-lg p-4", indicator.bg)}>
+                    <div className={cn("rounded-lg p-4", priceConfig.bg)}>
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">Variação de Preço</span>
                         <div className="flex items-center gap-2">
                           {selectedProposal.variance > 0 ? (
                             <TrendingUp
-                              className={cn("h-4 w-4", indicator.color)}
+                              className={cn("h-4 w-4", priceConfig.color)}
                             />
                           ) : (
                             <TrendingDown className="h-4 w-4 text-price-below" />
                           )}
                           <span
-                            className={cn("font-bold", indicator.color)}
+                            className={cn("font-bold", priceConfig.color)}
                           >
                             {selectedProposal.variance > 0 ? "+" : ""}
                             {selectedProposal.variance}%
                           </span>
                         </div>
                       </div>
-                      <p className={cn("text-xs mt-1", indicator.color)}>
-                        {indicator.label}
+                      <p className={cn("text-xs mt-1", priceConfig.color)}>
+                        {priceConfig.label}
                       </p>
                     </div>
-                    )
-                  })()}
+                  )})()}
                 </CardContent>
               </Card>
 
