@@ -403,31 +403,33 @@ export default function ProposalsPage() {
                     </div>
                   </div>
 
-                  {selectedProposal.status !== "analyzing" && (
-                    <div className={cn("rounded-lg p-4", priceIndicatorConfig[selectedProposal.priceIndicator].bg)}>
+                  {selectedProposal.status !== "analyzing" && (() => {
+                    const priceConfig = priceIndicatorConfig[selectedProposal.priceIndicator as keyof typeof priceIndicatorConfig] || priceIndicatorConfig.average
+                    return (
+                    <div className={cn("rounded-lg p-4", priceConfig.bg)}>
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">Variação de Preço</span>
                         <div className="flex items-center gap-2">
                           {selectedProposal.variance > 0 ? (
                             <TrendingUp
-                              className={cn("h-4 w-4", priceIndicatorConfig[selectedProposal.priceIndicator].color)}
+                              className={cn("h-4 w-4", priceConfig.color)}
                             />
                           ) : (
                             <TrendingDown className="h-4 w-4 text-price-below" />
                           )}
                           <span
-                            className={cn("font-bold", priceIndicatorConfig[selectedProposal.priceIndicator].color)}
+                            className={cn("font-bold", priceConfig.color)}
                           >
                             {selectedProposal.variance > 0 ? "+" : ""}
                             {selectedProposal.variance}%
                           </span>
                         </div>
                       </div>
-                      <p className={cn("text-xs mt-1", priceIndicatorConfig[selectedProposal.priceIndicator].color)}>
-                        {priceIndicatorConfig[selectedProposal.priceIndicator].label}
+                      <p className={cn("text-xs mt-1", priceConfig.color)}>
+                        {priceConfig.label}
                       </p>
                     </div>
-                  )}
+                  )})()}
                 </CardContent>
               </Card>
 
@@ -481,7 +483,8 @@ function ProposalCard({
   formatCurrency: (value: number) => string
   formatDate: (date: string) => string
 }) {
-  const StatusIcon = statusConfig[proposal.status].icon
+  const statusEntry = statusConfig[proposal.status as keyof typeof statusConfig] || { label: proposal.status || "Unknown", color: "bg-muted text-muted-foreground", icon: Clock }
+  const StatusIcon = statusEntry.icon
 
   return (
     <Card
@@ -493,9 +496,9 @@ function ProposalCard({
           <div className="space-y-1 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold">{proposal.name}</h3>
-              <Badge className={cn("text-xs", statusConfig[proposal.status].color)}>
+              <Badge className={cn("text-xs", statusEntry.color)}>
                 <StatusIcon className="h-3 w-3 mr-1" />
-                {statusConfig[proposal.status].label}
+                {statusEntry.label}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">{proposal.client}</p>
@@ -535,7 +538,7 @@ function ProposalCard({
             </div>
             <span className="text-sm text-muted-foreground">{proposal.rating.overall.toFixed(1)}</span>
             {proposal.variance !== 0 && (
-              <span className={cn("text-sm font-medium ml-auto", priceIndicatorConfig[proposal.priceIndicator].color)}>
+              <span className={cn("text-sm font-medium ml-auto", (priceIndicatorConfig[proposal.priceIndicator as keyof typeof priceIndicatorConfig] || priceIndicatorConfig.average).color)}>
                 {proposal.variance > 0 ? "+" : ""}
                 {proposal.variance}% vs mercado
               </span>

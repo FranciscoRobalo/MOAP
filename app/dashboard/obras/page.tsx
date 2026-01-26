@@ -184,8 +184,8 @@ export default function ObrasListPage() {
       {/* Obras Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredObras.map((obra) => {
-          const status = statusConfig[obra.status]
-          const urgency = urgencyConfig[obra.urgency as keyof typeof urgencyConfig]
+          const status = statusConfig[obra.status as keyof typeof statusConfig] || { label: obra.status || "Unknown", color: "bg-muted text-muted-foreground" }
+          const urgency = urgencyConfig[obra.urgency as keyof typeof urgencyConfig] || { label: obra.urgency || "Normal", color: "text-muted-foreground" }
 
           return (
             <Card key={obra.id} className="bg-card/50 hover:bg-card/80 transition-colors group">

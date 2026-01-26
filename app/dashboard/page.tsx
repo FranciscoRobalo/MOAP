@@ -235,7 +235,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="space-y-4">
               {recentObras.map((obra, index) => {
-                const status = statusConfig[obra.status]
+                const status = statusConfig[obra.status as keyof typeof statusConfig] || { label: obra.status || "Unknown", color: "bg-muted text-muted-foreground" }
                 return (
                   <Link key={obra.id} href={`/dashboard/obras/${obra.id}`}>
                     <div

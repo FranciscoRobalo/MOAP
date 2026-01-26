@@ -321,7 +321,7 @@ export default function ImportarPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {documents.map((doc) => {
-                const status = statusConfig[doc.status]
+                const status = statusConfig[doc.status as keyof typeof statusConfig] || { label: doc.status || "Unknown", color: "bg-muted text-muted-foreground", icon: AlertCircle }
                 const StatusIcon = status.icon
 
                 return (
@@ -433,7 +433,7 @@ export default function ImportarPage() {
                         </thead>
                         <tbody className="divide-y">
                           {selectedDocument.materials.map((material) => {
-                            const matStatus = materialStatusConfig[material.status]
+                            const matStatus = materialStatusConfig[material.status as keyof typeof materialStatusConfig] || { label: material.status || "Unknown", color: "bg-muted text-muted-foreground" }
                             return (
                               <tr key={material.id} className="group">
                                 <td className="py-3">

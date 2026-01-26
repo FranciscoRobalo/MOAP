@@ -315,7 +315,7 @@ export default function VisitasPage() {
                           )}
                         </div>
                       </div>
-                      <Badge className={statusColors[visit.status]}>{statusLabels[visit.status]}</Badge>
+                      <Badge className={statusColors[visit.status as keyof typeof statusColors] || "bg-muted text-muted-foreground"}>{statusLabels[visit.status as keyof typeof statusLabels] || visit.status}</Badge>
                     </div>
                     {visit.notes && (
                       <p className="text-sm text-muted-foreground bg-muted/50 rounded p-2">{visit.notes}</p>
@@ -361,7 +361,7 @@ export default function VisitasPage() {
                       <span>{visit.type}</span>
                     </div>
                   </div>
-                  <Badge className={statusColors[visit.status]}>{statusLabels[visit.status]}</Badge>
+                  <Badge className={statusColors[visit.status as keyof typeof statusColors] || "bg-muted text-muted-foreground"}>{statusLabels[visit.status as keyof typeof statusLabels] || visit.status}</Badge>
                 </div>
               ))}
             </div>

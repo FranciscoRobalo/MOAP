@@ -343,7 +343,7 @@ export default function ConvidarPage() {
           <CardContent>
             <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
               {invitations.map((invitation) => {
-                const status = statusConfig[invitation.status]
+                const status = statusConfig[invitation.status as keyof typeof statusConfig] || { label: invitation.status || "Unknown", color: "bg-muted text-muted-foreground", icon: Clock }
                 const StatusIcon = status.icon
 
                 return (

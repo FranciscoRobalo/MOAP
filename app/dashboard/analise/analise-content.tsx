@@ -642,7 +642,7 @@ export default function AnaliseContent() {
       item.referenceMinPrice?.toFixed(2) || "N/A",
       item.referenceMaxPrice?.toFixed(2) || "N/A",
       item.variance?.toFixed(1) || "N/A",
-      ratingConfig[item.rating].label,
+      (ratingConfig[item.rating as keyof typeof ratingConfig] || ratingConfig.unknown).label,
       item.matchConfidence.toFixed(0),
     ])
 
@@ -800,17 +800,17 @@ export default function AnaliseContent() {
             </Card>
             <Card className="bg-card/50">
               <CardContent className="pt-6">
-                <div className={cn("text-2xl font-bold", ratingConfig[analysisResult.overallRating].color)}>
+                <div className={cn("text-2xl font-bold", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).color)}>
                   {analysisResult.overallVariance > 0 ? "+" : ""}
                   {analysisResult.overallVariance.toFixed(1)}%
                 </div>
                 <p className="text-sm text-muted-foreground">Variação Global</p>
               </CardContent>
             </Card>
-            <Card className={cn("bg-card/50", ratingConfig[analysisResult.overallRating].bg)}>
+            <Card className={cn("bg-card/50", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).bg)}>
               <CardContent className="pt-6">
-                <div className={cn("text-2xl font-bold", ratingConfig[analysisResult.overallRating].color)}>
-                  {ratingConfig[analysisResult.overallRating].label}
+                <div className={cn("text-2xl font-bold", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).color)}>
+                  {(ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).label}
                 </div>
                 <p className="text-sm text-muted-foreground">Classificação Geral</p>
               </CardContent>
@@ -837,7 +837,7 @@ export default function AnaliseContent() {
                   { key: "critical", count: analysisResult.stats.critical },
                   { key: "unknown", count: analysisResult.stats.unknown },
                 ].map(({ key, count }) => {
-                  const config = ratingConfig[key as keyof typeof ratingConfig]
+                  const config = ratingConfig[key as keyof typeof ratingConfig] || ratingConfig.unknown
                   const percentage = (count / analysisResult.stats.totalItems) * 100
                   return (
                     <div key={key} className="space-y-2">
@@ -935,7 +935,7 @@ export default function AnaliseContent() {
                         </thead>
                         <tbody className="divide-y divide-border/50">
                           {filteredItems.map((item) => {
-                            const config = ratingConfig[item.rating]
+                            const config = ratingConfig[item.rating as keyof typeof ratingConfig] || ratingConfig.unknown
                             const Icon = config.icon
                             return (
                               <tr key={item.id} className="hover:bg-muted/30">

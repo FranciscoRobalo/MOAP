@@ -309,7 +309,7 @@ export default function ConcursosPage() {
       {/* Concursos List */}
       <div className="space-y-4">
         {filteredConcursos.map((concurso) => {
-          const status = statusConfig[concurso.status]
+          const status = statusConfig[concurso.status as keyof typeof statusConfig] || { label: concurso.status || "Unknown", color: "bg-muted text-muted-foreground" }
           const days = daysUntilDeadline(concurso.deadline)
 
           return (
