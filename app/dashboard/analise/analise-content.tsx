@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -41,6 +42,7 @@ interface BudgetItem {
   category: string
   matchConfidence: number
   type: "material" | "work"
+  matchDetails?: string
 }
 
 interface AnalysisResult {
@@ -61,7 +63,13 @@ interface AnalysisResult {
     aboveAverage: number
     critical: number
     unknown: number
+    matchRate: number
+    avgConfidence: number
+    potentialSavings: number
+    riskItems: number
   }
+  categoryBreakdown: { category: string; total: number; count: number; variance: number }[]
+  recommendations: string[]
 }
 
 const ratingConfig = {
@@ -124,7 +132,7 @@ export default function AnaliseContent() {
   const [filterRating, setFilterRating] = useState<string>("all")
   const [activeTab, setActiveTab] = useState("all")
 
-  // Normalize text for matching
+  // Normalize text for matching - enhanced for Portuguese construction terms
   const normalizeText = (text: string): string => {
     return text
       .toLowerCase()
@@ -135,123 +143,213 @@ export default function AnaliseContent() {
       .trim()
   }
 
-  // Calculate Levenshtein distance
+  // Calculate Levenshtein distance with optimization
   const levenshteinDistance = (str1: string, str2: string): number => {
     const m = str1.length
     const n = str2.length
-    const dp: number[][] = Array(m + 1)
-      .fill(null)
-      .map(() => Array(n + 1).fill(0))
-
-    for (let i = 0; i <= m; i++) dp[i][0] = i
-    for (let j = 0; j <= n; j++) dp[0][j] = j
-
+    
+    // Early exit for empty strings
+    if (m === 0) return n
+    if (n === 0) return m
+    
+    // Use single array optimization
+    let prev = Array.from({ length: n + 1 }, (_, i) => i)
+    let curr = new Array(n + 1)
+    
     for (let i = 1; i <= m; i++) {
+      curr[0] = i
       for (let j = 1; j <= n; j++) {
         if (str1[i - 1] === str2[j - 1]) {
-          dp[i][j] = dp[i - 1][j - 1]
+          curr[j] = prev[j - 1]
         } else {
-          dp[i][j] = Math.min(dp[i - 1][j - 1] + 1, dp[i - 1][j] + 1, dp[i][j - 1] + 1)
+          curr[j] = Math.min(prev[j - 1] + 1, prev[j] + 1, curr[j - 1] + 1)
+        }
+      }
+      ;[prev, curr] = [curr, prev]
+    }
+    return prev[n]
+  }
+
+  // Calculate Jaccard similarity for word sets
+  const jaccardSimilarity = (set1: Set<string>, set2: Set<string>): number => {
+    const intersection = new Set([...set1].filter(x => set2.has(x)))
+    const union = new Set([...set1, ...set2])
+    return union.size === 0 ? 0 : intersection.size / union.size
+  }
+
+  // N-gram similarity for fuzzy matching
+  const getNgrams = (str: string, n: number): Set<string> => {
+    const ngrams = new Set<string>()
+    for (let i = 0; i <= str.length - n; i++) {
+      ngrams.add(str.substring(i, i + n))
+    }
+    return ngrams
+  }
+
+  // Comprehensive construction terminology mapping for Portuguese
+  const constructionTerminology: Record<string, { synonyms: string[], category: string, weight: number }> = {
+    // Demolições
+    demolicao: { synonyms: ["demolicao", "demolir", "derrube", "remocao", "arranque", "levantamento", "desmontagem"], category: "Demolições", weight: 1.5 },
+    // Estrutura
+    betao: { synonyms: ["betao", "concreto", "cimento", "betonagem", "armado", "c25", "c30", "c20"], category: "Estrutura", weight: 1.5 },
+    ferro: { synonyms: ["ferro", "aco", "armadura", "varoes", "malhasol", "a500"], category: "Estrutura", weight: 1.4 },
+    cofragem: { synonyms: ["cofragem", "doka", "peri", "taipal", "molde"], category: "Estrutura", weight: 1.4 },
+    bloco: { synonyms: ["bloco", "tijolo", "alvenaria", "parede", "divisoria"], category: "Estrutura", weight: 1.3 },
+    // Alvenaria
+    reboco: { synonyms: ["reboco", "estuque", "embocar", "argamassa", "regularizacao", "barramento"], category: "Alvenaria", weight: 1.4 },
+    gesso: { synonyms: ["gesso", "pladur", "cartonado", "drywall", "teto falso", "sanca"], category: "Alvenaria", weight: 1.4 },
+    // Revestimentos
+    azulejo: { synonyms: ["azulejo", "ceramica", "revestimento", "ladrilho", "faianca", "mosaico"], category: "Revestimentos", weight: 1.3 },
+    pavimento: { synonyms: ["pavimento", "chao", "soalho", "flutuante", "parquet", "vinilico", "laminado", "ceramico"], category: "Pavimentos", weight: 1.3 },
+    // Pintura
+    pintura: { synonyms: ["pintura", "tinta", "primario", "esmalte", "velatura", "verniz", "latex", "acrilica"], category: "Pinturas", weight: 1.3 },
+    // Caixilharia
+    janela: { synonyms: ["janela", "caixilharia", "vidro", "aluminio", "pvc", "oscilobatente"], category: "Carpintarias", weight: 1.3 },
+    porta: { synonyms: ["porta", "aro", "guarnicao", "forra", "batente", "interior", "exterior", "blindada"], category: "Carpintarias", weight: 1.3 },
+    // Instalações
+    eletrico: { synonyms: ["eletrico", "eletricidade", "tomada", "interruptor", "quadro", "cabo", "cablagem", "iluminacao"], category: "Instalações", weight: 1.4 },
+    canalizacao: { synonyms: ["canalizacao", "tubo", "tubagem", "esgoto", "agua", "ppr", "pex", "pvc", "multicamada"], category: "Instalações", weight: 1.4 },
+    louca: { synonyms: ["louca", "sanita", "lavatorio", "banheira", "duche", "base", "bide", "sanduiche"], category: "Instalações", weight: 1.3 },
+    torneira: { synonyms: ["torneira", "misturadora", "valvula", "monocomando"], category: "Instalações", weight: 1.2 },
+    // Coberturas
+    telhado: { synonyms: ["telhado", "cobertura", "telha", "zinco", "chapa", "ondulado", "subtelha", "ripado"], category: "Coberturas", weight: 1.4 },
+    // Impermeabilização
+    impermeabilizacao: { synonyms: ["impermeabilizacao", "tela", "membrana", "waterstop", "sika", "betuminoso"], category: "Impermeabilizações", weight: 1.4 },
+    // Isolamento
+    isolamento: { synonyms: ["isolamento", "termico", "acustico", "capoto", "etics", "eps", "xps", "la", "mineral", "rocha"], category: "Isolamentos", weight: 1.4 },
+    // AVAC
+    avac: { synonyms: ["avac", "hvac", "ar condicionado", "climatizacao", "aquecimento", "radiador", "caldeira", "bomba calor", "piso radiante"], category: "Instalações AVAC", weight: 1.4 },
+    // Exteriores
+    exterior: { synonyms: ["exterior", "pave", "lancil", "vedacao", "muro", "portao", "gradeamento"], category: "Arranjos Exteriores", weight: 1.3 },
+    // Limpezas
+    limpeza: { synonyms: ["limpeza", "contentor", "entulho", "residuo", "transporte"], category: "Limpezas", weight: 1.2 },
+  }
+
+  // Extract key terms from text
+  const extractKeyTerms = (text: string): Set<string> => {
+    const normalized = normalizeText(text)
+    const terms = new Set<string>()
+    
+    for (const [term, data] of Object.entries(constructionTerminology)) {
+      for (const synonym of data.synonyms) {
+        if (normalized.includes(synonym)) {
+          terms.add(term)
+          break
         }
       }
     }
-    return dp[m][n]
+    return terms
   }
 
-  // Find best match from database with improved fuzzy matching
+  // Find best match from database with advanced multi-factor matching
   const findBestMatch = useCallback(
-    (itemName: string): { material: (typeof materials)[0] | null; confidence: number } => {
+    (itemName: string, itemUnit?: string): { material: (typeof materials)[0] | null; confidence: number; matchDetails: string } => {
       const normalizedItem = normalizeText(itemName)
-      const itemWords = normalizedItem.split(" ").filter((w) => w.length > 2)
+      const itemWords = new Set(normalizedItem.split(" ").filter((w) => w.length > 2))
+      const itemNgrams = getNgrams(normalizedItem, 3)
+      const itemKeyTerms = extractKeyTerms(itemName)
 
       let bestMatch: (typeof materials)[0] | null = null
       let bestScore = 0
-
-      // Key construction terms in Portuguese
-      const keyTerms: Record<string, string[]> = {
-        betao: ["betao", "concreto", "cimento"],
-        demolicao: ["demolicao", "demolir", "derrube", "remocao"],
-        alvenaria: ["alvenaria", "tijolo", "bloco", "parede"],
-        reboco: ["reboco", "estuque", "embocar", "argamassa"],
-        pintura: ["pintura", "pintar", "tinta", "esmalte", "primario"],
-        pladur: ["pladur", "gesso", "cartonado", "drywall"],
-        pavimento: ["pavimento", "chao", "soalho", "mosaico", "ceramico", "flutuante"],
-        caixilharia: ["caixilharia", "janela", "porta", "aluminio", "pvc"],
-        canalizacao: ["canalizacao", "tubagem", "esgoto", "agua", "tubo"],
-        eletricidade: ["eletricidade", "eletrico", "tomada", "interruptor", "quadro", "cabo"],
-        impermeabilizacao: ["impermeabilizacao", "tela", "membrana", "isolamento"],
-        isolamento: ["isolamento", "termico", "acustico", "capoto", "eps", "xps", "la"],
-        cobertura: ["cobertura", "telha", "telhado", "zinco", "chapa"],
-        serralharia: ["serralharia", "metal", "ferro", "aco", "grade"],
-        carpintaria: ["carpintaria", "madeira", "rodape", "forra", "aro"],
-        revestimento: ["revestimento", "azulejo", "ceramica", "pedra", "marmore"],
-        aquecimento: ["aquecimento", "radiador", "caldeira", "piso radiante", "bomba calor"],
-        ar: ["ar condicionado", "avac", "hvac", "climatizacao"],
-        louca: ["louca", "sanita", "lavatorio", "banheira", "base duche", "bidé"],
-        torneira: ["torneira", "misturadora", "valvula"],
-      }
+      let bestMatchDetails = ""
 
       for (const material of materials) {
         const normalizedMaterial = normalizeText(material.name)
-        const materialWords = normalizedMaterial.split(" ").filter((w) => w.length > 2)
+        const materialWords = new Set(normalizedMaterial.split(" ").filter((w) => w.length > 2))
+        const materialNgrams = getNgrams(normalizedMaterial, 3)
+        const materialKeyTerms = extractKeyTerms(material.name)
 
         let score = 0
+        let details: string[] = []
 
-        // Exact match
+        // 1. Exact match (highest priority)
         if (normalizedItem === normalizedMaterial) {
-          return { material, confidence: 100 }
+          return { material, confidence: 100, matchDetails: "Correspondência exata" }
         }
 
-        // Contains match
-        if (normalizedMaterial.includes(normalizedItem) || normalizedItem.includes(normalizedMaterial)) {
-          score += 70
+        // 2. Contains match (high priority)
+        if (normalizedMaterial.includes(normalizedItem)) {
+          score += 60
+          details.push("Contém texto completo")
+        } else if (normalizedItem.includes(normalizedMaterial)) {
+          score += 50
+          details.push("Texto contém material")
         }
 
-        // Word overlap score
-        const commonWords = itemWords.filter(
-          (w) => materialWords.some((mw) => mw.includes(w) || w.includes(mw)) || materialWords.includes(w),
-        )
-        const wordOverlapScore = (commonWords.length / Math.max(itemWords.length, materialWords.length)) * 50
-        score += wordOverlapScore
+        // 3. Key construction term matching (weighted)
+        const commonTerms = new Set([...itemKeyTerms].filter(t => materialKeyTerms.has(t)))
+        if (commonTerms.size > 0) {
+          let termScore = 0
+          commonTerms.forEach(term => {
+            const termData = constructionTerminology[term]
+            if (termData) {
+              termScore += 25 * termData.weight
+            }
+          })
+          score += Math.min(termScore, 50)
+          if (commonTerms.size > 0) {
+            details.push(`Termos: ${[...commonTerms].join(", ")}`)
+          }
+        }
 
-        // Key term matching
-        for (const [category, terms] of Object.entries(keyTerms)) {
-          const itemHasTerm = terms.some((t) => normalizedItem.includes(t))
-          const materialHasTerm = terms.some((t) => normalizedMaterial.includes(t))
-          if (itemHasTerm && materialHasTerm) {
-            score += 30
+        // 4. Word overlap with Jaccard similarity
+        const wordSimilarity = jaccardSimilarity(itemWords, materialWords)
+        score += wordSimilarity * 35
+        if (wordSimilarity > 0.3) {
+          details.push(`Palavras comuns: ${(wordSimilarity * 100).toFixed(0)}%`)
+        }
+
+        // 5. N-gram similarity for fuzzy matching
+        const ngramSimilarity = jaccardSimilarity(itemNgrams, materialNgrams)
+        score += ngramSimilarity * 25
+        if (ngramSimilarity > 0.2) {
+          details.push(`Similaridade: ${(ngramSimilarity * 100).toFixed(0)}%`)
+        }
+
+        // 6. Levenshtein distance for short strings
+        if (normalizedItem.length < 50 && normalizedMaterial.length < 50) {
+          const maxLen = Math.max(normalizedItem.length, normalizedMaterial.length)
+          const distance = levenshteinDistance(normalizedItem, normalizedMaterial)
+          const similarity = (maxLen - distance) / maxLen
+          score += similarity * 15
+        }
+
+        // 7. Unit matching bonus
+        if (itemUnit && material.unit) {
+          const normalizedItemUnit = itemUnit.toLowerCase().replace(/[^a-z0-9]/g, "")
+          const normalizedMaterialUnit = material.unit.toLowerCase().replace(/[^a-z0-9]/g, "")
+          if (normalizedItemUnit === normalizedMaterialUnit || 
+              (normalizedItemUnit.includes(normalizedMaterialUnit) || normalizedMaterialUnit.includes(normalizedItemUnit))) {
+            score += 10
+            details.push("Unidade compatível")
+          }
+        }
+
+        // 8. Category context bonus - boost if item seems to fit material's category
+        const materialCategory = material.category.toLowerCase()
+        for (const [term, data] of Object.entries(constructionTerminology)) {
+          if (itemKeyTerms.has(term) && data.category.toLowerCase() === materialCategory) {
+            score += 8
             break
           }
         }
 
-        // Levenshtein distance for similar strings
-        const maxLen = Math.max(normalizedItem.length, normalizedMaterial.length)
-        const distance = levenshteinDistance(normalizedItem, normalizedMaterial)
-        const similarity = ((maxLen - distance) / maxLen) * 40
-        score += similarity
-
-        // Partial word matching
-        for (const word of itemWords) {
-          for (const mWord of materialWords) {
-            if (word.length >= 4 && mWord.length >= 4) {
-              if (mWord.startsWith(word.substring(0, 4)) || word.startsWith(mWord.substring(0, 4))) {
-                score += 10
-              }
-            }
-          }
-        }
-
+        // Track best match
         if (score > bestScore) {
           bestScore = score
           bestMatch = material
+          bestMatchDetails = details.length > 0 ? details.join(" | ") : "Correspondência parcial"
         }
       }
 
-      // Lower threshold to find more matches
-      const confidence = Math.min(bestScore, 100)
+      // Normalize confidence to 0-100 scale with calibrated threshold
+      const confidence = Math.min(Math.round(bestScore * 0.8), 100)
+      const threshold = 18 // Lowered threshold to catch more potential matches
+      
       return {
-        material: confidence >= 20 ? bestMatch : null,
-        confidence: confidence >= 20 ? confidence : 0,
+        material: confidence >= threshold ? bestMatch : null,
+        confidence: confidence >= threshold ? confidence : 0,
+        matchDetails: confidence >= threshold ? bestMatchDetails : "Sem correspondência encontrada",
       }
     },
     [materials],
@@ -507,7 +605,7 @@ export default function AnaliseContent() {
         const item = parsedItems[i]
         setAnalyzeProgress(Math.round(((i + 1) / totalItems) * 100))
 
-        const { material, confidence } = findBestMatch(item.name)
+        const { material, confidence, matchDetails } = findBestMatch(item.name, item.unit)
         const itemTotal = item.quantity * item.price
         totalBudget += itemTotal
 
@@ -517,7 +615,7 @@ export default function AnaliseContent() {
         let refMax: number | null = null
         let refAvg: number | null = null
 
-        if (material && confidence >= 20) {
+        if (material && confidence >= 18) {
           // Use price as min and priceMax as max (matching Material interface in data-context)
           refMin = material.price
           refMax = material.priceMax || material.price
@@ -531,18 +629,29 @@ export default function AnaliseContent() {
             variance = null
           }
 
-          if (variance <= -10) {
-            rating = "below"
-            belowCount++
-          } else if (variance <= 10) {
-            rating = "average"
-            avgCount++
-          } else if (variance <= 49) {
-            rating = "above"
-            aboveCount++
+          // Enhanced rating system with granular thresholds
+          if (variance !== null) {
+            if (variance <= -25) {
+              rating = "below" // Significantly below market - potential quality concern
+              belowCount++
+            } else if (variance <= -10) {
+              rating = "below" // Below market - good deal
+              belowCount++
+            } else if (variance <= 10) {
+              rating = "average" // Within market range
+              avgCount++
+            } else if (variance <= 30) {
+              rating = "above" // Moderately above market
+              aboveCount++
+            } else if (variance <= 50) {
+              rating = "above" // Significantly above market
+              aboveCount++
+            } else {
+              rating = "critical" // Extremely overpriced
+              criticalCount++
+            }
           } else {
-            rating = "critical"
-            criticalCount++
+            unknownCount++
           }
         } else {
           unknownCount++
@@ -563,7 +672,8 @@ export default function AnaliseContent() {
           category: material?.category || "Outros",
           matchConfidence: confidence,
           type: material?.type || "work",
-        })
+          matchDetails: matchDetails,
+        } as BudgetItem & { matchDetails: string })
 
         // Small delay for visual progress
         await new Promise((r) => setTimeout(r, 10))
@@ -575,6 +685,81 @@ export default function AnaliseContent() {
       else if (overallVariance <= 10) overallRating = "average"
       else if (overallVariance <= 49) overallRating = "above"
       else overallRating = "critical"
+
+      // Calculate advanced metrics
+      const matchedItems = analyzedItems.filter(i => i.matchedName !== null)
+      const matchRate = totalItems > 0 ? (matchedItems.length / totalItems) * 100 : 0
+      const avgConfidence = matchedItems.length > 0 
+        ? matchedItems.reduce((sum, i) => sum + i.matchConfidence, 0) / matchedItems.length 
+        : 0
+      
+      // Calculate potential savings (items above market price)
+      const potentialSavings = analyzedItems
+        .filter(i => i.variance !== null && i.variance > 10)
+        .reduce((sum, i) => {
+          const refPrice = i.referenceAvgPrice || 0
+          const overpaid = (i.budgetPrice - refPrice) * i.quantity
+          return sum + Math.max(0, overpaid)
+        }, 0)
+      
+      // Count high-risk items (critical or very high variance)
+      const riskItems = analyzedItems.filter(i => i.rating === "critical" || (i.variance && i.variance > 50)).length
+
+      // Calculate category breakdown
+      const categoryMap = new Map<string, { total: number; count: number; budgetTotal: number; refTotal: number }>()
+      analyzedItems.forEach(item => {
+        const cat = item.category
+        const existing = categoryMap.get(cat) || { total: 0, count: 0, budgetTotal: 0, refTotal: 0 }
+        const itemBudgetTotal = item.budgetPrice * item.quantity
+        const itemRefTotal = (item.referenceAvgPrice || item.budgetPrice) * item.quantity
+        categoryMap.set(cat, {
+          total: existing.total + itemBudgetTotal,
+          count: existing.count + 1,
+          budgetTotal: existing.budgetTotal + itemBudgetTotal,
+          refTotal: existing.refTotal + itemRefTotal,
+        })
+      })
+      
+      const categoryBreakdown = Array.from(categoryMap.entries())
+        .map(([category, data]) => ({
+          category,
+          total: data.total,
+          count: data.count,
+          variance: data.refTotal > 0 ? ((data.budgetTotal - data.refTotal) / data.refTotal) * 100 : 0,
+        }))
+        .sort((a, b) => b.total - a.total)
+
+      // Generate smart recommendations
+      const recommendations: string[] = []
+      
+      if (criticalCount > 0) {
+        recommendations.push(`Existem ${criticalCount} itens com preços muito acima do mercado que requerem atenção urgente.`)
+      }
+      
+      if (potentialSavings > 1000) {
+        recommendations.push(`Potencial de poupança identificado: €${potentialSavings.toLocaleString("pt-PT", { minimumFractionDigits: 2 })} através de renegociação de preços acima da média.`)
+      }
+      
+      if (unknownCount > totalItems * 0.3) {
+        recommendations.push(`${unknownCount} itens (${((unknownCount/totalItems)*100).toFixed(0)}%) não têm correspondência na base de dados. Considere adicionar mais referências de preços.`)
+      }
+      
+      if (avgConfidence < 50) {
+        recommendations.push("A confiança média das correspondências é baixa. Revise manualmente os itens para garantir precisão.")
+      }
+      
+      const highVarianceCategories = categoryBreakdown.filter(c => c.variance > 25)
+      if (highVarianceCategories.length > 0) {
+        recommendations.push(`Categorias com variação elevada: ${highVarianceCategories.map(c => c.category).join(", ")}.`)
+      }
+      
+      if (belowCount > totalItems * 0.2) {
+        recommendations.push("Vários itens estão significativamente abaixo do preço de mercado. Verifique a qualidade dos materiais propostos.")
+      }
+
+      if (recommendations.length === 0) {
+        recommendations.push("O orçamento está globalmente alinhado com os preços de mercado.")
+      }
 
       setAnalysisResult({
         id: `analysis-${Date.now()}`,
@@ -588,13 +773,19 @@ export default function AnaliseContent() {
         items: analyzedItems,
         stats: {
           totalItems,
-          matchedItems: totalItems - unknownCount,
+          matchedItems: matchedItems.length,
           belowAverage: belowCount,
           average: avgCount,
           aboveAverage: aboveCount,
           critical: criticalCount,
           unknown: unknownCount,
+          matchRate,
+          avgConfidence,
+          potentialSavings,
+          riskItems,
         },
+        categoryBreakdown,
+        recommendations,
       })
     } catch (error) {
       console.error("Error analyzing file:", error)
@@ -784,17 +975,17 @@ export default function AnaliseContent() {
       {/* Results Section */}
       {analysisResult && (
         <div className="space-y-6" data-tutorial="analise-results">
-          {/* Summary Cards */}
-          <div className="grid gap-4 md:grid-cols-4">
+          {/* Summary Cards - Enhanced */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card className="bg-card/50">
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">€{analysisResult.totalBudget.toLocaleString("pt-PT")}</div>
+                <div className="text-2xl font-bold">€{analysisResult.totalBudget.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}</div>
                 <p className="text-sm text-muted-foreground">Total do Orçamento</p>
               </CardContent>
             </Card>
             <Card className="bg-card/50">
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">€{analysisResult.totalReference.toLocaleString("pt-PT")}</div>
+                <div className="text-2xl font-bold">€{analysisResult.totalReference.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}</div>
                 <p className="text-sm text-muted-foreground">Total de Referência</p>
               </CardContent>
             </Card>
@@ -816,6 +1007,131 @@ export default function AnaliseContent() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Advanced Metrics Row */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card className="bg-card/50 border-l-4 border-l-primary">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xl font-bold">{analysisResult.stats.matchRate.toFixed(0)}%</div>
+                    <p className="text-sm text-muted-foreground">Taxa de Correspondência</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <BarChart3 className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 border-l-4 border-l-price-below">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xl font-bold">{analysisResult.stats.avgConfidence.toFixed(0)}%</div>
+                    <p className="text-sm text-muted-foreground">Confiança Média</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-price-below/10 flex items-center justify-center">
+                    <TrendingUp className="h-6 w-6 text-price-below" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 border-l-4 border-l-price-above">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xl font-bold text-price-above">€{analysisResult.stats.potentialSavings.toLocaleString("pt-PT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                    <p className="text-sm text-muted-foreground">Poupança Potencial</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-price-above/10 flex items-center justify-center">
+                    <TrendingDown className="h-6 w-6 text-price-above" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 border-l-4 border-l-price-critical">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xl font-bold text-price-critical">{analysisResult.stats.riskItems}</div>
+                    <p className="text-sm text-muted-foreground">Itens de Risco</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-price-critical/10 flex items-center justify-center">
+                    <AlertTriangle className="h-6 w-6 text-price-critical" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recommendations Card */}
+          {analysisResult.recommendations && analysisResult.recommendations.length > 0 && (
+            <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Info className="h-5 w-5 text-primary" />
+                  Recomendações da Análise
+                </CardTitle>
+                <CardDescription>Insights automáticos baseados na análise do orçamento</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3">
+                  {analysisResult.recommendations.map((rec, idx) => (
+                    <li key={idx} className="flex items-start gap-3">
+                      <div className="mt-1 h-2 w-2 rounded-full bg-primary flex-shrink-0" />
+                      <p className="text-sm text-foreground/90">{rec}</p>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Category Breakdown */}
+          {analysisResult.categoryBreakdown && analysisResult.categoryBreakdown.length > 0 && (
+            <Card className="bg-card/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  Análise por Categoria
+                </CardTitle>
+                <CardDescription>Distribuição de custos e variações por tipo de trabalho/material</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {analysisResult.categoryBreakdown.slice(0, 8).map((cat) => {
+                    const isPositiveVariance = cat.variance > 0
+                    const varianceColor = cat.variance <= -10 ? "text-price-below" : 
+                                          cat.variance <= 10 ? "text-price-average" : 
+                                          cat.variance <= 50 ? "text-price-above" : "text-price-critical"
+                    const barWidth = (cat.total / analysisResult.totalBudget) * 100
+                    return (
+                      <div key={cat.category} className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{cat.category}</span>
+                            <Badge variant="outline" className="text-xs">{cat.count} itens</Badge>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-muted-foreground">€{cat.total.toLocaleString("pt-PT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                            <span className={cn("font-medium", varianceColor)}>
+                              {isPositiveVariance ? "+" : ""}{cat.variance.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div 
+                            className="h-full bg-primary/60 transition-all"
+                            style={{ width: `${Math.min(barWidth, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Distribution */}
           <Card className="bg-card/50">
@@ -1010,9 +1326,3 @@ export default function AnaliseContent() {
     </div>
   )
 }
-
-const Label = ({ children, className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
-  <label className={cn("text-sm font-medium leading-none", className)} {...props}>
-    {children}
-  </label>
-)

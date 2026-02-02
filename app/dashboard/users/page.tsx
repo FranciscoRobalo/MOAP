@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Search, MessageSquare, UserPlus, MoreHorizontal } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
+import { useLanguage } from "@/contexts/language-context"
 
 interface User {
   id: string
@@ -18,6 +20,7 @@ interface User {
   company: string
   status: "online" | "offline" | "away"
   projects: number
+  type: "cliente" | "construtor" | "empreiteiro"
 }
 
 const mockUsers: User[] = [
@@ -30,6 +33,7 @@ const mockUsers: User[] = [
     company: "Construções Silva Lda",
     status: "online",
     projects: 12,
+    type: "construtor",
   },
   {
     id: "3",
@@ -40,6 +44,7 @@ const mockUsers: User[] = [
     company: "Santos Arquitetura",
     status: "away",
     projects: 8,
+    type: "cliente",
   },
   {
     id: "4",
@@ -50,6 +55,7 @@ const mockUsers: User[] = [
     company: "Costa & Filhos",
     status: "offline",
     projects: 15,
+    type: "empreiteiro",
   },
   {
     id: "5",
@@ -60,6 +66,7 @@ const mockUsers: User[] = [
     company: "Ferreira Design",
     status: "online",
     projects: 6,
+    type: "cliente",
   },
   {
     id: "6",
@@ -70,6 +77,7 @@ const mockUsers: User[] = [
     company: "Oliveira Orçamentos",
     status: "online",
     projects: 22,
+    type: "construtor",
   },
   {
     id: "7",
@@ -80,29 +88,57 @@ const mockUsers: User[] = [
     company: "Mendes Engenharia",
     status: "offline",
     projects: 9,
+    type: "empreiteiro",
   },
 ]
 
-export default function UsersPage() {
+function UsersContent() {
   const [searchQuery, setSearchQuery] = useState("")
+  const searchParams = useSearchParams()
+  const { t, language } = useLanguage()
+  const typeFilter = searchParams.get("type") as "cliente" | "construtor" | "empreiteiro" | null
+
+  const getPageTitle = () => {
+    if (typeFilter === "cliente") return t("clients")
+    if (typeFilter === "construtor") return t("builders")
+    if (typeFilter === "empreiteiro") return t("contractors")
+    return language === "pt" ? "Utilizadores" : language === "es" ? "Usuarios" : "Users"
+  }
+
+  const getPageDescription = () => {
+    if (typeFilter === "cliente") return language === "pt" ? "Lista de clientes registados na plataforma." : language === "es" ? "Lista de clientes registrados en la plataforma." : "List of clients registered on the platform."
+    if (typeFilter === "construtor") return language === "pt" ? "Lista de construtores registados na plataforma." : language === "es" ? "Lista de constructores registrados en la plataforma." : "List of builders registered on the platform."
+    if (typeFilter === "empreiteiro") return language === "pt" ? "Lista de empreiteiros registados na plataforma." : language === "es" ? "Lista de contratistas registrados en la plataforma." : "List of contractors registered on the platform."
+    return language === "pt" ? "Encontre e contacte outros profissionais da construção." : language === "es" ? "Encuentre y contacte a otros profesionales de la construcción." : "Find and contact other construction professionals."
+  }
+
+  const getTypeBadgeLabel = (type: string) => {
+    if (type === "cliente") return t("clients")
+    if (type === "construtor") return t("builders")
+    if (type === "empreiteiro") return t("contractors")
+    return type
+  }
 
   const filteredUsers = mockUsers.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.company.toLowerCase().includes(searchQuery.toLowerCase()),
+    (user) => {
+      const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.company.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesType = typeFilter ? user.type === typeFilter : true
+      return matchesSearch && matchesType
+    }
   )
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Utilizadores</h1>
-          <p className="text-muted-foreground">Encontre e contacte outros profissionais da construção.</p>
+          <h1 className="text-2xl font-bold tracking-tight">{getPageTitle()}</h1>
+          <p className="text-muted-foreground">{getPageDescription()}</p>
         </div>
         <Button>
           <UserPlus className="mr-2 h-4 w-4" />
-          Convidar Utilizador
+          {language === "pt" ? "Convidar Utilizador" : language === "es" ? "Invitar Usuario" : "Invite User"}
         </Button>
       </div>
 
@@ -110,7 +146,7 @@ export default function UsersPage() {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Pesquisar por nome, email ou empresa..."
+          placeholder={language === "pt" ? "Pesquisar por nome, email ou empresa..." : language === "es" ? "Buscar por nombre, email o empresa..." : "Search by name, email or company..."}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9 bg-input/50"
@@ -152,9 +188,9 @@ export default function UsersPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>Ver Perfil</DropdownMenuItem>
-                    <DropdownMenuItem>Bloquear</DropdownMenuItem>
-                    <DropdownMenuItem>Reportar</DropdownMenuItem>
+                    <DropdownMenuItem>{language === "pt" ? "Ver Perfil" : language === "es" ? "Ver Perfil" : "View Profile"}</DropdownMenuItem>
+                    <DropdownMenuItem>{language === "pt" ? "Bloquear" : language === "es" ? "Bloquear" : "Block"}</DropdownMenuItem>
+                    <DropdownMenuItem>{language === "pt" ? "Reportar" : language === "es" ? "Reportar" : "Report"}</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -165,13 +201,18 @@ export default function UsersPage() {
                 <p className="font-medium">{user.company}</p>
               </div>
               <div className="flex items-center justify-between">
-                <Badge variant="secondary" className="bg-primary/10 text-primary">
-                  {user.projects} projetos
-                </Badge>
+                <div className="flex gap-2">
+                  <Badge variant="secondary" className="bg-primary/10 text-primary">
+                    {user.projects} {language === "pt" ? "projetos" : language === "es" ? "proyectos" : "projects"}
+                  </Badge>
+                  <Badge variant="outline" className="text-muted-foreground">
+                    {getTypeBadgeLabel(user.type)}
+                  </Badge>
+                </div>
                 <Link href="/dashboard/messages">
                   <Button size="sm" variant="outline">
                     <MessageSquare className="mr-2 h-4 w-4" />
-                    Mensagem
+                    {language === "pt" ? "Mensagem" : language === "es" ? "Mensaje" : "Message"}
                   </Button>
                 </Link>
               </div>
@@ -180,5 +221,13 @@ export default function UsersPage() {
         ))}
       </div>
     </div>
+  )
+}
+
+export default function UsersPage() {
+  return (
+    <Suspense fallback={null}>
+      <UsersContent />
+    </Suspense>
   )
 }

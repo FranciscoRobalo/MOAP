@@ -78,6 +78,10 @@ const translations = {
     emailExists: "Este email já está registado",
     registrationPending: "Registo submetido com sucesso",
     pendingRegistrations: "Registos Pendentes",
+    budgetApproval: "Aprovação de Orçamentos",
+    clients: "Clientes",
+    builders: "Construtores",
+    contractors: "Empreiteiros",
     approveRegistration: "Aprovar",
     rejectRegistration: "Rejeitar",
     registrationApproved: "Registo aprovado",
@@ -240,6 +244,7 @@ const translations = {
     heroBadge: "Análise Inteligente de Orçamentos",
     heroUploadButton: "Carregar Orçamento",
     heroLearnMore: "Saiba Mais",
+    heroBudgetRequest: "Pedido de Orçamento",
     heroStat1Value: "10K+",
     heroStat1Label: "Orçamentos Analisados",
     heroStat2Value: "98%",
@@ -250,7 +255,7 @@ const translations = {
     heroStat4Label: "Suporte Técnico",
 
     // Landing Page - Features
-    featuresTitle: "Funcionalidades Poderosas",
+    featuresTitle: "Funcionalidades",
     featuresSubtitle: "Tecnologia avançada para análise precisa de orçamentos de construção",
     feature1Title: "Interpretação Inteligente",
     feature1Desc:
@@ -411,6 +416,10 @@ const translations = {
     emailExists: "This email is already registered",
     registrationPending: "Registration submitted successfully",
     pendingRegistrations: "Pending Registrations",
+    budgetApproval: "Budget Approval",
+    clients: "Clients",
+    builders: "Builders",
+    contractors: "Contractors",
     approveRegistration: "Approve",
     rejectRegistration: "Reject",
     registrationApproved: "Registration approved",
@@ -573,6 +582,7 @@ const translations = {
     heroBadge: "Intelligent Budget Analysis",
     heroUploadButton: "Upload Budget",
     heroLearnMore: "Learn More",
+    heroBudgetRequest: "Budget Request",
     heroStat1Value: "10K+",
     heroStat1Label: "Budgets Analyzed",
     heroStat2Value: "98%",
@@ -583,7 +593,7 @@ const translations = {
     heroStat4Label: "Technical Support",
 
     // Landing Page - Features
-    featuresTitle: "Powerful Features",
+    featuresTitle: "Features",
     featuresSubtitle: "Advanced technology for precise construction budget analysis",
     feature1Title: "Intelligent Interpretation",
     feature1Desc:
@@ -740,6 +750,10 @@ const translations = {
     emailExists: "Este email ya está registrado",
     registrationPending: "Registro enviado con éxito",
     pendingRegistrations: "Registros Pendientes",
+    budgetApproval: "Aprobación de Presupuestos",
+    clients: "Clientes",
+    builders: "Constructores",
+    contractors: "Contratistas",
     approveRegistration: "Aprobar",
     rejectRegistration: "Rechazar",
     registrationApproved: "Registro aprobado",
@@ -902,6 +916,7 @@ const translations = {
     heroBadge: "Análisis Inteligente de Presupuestos",
     heroUploadButton: "Cargar Presupuesto",
     heroLearnMore: "Saber Más",
+    heroBudgetRequest: "Solicitar Presupuesto",
     heroStat1Value: "10K+",
     heroStat1Label: "Presupuestos Analizados",
     heroStat2Value: "98%",
@@ -912,7 +927,7 @@ const translations = {
     heroStat4Label: "Soporte Técnico",
 
     // Landing Page - Features
-    featuresTitle: "Funcionalidades Poderosas",
+    featuresTitle: "Funcionalidades",
     featuresSubtitle: "Tecnología avanzada para análisis preciso de presupuestos de construcción",
     feature1Title: "Interpretación Inteligente",
     feature1Desc:
