@@ -109,8 +109,8 @@ export default function RegistosContent() {
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">{t("pendingRegistrations")}</h1>
-        <p className="text-muted-foreground">Gerir pedidos de registo de novos utilizadores na plataforma.</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t("budgetApproval")}</h1>
+        <p className="text-muted-foreground">Gerir orçamentos pendentes de aprovação na plataforma.</p>
       </div>
 
       {/* Stats Cards */}

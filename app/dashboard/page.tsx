@@ -123,7 +123,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3" data-tutorial="quick-actions">
-        <Link href="/dashboard/obras/nova">
+        <Link href="/dashboard/analise">
           <Card
             className={`bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 hover:from-primary/20 hover:to-primary/10 cursor-pointer card-hover transition-all duration-500 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
@@ -177,7 +177,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </Link>
-        <Link href="/dashboard/visitas">
+        <Link href="/dashboard/registos">
           <Card
             className={`bg-gradient-to-br from-price-average/10 to-price-average/5 border-price-average/20 hover:from-price-average/20 hover:to-price-average/10 cursor-pointer card-hover transition-all duration-500 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
@@ -187,16 +187,16 @@ export default function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-lg bg-price-average/20">
-                  <Calendar className="h-6 w-6 text-price-average" />
+                  <Calculator className="h-6 w-6 text-price-average" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold">{t("scheduleVisit")}</h3>
+                  <h3 className="font-semibold">{t("budgetApproval")}</h3>
                   <p className="text-sm text-muted-foreground">
                     {language === "pt"
-                      ? "Marcar visita técnica"
+                      ? "Aprovar orçamentos pendentes"
                       : language === "es"
-                        ? "Programar visita técnica"
-                        : "Schedule technical visit"}
+                        ? "Aprobar presupuestos pendientes"
+                        : "Approve pending budgets"}
                   </p>
                 </div>
                 <ArrowRight className="h-5 w-5 text-muted-foreground" />
