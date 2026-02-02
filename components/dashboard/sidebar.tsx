@@ -13,8 +13,6 @@ import {
   LogOut,
   Menu,
   X,
-  Building2,
-  Calendar,
   Calculator,
   LayoutGrid,
   Settings,
@@ -39,7 +37,6 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { nameKey: "overview", href: "/dashboard", icon: LayoutGrid, roles: ["admin", "public", "tecnico"] },
-  { nameKey: "newProject", href: "/dashboard/analise", icon: FileText, roles: ["admin", "public", "tecnico"] },
   { nameKey: "budgetAnalysis", href: "/dashboard/analise", icon: BarChart3, roles: ["admin", "public", "tecnico"] },
   { nameKey: "analytics", href: "/dashboard/analytics", icon: TrendingUp, roles: ["admin"] },
   { nameKey: "budgets", href: "/dashboard/orcamentos", icon: Calculator, roles: ["admin", "tecnico"] },

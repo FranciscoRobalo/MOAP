@@ -225,12 +225,6 @@ export default function AnaliseContent() {
     limpeza: { synonyms: ["limpeza", "contentor", "entulho", "residuo", "transporte"], category: "Limpezas", weight: 1.2 },
   }
 
-  // Build reverse lookup for synonyms
-  const synonymToTerm = new Map<string, string>()
-  Object.entries(constructionTerminology).forEach(([term, data]) => {
-    data.synonyms.forEach(syn => synonymToTerm.set(syn, term))
-  })
-
   // Extract key terms from text
   const extractKeyTerms = (text: string): Set<string> => {
     const normalized = normalizeText(text)
@@ -1332,9 +1326,3 @@ export default function AnaliseContent() {
     </div>
   )
 }
-
-const Label = ({ children, className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
-  <label className={cn("text-sm font-medium leading-none", className)} {...props}>
-    {children}
-  </label>
-)
