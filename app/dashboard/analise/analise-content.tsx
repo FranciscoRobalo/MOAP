@@ -1525,14 +1525,16 @@ export default function AnaliseContent() {
         category: item.category,
       }))
       
-      // Add budget to the data context
+      // Add budget to the data context with "pendente" status for approval
       addBudget({
         name: saveBudgetName.trim(),
         obraId: "",
         obraName: saveBudgetLocation.trim() || "Localização não especificada",
         createdDate: new Date().toISOString().split("T")[0],
-        status: "rascunho",
+        status: "pendente",
         items: budgetItems,
+        totalValue: analysisResult.totalBudget,
+        analysisVariance: analysisResult.overallVariance,
       })
       
       // Reset form and close dialog
