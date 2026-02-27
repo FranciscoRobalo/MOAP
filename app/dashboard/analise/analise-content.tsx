@@ -204,40 +204,52 @@ export default function AnaliseContent() {
   // Comprehensive construction terminology mapping for Portuguese
   const constructionTerminology: Record<string, { synonyms: string[], category: string, weight: number }> = {
     // Demolições
-    demolicao: { synonyms: ["demolicao", "demolir", "derrube", "remocao", "arranque", "levantamento", "desmontagem"], category: "Demolições", weight: 1.5 },
+    demolicao: { synonyms: ["demolicao", "demolir", "derrube", "remocao", "arranque", "levantamento", "desmontagem", "picagem"], category: "Demolições", weight: 1.5 },
     // Estrutura
-    betao: { synonyms: ["betao", "concreto", "cimento", "betonagem", "armado", "c25", "c30", "c20"], category: "Estrutura", weight: 1.5 },
-    ferro: { synonyms: ["ferro", "aco", "armadura", "varoes", "malhasol", "a500"], category: "Estrutura", weight: 1.4 },
-    cofragem: { synonyms: ["cofragem", "doka", "peri", "taipal", "molde"], category: "Estrutura", weight: 1.4 },
-    bloco: { synonyms: ["bloco", "tijolo", "alvenaria", "parede", "divisoria"], category: "Estrutura", weight: 1.3 },
+    betao: { synonyms: ["betao", "concreto", "cimento", "betonagem", "armado", "c25", "c30", "c20", "fundacao", "fundacoes", "laje", "pilar", "viga", "sapata"], category: "Estrutura", weight: 1.5 },
+    ferro: { synonyms: ["ferro", "aco", "armadura", "varoes", "malhasol", "a500", "estribos"], category: "Estrutura", weight: 1.4 },
+    cofragem: { synonyms: ["cofragem", "doka", "peri", "taipal", "molde", "descofragem"], category: "Estrutura", weight: 1.4 },
     // Alvenaria
-    reboco: { synonyms: ["reboco", "estuque", "embocar", "argamassa", "regularizacao", "barramento"], category: "Alvenaria", weight: 1.4 },
-    gesso: { synonyms: ["gesso", "pladur", "cartonado", "drywall", "teto falso", "sanca"], category: "Alvenaria", weight: 1.4 },
+    alvenaria: { synonyms: ["alvenaria", "bloco", "tijolo", "parede", "divisoria", "pano", "muretes", "muro"], category: "Alvenarias", weight: 1.4 },
+    reboco: { synonyms: ["reboco", "estuque", "embocar", "argamassa", "regularizacao", "barramento", "chapisco", "emboço"], category: "Rebocos", weight: 1.4 },
+    gesso: { synonyms: ["gesso", "pladur", "cartonado", "drywall", "teto falso", "sanca", "forro"], category: "Tetos", weight: 1.4 },
     // Revestimentos
-    azulejo: { synonyms: ["azulejo", "ceramica", "revestimento", "ladrilho", "faianca", "mosaico"], category: "Revestimentos", weight: 1.3 },
-    pavimento: { synonyms: ["pavimento", "chao", "soalho", "flutuante", "parquet", "vinilico", "laminado", "ceramico"], category: "Pavimentos", weight: 1.3 },
+    azulejo: { synonyms: ["azulejo", "ceramica", "revestimento", "ladrilho", "faianca", "mosaico", "gres", "porcelanato"], category: "Revestimentos", weight: 1.3 },
+    pavimento: { synonyms: ["pavimento", "chao", "soalho", "flutuante", "parquet", "vinilico", "laminado", "ceramico", "epoxy", "epoxi", "resina", "betonilha"], category: "Pavimentos", weight: 1.3 },
     // Pintura
-    pintura: { synonyms: ["pintura", "tinta", "primario", "esmalte", "velatura", "verniz", "latex", "acrilica"], category: "Pinturas", weight: 1.3 },
+    pintura: { synonyms: ["pintura", "tinta", "primario", "esmalte", "velatura", "verniz", "latex", "acrilica", "plastica", "pintar"], category: "Pinturas", weight: 1.3 },
     // Caixilharia
-    janela: { synonyms: ["janela", "caixilharia", "vidro", "aluminio", "pvc", "oscilobatente"], category: "Carpintarias", weight: 1.3 },
-    porta: { synonyms: ["porta", "aro", "guarnicao", "forra", "batente", "interior", "exterior", "blindada"], category: "Carpintarias", weight: 1.3 },
-    // Instalações
-    eletrico: { synonyms: ["eletrico", "eletricidade", "tomada", "interruptor", "quadro", "cabo", "cablagem", "iluminacao"], category: "Instalações", weight: 1.4 },
-    canalizacao: { synonyms: ["canalizacao", "tubo", "tubagem", "esgoto", "agua", "ppr", "pex", "pvc", "multicamada"], category: "Instalações", weight: 1.4 },
-    louca: { synonyms: ["louca", "sanita", "lavatorio", "banheira", "duche", "base", "bide", "sanduiche"], category: "Instalações", weight: 1.3 },
-    torneira: { synonyms: ["torneira", "misturadora", "valvula", "monocomando"], category: "Instalações", weight: 1.2 },
+    caixilharia: { synonyms: ["janela", "caixilharia", "vidro", "aluminio", "pvc", "oscilobatente", "correr", "batente", "vidros"], category: "Caixilharias", weight: 1.3 },
+    porta: { synonyms: ["porta", "aro", "guarnicao", "forra", "batente", "interior", "exterior", "blindada", "seguranca", "corta-fogo"], category: "Carpintarias", weight: 1.3 },
+    // Instalações Elétricas
+    eletrico: { synonyms: ["eletrico", "eletricidade", "tomada", "interruptor", "quadro", "cabo", "cablagem", "iluminacao", "luz", "ponto"], category: "Instalações Elétricas", weight: 1.4 },
+    // Canalizações
+    canalizacao: { synonyms: ["canalizacao", "tubo", "tubagem", "esgoto", "agua", "ppr", "pex", "pvc", "multicamada", "hidraulica", "abastecimento", "drenagem"], category: "Canalizações", weight: 1.4 },
+    sanitarios: { synonyms: ["louca", "sanita", "lavatorio", "banheira", "duche", "base", "bide", "wc", "sanitarios", "casa banho"], category: "Canalizações", weight: 1.3 },
+    torneira: { synonyms: ["torneira", "misturadora", "valvula", "monocomando", "chuveiro"], category: "Canalizações", weight: 1.2 },
     // Coberturas
-    telhado: { synonyms: ["telhado", "cobertura", "telha", "zinco", "chapa", "ondulado", "subtelha", "ripado"], category: "Coberturas", weight: 1.4 },
+    telhado: { synonyms: ["telhado", "cobertura", "telha", "zinco", "chapa", "ondulado", "subtelha", "ripado", "beirado", "rufo"], category: "Coberturas", weight: 1.4 },
     // Impermeabilização
-    impermeabilizacao: { synonyms: ["impermeabilizacao", "tela", "membrana", "waterstop", "sika", "betuminoso"], category: "Impermeabilizações", weight: 1.4 },
+    impermeabilizacao: { synonyms: ["impermeabilizacao", "tela", "membrana", "waterstop", "sika", "betuminoso", "asfaltica", "primario"], category: "Impermeabilizações", weight: 1.4 },
     // Isolamento
-    isolamento: { synonyms: ["isolamento", "termico", "acustico", "capoto", "etics", "eps", "xps", "la", "mineral", "rocha"], category: "Isolamentos", weight: 1.4 },
-    // AVAC
-    avac: { synonyms: ["avac", "hvac", "ar condicionado", "climatizacao", "aquecimento", "radiador", "caldeira", "bomba calor", "piso radiante"], category: "Instalações AVAC", weight: 1.4 },
+    isolamento: { synonyms: ["isolamento", "termico", "acustico", "capoto", "cappotto", "etics", "eps", "xps", "la", "mineral", "rocha", "poliestireno"], category: "Isolamentos", weight: 1.5 },
+    // AVAC / Climatização
+    avac: { synonyms: ["avac", "hvac", "ar condicionado", "climatizacao", "aquecimento", "radiador", "caldeira", "bomba calor", "piso radiante", "split", "multi-split"], category: "Climatização", weight: 1.4 },
+    // Carpintarias
+    carpintaria: { synonyms: ["carpintaria", "madeira", "armario", "roupeiro", "movel", "rodape", "guarnicao", "embutido"], category: "Carpintarias", weight: 1.3 },
+    // Cozinhas
+    cozinha: { synonyms: ["cozinha", "bancada", "moveis", "tampo", "lava-louca", "exaustor", "fogao"], category: "Cozinhas", weight: 1.3 },
+    // Serralharia
+    serralharia: { synonyms: ["serralharia", "grade", "gradeamento", "corrimao", "guarda", "metalico", "ferro", "inox", "portao"], category: "Serralharias", weight: 1.3 },
+    // Movimento de Terras
+    escavacao: { synonyms: ["escavacao", "terraplanagem", "aterro", "movimento terras", "decapagem", "nivelamento"], category: "Movimento de Terras", weight: 1.3 },
     // Exteriores
-    exterior: { synonyms: ["exterior", "pave", "lancil", "vedacao", "muro", "portao", "gradeamento"], category: "Arranjos Exteriores", weight: 1.3 },
-    // Limpezas
-    limpeza: { synonyms: ["limpeza", "contentor", "entulho", "residuo", "transporte"], category: "Limpezas", weight: 1.2 },
+    exterior: { synonyms: ["exterior", "pave", "lancil", "vedacao", "muro", "portao", "gradeamento", "jardim", "calcada"], category: "Arranjos Exteriores", weight: 1.3 },
+    // Limpezas / Estaleiro
+    estaleiro: { synonyms: ["estaleiro", "montagem", "desmontagem", "andaime", "vedacao", "instalacao"], category: "Estaleiro", weight: 1.2 },
+    limpeza: { synonyms: ["limpeza", "contentor", "entulho", "residuo", "transporte", "remocao"], category: "Demolições", weight: 1.2 },
+    // Energias Renováveis
+    solar: { synonyms: ["solar", "fotovoltaico", "painel", "inversor", "energia", "renovavel"], category: "Energias Renováveis", weight: 1.3 },
   }
 
   // Extract key terms from text
@@ -671,48 +683,99 @@ export default function AnaliseContent() {
       let totalBudget = 0,
         totalReference = 0
 
-      // First pass: identify items without matches for GPT lookup
-      const itemsNeedingPriceLookup: Array<{ name: string; unit: string; quantity: number; price: number }> = []
+      // First pass: identify items needing GPT assistance (no match or low confidence < 60%)
+      const itemsNeedingGPT: Array<{ index: number; name: string; unit: string; quantity: number; price: number }> = []
       const localMatches: Map<number, { material: typeof materials[0] | null; confidence: number; matchDetails: string }> = new Map()
+      
+      const CONFIDENCE_THRESHOLD = 60 // Minimum confidence to show match
       
       for (let i = 0; i < parsedItems.length; i++) {
         const item = parsedItems[i]
         const match = findBestMatch(item.name, item.unit)
         localMatches.set(i, match)
         
-        if (!match.material || match.confidence < 18) {
-          itemsNeedingPriceLookup.push(item)
+        // Items with no match OR confidence below 60% need GPT
+        if (!match.material || match.confidence < CONFIDENCE_THRESHOLD) {
+          itemsNeedingGPT.push({ index: i, ...item })
         }
       }
       
-      // GPT price lookup for unmatched items
+      // GPT semantic matching for low-confidence items
+      let gptMatches: Record<string, { materialId: string | null; confidence: number; reason: string }> = {}
       let gptPrices: Record<string, { minPrice: number; maxPrice: number; avgPrice: number; confidence: number }> = {}
       
-      if (itemsNeedingPriceLookup.length > 0) {
+      if (itemsNeedingGPT.length > 0) {
         setAnalyzeProgress(5)
+        
+        // First try GPT matching against our database
         try {
-          const response = await fetch("/api/lookup-prices", {
+          const materialRefs = materials.map(m => ({
+            id: m.id,
+            name: m.name,
+            unit: m.unit,
+            price: m.price,
+            priceMax: m.priceMax,
+            category: m.category
+          }))
+          
+          const matchResponse = await fetch("/api/match-items", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ items: itemsNeedingPriceLookup })
+            body: JSON.stringify({ 
+              items: itemsNeedingGPT.map(i => ({ name: i.name, unit: i.unit, quantity: i.quantity, price: i.price })),
+              materials: materialRefs 
+            })
           })
           
-          if (response.ok) {
-            const data = await response.json()
-            if (data.prices) {
-              gptPrices = data.prices
+          if (matchResponse.ok) {
+            const matchData = await matchResponse.json()
+            if (matchData.matches) {
+              gptMatches = matchData.matches
             }
           }
-        } catch (err) {
-          // Continue without GPT prices
+        } catch {
+          // Continue without GPT matching
+        }
+        
+        setAnalyzeProgress(8)
+        
+        // For items still without good matches, get price estimates
+        const itemsStillNeedingPrices = itemsNeedingGPT.filter((item, idx) => {
+          const gptMatch = gptMatches[String(idx + 1)]
+          return !gptMatch || !gptMatch.materialId || gptMatch.confidence < CONFIDENCE_THRESHOLD
+        })
+        
+        if (itemsStillNeedingPrices.length > 0) {
+          try {
+            const response = await fetch("/api/lookup-prices", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ items: itemsStillNeedingPrices })
+            })
+            
+            if (response.ok) {
+              const data = await response.json()
+              if (data.prices) {
+                gptPrices = data.prices
+              }
+            }
+          } catch {
+            // Continue without GPT prices
+          }
         }
       }
+
+      // Map itemsNeedingGPT indices for quick lookup
+      const gptItemIndexMap = new Map<number, number>()
+      itemsNeedingGPT.forEach((item, gptIdx) => {
+        gptItemIndexMap.set(item.index, gptIdx + 1) // GPT uses 1-based indices
+      })
 
       for (let i = 0; i < parsedItems.length; i++) {
         const item = parsedItems[i]
         setAnalyzeProgress(10 + Math.round(((i + 1) / totalItems) * 90))
 
-        const { material, confidence, matchDetails } = localMatches.get(i) || findBestMatch(item.name, item.unit)
+        let { material, confidence, matchDetails } = localMatches.get(i) || findBestMatch(item.name, item.unit)
         const itemTotal = item.quantity * item.price
         totalBudget += itemTotal
 
@@ -724,16 +787,38 @@ export default function AnaliseContent() {
         let finalMatchedName: string | null = material?.name || null
         let finalConfidence = confidence
         let finalMatchDetails = matchDetails
+        let finalCategory = material?.category || "Sem categoria"
 
-        // Check GPT prices if no local match
+        // Check if this item was sent to GPT for matching
+        const gptIdx = gptItemIndexMap.get(i)
+        if (gptIdx !== undefined) {
+          const gptMatch = gptMatches[String(gptIdx)]
+          
+          // If GPT found a good match in our database
+          if (gptMatch && gptMatch.materialId && gptMatch.confidence >= CONFIDENCE_THRESHOLD) {
+            const matchedMaterial = materials.find(m => m.id === gptMatch.materialId)
+            if (matchedMaterial) {
+              material = matchedMaterial
+              confidence = gptMatch.confidence
+              matchDetails = gptMatch.reason + " (IA)"
+              finalMatchedName = matchedMaterial.name
+              finalConfidence = gptMatch.confidence
+              finalMatchDetails = gptMatch.reason + " (correspondência IA)"
+              finalCategory = matchedMaterial.category
+            }
+          }
+        }
+
+        // If still no good match, check GPT price estimates
         const gptPrice = gptPrices[item.name]
-        if ((!material || confidence < 18) && gptPrice && gptPrice.avgPrice > 0) {
+        if ((!material || finalConfidence < CONFIDENCE_THRESHOLD) && gptPrice && gptPrice.avgPrice > 0) {
           refMin = gptPrice.minPrice
           refMax = gptPrice.maxPrice
           refAvg = gptPrice.avgPrice
-          finalMatchedName = item.name + " (GPT)"
+          finalMatchedName = item.name + " (estimativa IA)"
           finalConfidence = gptPrice.confidence || 70
-          finalMatchDetails = "Preço de referência via IA (mercado PT)"
+          finalMatchDetails = "Preço estimado via IA (mercado PT)"
+          finalCategory = "Estimativa IA"
           totalReference += item.quantity * refAvg
 
           if (refAvg > 0) {
@@ -742,18 +827,12 @@ export default function AnaliseContent() {
 
           // Rating based on variance
           if (variance !== null) {
-            if (variance <= -25) {
-              rating = "below"
-              belowCount++
-            } else if (variance <= -10) {
+            if (variance <= -10) {
               rating = "below"
               belowCount++
             } else if (variance <= 10) {
               rating = "average"
               avgCount++
-            } else if (variance <= 30) {
-              rating = "above"
-              aboveCount++
             } else if (variance <= 50) {
               rating = "above"
               aboveCount++
@@ -777,7 +856,7 @@ export default function AnaliseContent() {
             referenceAvgPrice: refAvg,
             variance,
             rating,
-            category: "GPT Lookup",
+            category: finalCategory,
             matchConfidence: finalConfidence,
             type: "work",
             matchDetails: finalMatchDetails,
@@ -786,7 +865,8 @@ export default function AnaliseContent() {
           continue
         }
 
-        if (material && confidence >= 18) {
+        // Use local match if confidence is above threshold
+        if (material && finalConfidence >= CONFIDENCE_THRESHOLD) {
           // Use price as min and priceMax as max (matching Material interface in data-context)
           refMin = material.price
           refMax = material.priceMax || material.price
@@ -831,7 +911,7 @@ export default function AnaliseContent() {
         analyzedItems.push({
           id: `item-${i}`,
           originalName: item.name,
-          matchedName: material?.name || null,
+          matchedName: finalMatchedName,
           unit: item.unit,
           quantity: item.quantity,
           budgetPrice: item.price,
@@ -840,10 +920,10 @@ export default function AnaliseContent() {
           referenceAvgPrice: refAvg,
           variance,
           rating,
-          category: material?.category || "Outros",
-          matchConfidence: confidence,
+          category: finalCategory,
+          matchConfidence: finalConfidence,
           type: material?.type || "work",
-          matchDetails: matchDetails,
+          matchDetails: finalMatchDetails,
         } as BudgetItem & { matchDetails: string })
 
         // Small delay for visual progress
