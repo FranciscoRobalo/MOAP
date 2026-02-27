@@ -268,12 +268,15 @@ function parseInlineFormat(line: string): ParsedItem | null {
 // MAIN PARSER
 // ============================================================================
 
-function parseBudgetText(text: string): ParsedItem[] {
+function parseBudgetText(text: string, debugInfo: string[] = []): ParsedItem[] {
   const items: ParsedItem[] = []
   const lines = text.split(/[\r\n]+/)
   
+  debugInfo.push(`Total lines to parse: ${lines.length}`)
+  
   let currentDescription = ""
   let linesSinceDescription = 0
+  let strategyCounts = { ora: 0, z: 0, sub: 0, tab: 0, inline: 0, lpu: 0 }
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
@@ -306,6 +309,7 @@ function parseBudgetText(text: string): ParsedItem[] {
     item = parseORAMoradiaFormat(line, currentDescription)
     if (item && item.price > 0) {
       items.push(item)
+      strategyCounts.ora++
       currentDescription = ""
       linesSinceDescription = 0
       continue
@@ -315,6 +319,7 @@ function parseBudgetText(text: string): ParsedItem[] {
     item = parseZFormat(line, currentDescription)
     if (item && item.price > 0) {
       items.push(item)
+      strategyCounts.z++
       currentDescription = ""
       linesSinceDescription = 0
       continue
@@ -324,6 +329,7 @@ function parseBudgetText(text: string): ParsedItem[] {
     item = parseSubItemFormat(line)
     if (item && item.price > 0) {
       items.push(item)
+      strategyCounts.sub++
       continue
     }
     
@@ -331,6 +337,7 @@ function parseBudgetText(text: string): ParsedItem[] {
     item = parseTabularFormat(line)
     if (item && item.price > 0) {
       items.push(item)
+      strategyCounts.tab++
       currentDescription = ""
       linesSinceDescription = 0
       continue
@@ -340,6 +347,7 @@ function parseBudgetText(text: string): ParsedItem[] {
     item = parseInlineFormat(line)
     if (item && item.price > 0) {
       items.push(item)
+      strategyCounts.inline++
       currentDescription = ""
       linesSinceDescription = 0
       continue
@@ -351,6 +359,7 @@ function parseBudgetText(text: string): ParsedItem[] {
       // Only add if we have no other items with prices, or this has a price
       if (item.price > 0 || items.length === 0) {
         items.push(item)
+        strategyCounts.lpu++
       }
       currentDescription = ""
       linesSinceDescription = 0
@@ -388,6 +397,8 @@ function parseBudgetText(text: string): ParsedItem[] {
     linesSinceDescription = 0
   }
   
+  debugInfo.push(`Strategy counts: ORA=${strategyCounts.ora}, Z=${strategyCounts.z}, SUB=${strategyCounts.sub}, TAB=${strategyCounts.tab}, INLINE=${strategyCounts.inline}, LPU=${strategyCounts.lpu}`)
+  
   return items
 }
 
@@ -396,30 +407,56 @@ function parseBudgetText(text: string): ParsedItem[] {
 // ============================================================================
 
 export async function POST(request: NextRequest) {
+  const debugInfo: string[] = []
+  
   try {
     const formData = await request.formData()
     const file = formData.get("file") as File
     
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+      return NextResponse.json({ error: "No file provided", debug: ["No file in formData"] }, { status: 400 })
     }
+    
+    debugInfo.push(`File: ${file.name}, Size: ${file.size} bytes`)
     
     // Read file as ArrayBuffer and extract text using unpdf
     const arrayBuffer = await file.arrayBuffer()
-    const { text } = await extractText(arrayBuffer, { mergePages: true })
+    debugInfo.push(`ArrayBuffer size: ${arrayBuffer.byteLength}`)
+    
+    let text = ""
+    try {
+      const result = await extractText(arrayBuffer, { mergePages: true })
+      text = result.text
+      debugInfo.push(`Text extracted: ${text.length} chars`)
+    } catch (extractError) {
+      debugInfo.push(`Extract error: ${extractError instanceof Error ? extractError.message : "Unknown"}`)
+      return NextResponse.json({ 
+        error: "Failed to extract text from PDF",
+        debug: debugInfo,
+        items: []
+      }, { status: 500 })
+    }
+    
+    // Add sample of extracted text
+    debugInfo.push(`First 500 chars: ${text.substring(0, 500).replace(/\n/g, "\\n")}`)
     
     // Parse the text
-    let items = parseBudgetText(text)
+    let items = parseBudgetText(text, debugInfo)
+    
+    debugInfo.push(`Raw items found: ${items.length}`)
     
     // Filter out items with invalid data
+    const beforeFilter = items.length
     items = items.filter(item => 
       item.name && 
       item.name.length > 3 && 
       item.quantity > 0 &&
       item.quantity < 1000000
     )
+    debugInfo.push(`After filter: ${items.length} (removed ${beforeFilter - items.length})`)
     
     // Remove duplicates
+    const beforeDedup = items.length
     const seen = new Set<string>()
     items = items.filter(item => {
       const key = `${item.name.toLowerCase().substring(0, 50)}-${item.price.toFixed(2)}`
@@ -427,20 +464,28 @@ export async function POST(request: NextRequest) {
       seen.add(key)
       return true
     })
+    debugInfo.push(`After dedup: ${items.length} (removed ${beforeDedup - items.length})`)
+    
+    // Add sample items to debug
+    if (items.length > 0) {
+      debugInfo.push(`Sample items: ${JSON.stringify(items.slice(0, 3))}`)
+    }
     
     return NextResponse.json({ 
       success: true, 
       items,
       textLength: text.length,
       linesCount: text.split("\n").length,
-      fileName: file.name
+      fileName: file.name,
+      debug: debugInfo
     })
   } catch (error) {
-    console.error("[v0] PDF parsing error:", error)
+    debugInfo.push(`Fatal error: ${error instanceof Error ? error.message : "Unknown"}`)
     return NextResponse.json({ 
       error: "Failed to parse PDF", 
       message: error instanceof Error ? error.message : "Unknown error",
-      items: []
+      items: [],
+      debug: debugInfo
     }, { status: 500 })
   }
 }
