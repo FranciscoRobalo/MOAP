@@ -584,65 +584,44 @@ export default function AnaliseContent() {
   
   // Read PDF file - use API route for server-side parsing or fallback to client-side
   const parsePDF = async (file: File): Promise<Array<{ name: string; unit: string; quantity: number; price: number }>> => {
-    console.log("[v0] parsePDF called for:", file.name, "size:", file.size)
-    
-    // First try the API route (uses unpdf for proper PDF text extraction)
+    // First try the API route (uses GPT for intelligent parsing)
     try {
       const formData = new FormData()
       formData.append("file", file)
       
-      console.log("[v0] Sending to /api/parse-pdf...")
       const response = await fetch("/api/parse-pdf", {
         method: "POST",
         body: formData
       })
       
-      console.log("[v0] API response status:", response.status)
       const data = await response.json()
-      console.log("[v0] API response data:", JSON.stringify(data, null, 2))
-      
-      // Log debug info from API
-      if (data.debug) {
-        console.log("[v0] === API DEBUG INFO ===")
-        data.debug.forEach((line: string) => console.log("[v0]", line))
-        console.log("[v0] === END DEBUG INFO ===")
-      }
       
       if (data.items && data.items.length > 0) {
-        console.log("[v0] Returning", data.items.length, "items from API")
         return data.items
-      } else {
-        console.log("[v0] API returned 0 items, will try fallback")
       }
-    } catch (err) {
-      console.error("[v0] API fetch error:", err)
+    } catch {
+      // API failed, continue to fallback
     }
     
-    // Fallback: try reading file as text directly (works for text-based PDFs only)
-    console.log("[v0] Trying fallback: reading file as text directly...")
+    // Fallback: try reading file as text directly
     try {
       const text = await file.text()
-      console.log("[v0] Direct text read length:", text.length)
-      console.log("[v0] First 300 chars:", text.substring(0, 300))
       
       if (text.length > 50) {
         const items = parsePDFText(text)
-        console.log("[v0] Client-side parsePDFText found:", items.length, "items")
         
         if (items.length > 0) {
           return items
         }
       }
-    } catch (err) {
-      console.error("[v0] Text reading failed:", err)
+    } catch {
+      // Text reading failed
     }
     
-    console.log("[v0] All parsing methods failed")
     throw new Error("Não foi possível extrair itens do PDF. Por favor, converta para CSV.")
   }
 
   const analyzeFile = async (file: File) => {
-    console.log("[v0] analyzeFile called for:", file.name)
     setIsAnalyzing(true)
     setAnalyzeProgress(0)
 
@@ -652,30 +631,19 @@ export default function AnaliseContent() {
       
       // PDF and Excel files go through the API (which uses GPT)
       if (fileName.endsWith(".pdf") || fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
-        console.log("[v0] File is PDF/Excel, sending to API...")
         try {
           parsedItems = await parsePDF(file)
-          console.log("[v0] API returned:", parsedItems.length, "items")
-        } catch (parseErr) {
-          console.error("[v0] API parsing error:", parseErr)
+        } catch {
           // For PDF, try fallback
           if (fileName.endsWith(".pdf")) {
             const content = await file.text()
             parsedItems = parsePDFText(content)
-            console.log("[v0] Fallback parsePDFText returned:", parsedItems.length, "items")
           }
         }
       } else {
         // CSV/TXT files parsed locally
-        console.log("[v0] File is CSV/TXT, parsing locally...")
         const content = await file.text()
         parsedItems = parseCSV(content)
-        console.log("[v0] parseCSV returned:", parsedItems.length, "items")
-      }
-
-      console.log("[v0] Total parsed items:", parsedItems.length)
-      if (parsedItems.length > 0) {
-        console.log("[v0] First 3 items:", parsedItems.slice(0, 3))
       }
       
       const totalItems = parsedItems.length
@@ -689,11 +657,48 @@ export default function AnaliseContent() {
       let totalBudget = 0,
         totalReference = 0
 
+      // First pass: identify items without matches for GPT lookup
+      const itemsNeedingPriceLookup: Array<{ name: string; unit: string; quantity: number; price: number }> = []
+      const localMatches: Map<number, { material: typeof materials[0] | null; confidence: number; matchDetails: string }> = new Map()
+      
       for (let i = 0; i < parsedItems.length; i++) {
         const item = parsedItems[i]
-        setAnalyzeProgress(Math.round(((i + 1) / totalItems) * 100))
+        const match = findBestMatch(item.name, item.unit)
+        localMatches.set(i, match)
+        
+        if (!match.material || match.confidence < 18) {
+          itemsNeedingPriceLookup.push(item)
+        }
+      }
+      
+      // GPT price lookup for unmatched items
+      let gptPrices: Record<string, { minPrice: number; maxPrice: number; avgPrice: number; confidence: number }> = {}
+      
+      if (itemsNeedingPriceLookup.length > 0) {
+        setAnalyzeProgress(5)
+        try {
+          const response = await fetch("/api/lookup-prices", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items: itemsNeedingPriceLookup })
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            if (data.prices) {
+              gptPrices = data.prices
+            }
+          }
+        } catch (err) {
+          // Continue without GPT prices
+        }
+      }
 
-        const { material, confidence, matchDetails } = findBestMatch(item.name, item.unit)
+      for (let i = 0; i < parsedItems.length; i++) {
+        const item = parsedItems[i]
+        setAnalyzeProgress(10 + Math.round(((i + 1) / totalItems) * 90))
+
+        const { material, confidence, matchDetails } = localMatches.get(i) || findBestMatch(item.name, item.unit)
         const itemTotal = item.quantity * item.price
         totalBudget += itemTotal
 
@@ -702,6 +707,70 @@ export default function AnaliseContent() {
         let refMin: number | null = null
         let refMax: number | null = null
         let refAvg: number | null = null
+        let finalMatchedName: string | null = material?.name || null
+        let finalConfidence = confidence
+        let finalMatchDetails = matchDetails
+
+        // Check GPT prices if no local match
+        const gptPrice = gptPrices[item.name]
+        if ((!material || confidence < 18) && gptPrice && gptPrice.avgPrice > 0) {
+          refMin = gptPrice.minPrice
+          refMax = gptPrice.maxPrice
+          refAvg = gptPrice.avgPrice
+          finalMatchedName = item.name + " (GPT)"
+          finalConfidence = gptPrice.confidence || 70
+          finalMatchDetails = "Preço de referência via IA (mercado PT)"
+          totalReference += item.quantity * refAvg
+
+          if (refAvg > 0) {
+            variance = ((item.price - refAvg) / refAvg) * 100
+          }
+
+          // Rating based on variance
+          if (variance !== null) {
+            if (variance <= -25) {
+              rating = "below"
+              belowCount++
+            } else if (variance <= -10) {
+              rating = "below"
+              belowCount++
+            } else if (variance <= 10) {
+              rating = "average"
+              avgCount++
+            } else if (variance <= 30) {
+              rating = "above"
+              aboveCount++
+            } else if (variance <= 50) {
+              rating = "above"
+              aboveCount++
+            } else {
+              rating = "critical"
+              criticalCount++
+            }
+          } else {
+            unknownCount++
+          }
+
+          analyzedItems.push({
+            id: `item-${i}`,
+            originalName: item.name,
+            matchedName: finalMatchedName,
+            unit: item.unit,
+            quantity: item.quantity,
+            budgetPrice: item.price,
+            referenceMinPrice: refMin,
+            referenceMaxPrice: refMax,
+            referenceAvgPrice: refAvg,
+            variance,
+            rating,
+            category: "GPT Lookup",
+            matchConfidence: finalConfidence,
+            type: "work",
+            matchDetails: finalMatchDetails,
+          } as BudgetItem & { matchDetails: string })
+          
+          continue
+        }
 
         if (material && confidence >= 18) {
           // Use price as min and priceMax as max (matching Material interface in data-context)
