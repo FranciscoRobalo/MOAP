@@ -68,7 +68,7 @@ export function Features() {
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
           }`}
         >
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{t("featuresTitle")}</h2>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{t("features")}</h2>
           <p className="mt-4 text-muted-foreground">{t("featuresSubtitle")}</p>
         </div>
 

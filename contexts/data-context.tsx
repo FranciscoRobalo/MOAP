@@ -160,6 +160,7 @@ interface DataContextType {
   addMaterial: (material: Omit<Material, "id">) => void
   updateMaterial: (id: string, material: Partial<Material>) => void
   deleteMaterial: (id: string) => void
+  importBudgetItems: (items: Array<{ name: string; unit: string; quantity: number; price: number }>, category?: string) => number
 
   // Budgets
   budgets: Budget[]
@@ -4721,6 +4722,81 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setMaterials((prev) => prev.filter((m) => m.id !== id))
   }
 
+  // Import budget items to materials database
+  const importBudgetItems = (items: Array<{ name: string; unit: string; quantity: number; price: number }>, category: string = "Importado"): number => {
+    let importedCount = 0
+    const today = new Date().toISOString().split("T")[0]
+    
+    // Normalize text for comparison
+    const normalizeText = (text: string): string => {
+      return text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+    }
+    
+    items.forEach(item => {
+      if (!item.name || item.price <= 0) return
+      
+      const normalizedItemName = normalizeText(item.name)
+      
+      // Check if similar material already exists
+      const existingMaterial = materials.find(m => {
+        const normalizedMaterialName = normalizeText(m.name)
+        // Check for exact match or high similarity
+        return normalizedMaterialName === normalizedItemName ||
+          normalizedMaterialName.includes(normalizedItemName) ||
+          normalizedItemName.includes(normalizedMaterialName)
+      })
+      
+      if (existingMaterial) {
+        // Update existing material with new price data
+        const newMinPrice = Math.min(existingMaterial.price, item.price)
+        const newMaxPrice = Math.max(existingMaterial.priceMax || existingMaterial.price, item.price)
+        
+        setMaterials(prev => prev.map(m => 
+          m.id === existingMaterial.id 
+            ? { 
+                ...m, 
+                price: newMinPrice, 
+                priceMax: newMaxPrice,
+                lastUpdated: today 
+              } 
+            : m
+        ))
+      } else {
+        // Add new material
+        const newMaterial: Material = {
+          id: generateId(),
+          name: item.name.trim(),
+          unit: item.unit || "un",
+          price: item.price,
+          priceMax: item.price * 1.2, // Set max 20% higher by default
+          category: category,
+          type: "work",
+          region: "Nacional",
+          lastUpdated: today
+        }
+        
+        setMaterials(prev => [...prev, newMaterial])
+        importedCount++
+      }
+    })
+    
+    if (importedCount > 0) {
+      addNotification({
+        type: "system",
+        title: "Itens Importados",
+        description: `${importedCount} novos itens foram adicionados à base de dados de materiais.`
+      })
+    }
+    
+    return importedCount
+  }
+
   // Budgets
   const addBudget = (budget: Omit<Budget, "id">) => {
     const newBudget = { ...budget, id: generateId() }
@@ -4967,6 +5043,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addMaterial,
         updateMaterial,
         deleteMaterial,
+        importBudgetItems,
         budgets,
         addBudget,
         updateBudget,

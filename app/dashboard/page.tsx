@@ -123,12 +123,44 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3" data-tutorial="quick-actions">
-        <Link href="/dashboard/analise">
+        <Link href="/dashboard/registos" className="md:col-span-2">
           <Card
-            className={`bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 hover:from-primary/20 hover:to-primary/10 cursor-pointer card-hover transition-all duration-500 ${
+            className={`bg-gradient-to-br from-yellow-500/15 to-yellow-500/5 border-yellow-500/30 hover:from-yellow-500/25 hover:to-yellow-500/10 cursor-pointer card-hover transition-all duration-500 relative overflow-hidden ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
             style={{ transitionDelay: "500ms" }}
+          >
+            <div className="absolute top-2 right-2">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-yellow-500 text-white animate-pulse">
+                {language === "pt" ? "DESTAQUE" : language === "es" ? "DESTACADO" : "FEATURED"}
+              </span>
+            </div>
+            <CardContent className="pt-8 pb-6">
+              <div className="flex items-center gap-4">
+                <div className="p-4 rounded-lg bg-yellow-500/25">
+                  <Calculator className="h-8 w-8 text-yellow-500" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-yellow-500">{t("budgetApproval")}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "pt"
+                      ? "Aprovar orçamentos pendentes - Acesso rápido para gestão de propostas"
+                      : language === "es"
+                        ? "Aprobar presupuestos pendientes - Acceso rápido para gestión de propuestas"
+                        : "Approve pending budgets - Quick access to proposal management"}
+                  </p>
+                </div>
+                <ArrowRight className="h-6 w-6 text-yellow-500 transition-transform duration-300 group-hover:translate-x-1" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/dashboard/analise">
+          <Card
+            className={`bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 hover:from-primary/20 hover:to-primary/10 cursor-pointer card-hover transition-all duration-500 h-full ${
+              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+            }`}
+            style={{ transitionDelay: "600ms" }}
           >
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -136,70 +168,16 @@ export default function DashboardPage() {
                   <Building2 className="h-6 w-6 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold">{t("newProject")}</h3>
+                  <h3 className="font-semibold">{t("budgetAnalysis")}</h3>
                   <p className="text-sm text-muted-foreground">
                     {language === "pt"
-                      ? "Submeter um novo projeto"
+                      ? "Analisar novo orçamento"
                       : language === "es"
-                        ? "Enviar un nuevo proyecto"
-                        : "Submit a new project"}
+                        ? "Analizar nuevo presupuesto"
+                        : "Analyze new budget"}
                   </p>
                 </div>
                 <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform duration-300 group-hover:translate-x-1" />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/dashboard/orcamentos">
-          <Card
-            className={`bg-gradient-to-br from-price-below/10 to-price-below/5 border-price-below/20 hover:from-price-below/20 hover:to-price-below/10 cursor-pointer card-hover transition-all duration-500 ${
-              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-            }`}
-            style={{ transitionDelay: "600ms" }}
-          >
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-price-below/20">
-                  <Calculator className="h-6 w-6 text-price-below" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold">{t("newBudget")}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {language === "pt"
-                      ? "Novo orçamento de materiais"
-                      : language === "es"
-                        ? "Nuevo presupuesto de materiales"
-                        : "New materials budget"}
-                  </p>
-                </div>
-                <ArrowRight className="h-5 w-5 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/dashboard/registos">
-          <Card
-            className={`bg-gradient-to-br from-price-average/10 to-price-average/5 border-price-average/20 hover:from-price-average/20 hover:to-price-average/10 cursor-pointer card-hover transition-all duration-500 ${
-              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-            }`}
-            style={{ transitionDelay: "700ms" }}
-          >
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-price-average/20">
-                  <Calculator className="h-6 w-6 text-price-average" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold">{t("budgetApproval")}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {language === "pt"
-                      ? "Aprovar orçamentos pendentes"
-                      : language === "es"
-                        ? "Aprobar presupuestos pendientes"
-                        : "Approve pending budgets"}
-                  </p>
-                </div>
-                <ArrowRight className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
