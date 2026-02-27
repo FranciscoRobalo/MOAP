@@ -35,9 +35,12 @@ import {
   Pencil,
   Sparkles,
   Loader2,
+  Save,
+  MapPin,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useData } from "@/contexts/data-context"
+import { toast } from "sonner"
 
 interface BudgetItem {
   id: string
@@ -135,13 +138,19 @@ const ratingConfig = {
 const regions = ["Norte", "Centro", "Lisboa e Vale do Tejo", "Alentejo", "Algarve", "Açores", "Madeira"]
 
 export default function AnaliseContent() {
-  const { materials, importBudgetItems } = useData()
+  const { materials, importBudgetItems, addBudget } = useData()
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analyzeProgress, setAnalyzeProgress] = useState(0)
   const [analyzeStatus, setAnalyzeStatus] = useState("")
   const [isBulkReanalyzing, setIsBulkReanalyzing] = useState(false)
   const [bulkReanalyzeProgress, setBulkReanalyzeProgress] = useState(0)
+  
+  // Save budget dialog state
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [saveBudgetName, setSaveBudgetName] = useState("")
+  const [saveBudgetLocation, setSaveBudgetLocation] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
   const [selectedRegion, setSelectedRegion] = useState("Lisboa e Vale do Tejo")
   const [searchTerm, setSearchTerm] = useState("")
   const [filterRating, setFilterRating] = useState<string>("all")
@@ -693,10 +702,8 @@ export default function AnaliseContent() {
         setIsAnalyzing(false)
         setAnalyzeProgress(0)
         setAnalyzeStatus("")
-        toast({
-          title: "Orçamento sem preços",
+        toast.error("Orçamento sem preços", {
           description: `Este orçamento não contém preços unitários (${itemsWithoutPrice.length} de ${parsedItems.length} itens sem preço). Por favor, carregue um orçamento com preços preenchidos ou adicione os preços manualmente.`,
-          variant: "destructive",
         })
         return
       }
@@ -1485,21 +1492,65 @@ export default function AnaliseContent() {
         }
       })
       
-      toast({
-        title: "Re-análise concluída",
+      toast.success("Re-análise concluída", {
         description: `${items.length} itens foram re-analisados com IA.`,
       })
       
     } catch (err) {
       console.error("Error bulk re-analyzing:", err)
-      toast({
-        title: "Erro na re-análise",
+      toast.error("Erro na re-análise", {
         description: "Ocorreu um erro ao re-analisar os itens.",
-        variant: "destructive"
       })
     } finally {
       setIsBulkReanalyzing(false)
       setBulkReanalyzeProgress(0)
+    }
+  }
+
+  // Save budget to approval list
+  const handleSaveBudget = () => {
+    if (!analysisResult || !saveBudgetName.trim()) return
+    
+    setIsSaving(true)
+    
+    try {
+      // Convert analysis items to budget items format
+      const budgetItems = analysisResult.items.map((item, index) => ({
+        id: `item-${index}`,
+        materialId: item.id,
+        materialName: item.matchedName || item.originalName,
+        unit: item.unit,
+        quantity: item.quantity,
+        unitPrice: item.budgetPrice,
+        category: item.category,
+      }))
+      
+      // Add budget to the data context
+      addBudget({
+        name: saveBudgetName.trim(),
+        obraId: "",
+        obraName: saveBudgetLocation.trim() || "Localização não especificada",
+        createdDate: new Date().toISOString().split("T")[0],
+        status: "rascunho",
+        items: budgetItems,
+      })
+      
+      // Reset form and close dialog
+      setSaveBudgetName("")
+      setSaveBudgetLocation("")
+      setShowSaveDialog(false)
+      
+      // Show success toast
+      toast.success("Orçamento guardado", {
+        description: `"${saveBudgetName.trim()}" foi adicionado à lista de aprovação.`,
+      })
+    } catch (err) {
+      console.error("Error saving budget:", err)
+      toast.error("Erro ao guardar", {
+        description: "Ocorreu um erro ao guardar o orçamento.",
+      })
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -1860,6 +1911,13 @@ export default function AnaliseContent() {
                     <Download className="mr-2 h-4 w-4" />
                     Exportar CSV
                   </Button>
+                  <Button 
+                    onClick={() => setShowSaveDialog(true)}
+                    className="bg-price-below hover:bg-price-below/90"
+                  >
+                    <Save className="mr-2 h-4 w-4" />
+                    Guardar para Aprovação
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -2131,6 +2189,83 @@ export default function AnaliseContent() {
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
                   Guardar e Re-analisar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save Budget Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Save className="h-5 w-5 text-price-below" />
+              Guardar Orçamento para Aprovação
+            </DialogTitle>
+            <DialogDescription>
+              Adicione um nome e localização para identificar este orçamento na lista de aprovação.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="budget-name">Nome do Orçamento *</Label>
+              <Input
+                id="budget-name"
+                placeholder="Ex: Orçamento Reabilitação Fachada"
+                value={saveBudgetName}
+                onChange={(e) => setSaveBudgetName(e.target.value)}
+                className="bg-input/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="budget-location" className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                Localização / Nome da Obra
+              </Label>
+              <Input
+                id="budget-location"
+                placeholder="Ex: Rua das Flores, 123 - Lisboa"
+                value={saveBudgetLocation}
+                onChange={(e) => setSaveBudgetLocation(e.target.value)}
+                className="bg-input/50"
+              />
+            </div>
+            {analysisResult && (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+                <p className="text-sm font-medium">Resumo do Orçamento</p>
+                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <span>Total de itens:</span>
+                  <span className="font-medium text-foreground">{analysisResult.items.length}</span>
+                  <span>Valor total:</span>
+                  <span className="font-medium text-foreground">
+                    {analysisResult.totalBudget.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                  </span>
+                  <span>Ficheiro original:</span>
+                  <span className="font-medium text-foreground truncate">{analysisResult.fileName}</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSaveBudget} 
+              disabled={!saveBudgetName.trim() || isSaving}
+              className="bg-price-below hover:bg-price-below/90"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  A guardar...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Guardar Orçamento
                 </>
               )}
             </Button>

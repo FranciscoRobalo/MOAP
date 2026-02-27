@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, Save, FileText, Calculator, Copy, Download, X, ChevronDown, ChevronUp } from "lucide-react"
+import { Plus, Trash2, Save, FileText, Calculator, Copy, Download, X, ChevronDown, ChevronUp, MapPin } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -16,25 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-
-interface BudgetItem {
-  id: string
-  materialId: string
-  materialName: string
-  unit: string
-  quantity: number
-  unitPrice: number
-  category: string
-}
-
-interface Budget {
-  id: string
-  name: string
-  obraName: string
-  createdDate: string
-  status: "rascunho" | "finalizado" | "enviado"
-  items: BudgetItem[]
-}
+import { useData, type Budget, type BudgetItem } from "@/contexts/data-context"
 
 const availableMaterials = [
   { id: "1", name: "Cimento Portland", unit: "kg", price: 0.15, category: "Estrutura" },
@@ -123,7 +105,7 @@ const obras = [
 ]
 
 export default function OrcamentosPage() {
-  const [budgets, setBudgets] = useState<Budget[]>(mockBudgets)
+  const { budgets, addBudget, updateBudget, deleteBudget } = useData()
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [expandedBudget, setExpandedBudget] = useState<string | null>(null)
@@ -150,16 +132,14 @@ export default function OrcamentosPage() {
 
   const handleCreateBudget = () => {
     if (newBudget.name && newBudget.obraName) {
-      const budget: Budget = {
-        id: Math.random().toString(36).substr(2, 9),
+      addBudget({
         name: newBudget.name,
+        obraId: "",
         obraName: newBudget.obraName,
         createdDate: new Date().toISOString().split("T")[0],
         status: "rascunho",
         items: [],
-      }
-      setBudgets((prev) => [...prev, budget])
-      setSelectedBudget(budget)
+      })
       setNewBudget({ name: "", obraName: "" })
       setIsCreating(false)
     }
@@ -184,8 +164,8 @@ export default function OrcamentosPage() {
           items: [...selectedBudget.items, item],
         }
 
-        setBudgets((prev) => prev.map((b) => (b.id === selectedBudget.id ? updatedBudget : b)))
-        setSelectedBudget(updatedBudget)
+        updateBudget(selectedBudget.id, { items: [...selectedBudget.items, item] })
+        setSelectedBudget({ ...selectedBudget, items: [...selectedBudget.items, item] })
         setNewItem({ materialId: "", quantity: 0 })
       }
     }
@@ -193,59 +173,48 @@ export default function OrcamentosPage() {
 
   const handleRemoveItem = (itemId: string) => {
     if (selectedBudget) {
-      const updatedBudget = {
-        ...selectedBudget,
-        items: selectedBudget.items.filter((i) => i.id !== itemId),
-      }
-      setBudgets((prev) => prev.map((b) => (b.id === selectedBudget.id ? updatedBudget : b)))
-      setSelectedBudget(updatedBudget)
+      const newItems = selectedBudget.items.filter((i) => i.id !== itemId)
+      updateBudget(selectedBudget.id, { items: newItems })
+      setSelectedBudget({ ...selectedBudget, items: newItems })
     }
   }
 
   const handleUpdateQuantity = (itemId: string, quantity: number) => {
     if (selectedBudget) {
-      const updatedBudget = {
-        ...selectedBudget,
-        items: selectedBudget.items.map((i) => (i.id === itemId ? { ...i, quantity } : i)),
-      }
-      setBudgets((prev) => prev.map((b) => (b.id === selectedBudget.id ? updatedBudget : b)))
-      setSelectedBudget(updatedBudget)
+      const newItems = selectedBudget.items.map((i) => (i.id === itemId ? { ...i, quantity } : i))
+      updateBudget(selectedBudget.id, { items: newItems })
+      setSelectedBudget({ ...selectedBudget, items: newItems })
     }
   }
 
   const handleUpdatePrice = (itemId: string, unitPrice: number) => {
     if (selectedBudget) {
-      const updatedBudget = {
-        ...selectedBudget,
-        items: selectedBudget.items.map((i) => (i.id === itemId ? { ...i, unitPrice } : i)),
-      }
-      setBudgets((prev) => prev.map((b) => (b.id === selectedBudget.id ? updatedBudget : b)))
-      setSelectedBudget(updatedBudget)
+      const newItems = selectedBudget.items.map((i) => (i.id === itemId ? { ...i, unitPrice } : i))
+      updateBudget(selectedBudget.id, { items: newItems })
+      setSelectedBudget({ ...selectedBudget, items: newItems })
     }
   }
 
   const handleFinalizeBudget = () => {
     if (selectedBudget) {
-      const updatedBudget = { ...selectedBudget, status: "finalizado" as const }
-      setBudgets((prev) => prev.map((b) => (b.id === selectedBudget.id ? updatedBudget : b)))
-      setSelectedBudget(updatedBudget)
+      updateBudget(selectedBudget.id, { status: "finalizado" })
+      setSelectedBudget({ ...selectedBudget, status: "finalizado" })
     }
   }
 
   const handleDuplicateBudget = (budget: Budget) => {
-    const newBudgetCopy: Budget = {
-      ...budget,
-      id: Math.random().toString(36).substr(2, 9),
+    addBudget({
       name: `${budget.name} (Cópia)`,
+      obraId: budget.obraId,
+      obraName: budget.obraName,
       createdDate: new Date().toISOString().split("T")[0],
       status: "rascunho",
       items: budget.items.map((item) => ({ ...item, id: Math.random().toString(36).substr(2, 9) })),
-    }
-    setBudgets((prev) => [...prev, newBudgetCopy])
+    })
   }
 
   const handleDeleteBudget = (budgetId: string) => {
-    setBudgets((prev) => prev.filter((b) => b.id !== budgetId))
+    deleteBudget(budgetId)
     if (selectedBudget?.id === budgetId) {
       setSelectedBudget(null)
     }
@@ -330,7 +299,10 @@ export default function OrcamentosPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium truncate">{budget.name}</h4>
-                          <p className="text-xs text-muted-foreground truncate">{budget.obraName}</p>
+                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            {budget.obraName}
+                          </p>
                           <p className="text-xs text-muted-foreground mt-1">
                             {new Date(budget.createdDate).toLocaleDateString("pt-PT")}
                           </p>
