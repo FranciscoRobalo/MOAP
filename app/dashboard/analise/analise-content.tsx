@@ -585,7 +585,9 @@ export default function AnaliseContent() {
   
   // Read PDF file - use API route for server-side parsing or fallback to client-side
   const parsePDF = async (file: File): Promise<Array<{ name: string; unit: string; quantity: number; price: number }>> => {
-    // First try the API route
+    console.log("[v0] Starting PDF parsing for:", file.name, "Size:", file.size)
+    
+    // First try the API route (uses unpdf for proper PDF text extraction)
     try {
       const formData = new FormData()
       formData.append("file", file)
@@ -595,25 +597,42 @@ export default function AnaliseContent() {
         body: formData
       })
       
-      if (response.ok) {
-        const data = await response.json()
-        if (data.items && data.items.length > 0) {
-          return data.items
-        }
+      const data = await response.json()
+      console.log("[v0] API response:", { 
+        ok: response.ok, 
+        itemsCount: data.items?.length || 0,
+        textLength: data.textLength,
+        error: data.error
+      })
+      
+      if (data.items && data.items.length > 0) {
+        console.log("[v0] API extracted items successfully:", data.items.length)
+        return data.items
+      }
+      
+      // API parsed but found no items, might be a format issue
+      if (data.textLength && data.textLength > 100) {
+        console.log("[v0] API found text but no items, will try client-side parsing")
       }
     } catch (apiError) {
-      // API failed, continue to fallback
+      console.error("[v0] API request failed:", apiError)
     }
     
-    // Fallback: try reading file as text directly and parse client-side
+    // Fallback: try reading file as text directly (works for text-based PDFs only)
     try {
       const text = await file.text()
-      const items = parsePDFText(text)
-      if (items.length > 0) {
-        return items
+      console.log("[v0] Direct text read length:", text.length)
+      
+      if (text.length > 50) {
+        const items = parsePDFText(text)
+        console.log("[v0] Client-side parsing found:", items.length, "items")
+        
+        if (items.length > 0) {
+          return items
+        }
       }
     } catch (textError) {
-      // Text reading failed
+      console.error("[v0] Text reading failed:", textError)
     }
     
     throw new Error("Não foi possível extrair itens do PDF. Por favor, converta para CSV.")
@@ -627,11 +646,14 @@ export default function AnaliseContent() {
       let parsedItems: Array<{ name: string; unit: string; quantity: number; price: number }> = []
       
       // Check file type and parse accordingly
+      console.log("[v0] Analyzing file:", file.name, "type:", file.type)
+      
       if (file.name.toLowerCase().endsWith(".pdf")) {
         try {
           parsedItems = await parsePDF(file)
+          console.log("[v0] PDF parsed successfully, items:", parsedItems.length)
         } catch (pdfError) {
-          console.error("PDF parsing error:", pdfError)
+          console.error("[v0] PDF parsing error:", pdfError)
           // Fallback: try to read as text (some PDFs are text-based)
           const content = await file.text()
           parsedItems = parsePDFText(content)
@@ -639,8 +661,14 @@ export default function AnaliseContent() {
       } else {
         const content = await file.text()
         parsedItems = parseCSV(content)
+        console.log("[v0] CSV parsed, items:", parsedItems.length)
       }
 
+      console.log("[v0] Total parsed items:", parsedItems.length)
+      if (parsedItems.length > 0 && parsedItems.length <= 5) {
+        console.log("[v0] Sample items:", parsedItems.slice(0, 5))
+      }
+      
       const totalItems = parsedItems.length
       const analyzedItems: BudgetItem[] = []
 
