@@ -139,6 +139,7 @@ export default function AnaliseContent() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analyzeProgress, setAnalyzeProgress] = useState(0)
+  const [analyzeStatus, setAnalyzeStatus] = useState("")
   const [selectedRegion, setSelectedRegion] = useState("Lisboa e Vale do Tejo")
   const [searchTerm, setSearchTerm] = useState("")
   const [filterRating, setFilterRating] = useState<string>("all")
@@ -650,6 +651,7 @@ export default function AnaliseContent() {
   const analyzeFile = async (file: File) => {
     setIsAnalyzing(true)
     setAnalyzeProgress(0)
+    setAnalyzeStatus("A ler ficheiro...")
 
     try {
       let parsedItems: Array<{ name: string; unit: string; quantity: number; price: number }> = []
@@ -657,22 +659,50 @@ export default function AnaliseContent() {
       
       // PDF and Excel files go through the API (which uses GPT)
       if (fileName.endsWith(".pdf") || fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+        setAnalyzeStatus("A extrair itens do documento (IA)...")
+        setAnalyzeProgress(2)
         try {
           parsedItems = await parsePDF(file)
         } catch {
           // For PDF, try fallback
           if (fileName.endsWith(".pdf")) {
+            setAnalyzeStatus("A processar PDF localmente...")
             const content = await file.text()
             parsedItems = parsePDFText(content)
           }
         }
       } else {
         // CSV/TXT files parsed locally
+        setAnalyzeStatus("A processar CSV...")
         const content = await file.text()
         parsedItems = parseCSV(content)
       }
       
-      const totalItems = parsedItems.length
+      setAnalyzeStatus(`${parsedItems.length} itens encontrados. A validar preços...`)
+      setAnalyzeProgress(4)
+      
+      // Check if the budget has valid prices (not all zeros)
+      const itemsWithPrice = parsedItems.filter(item => item.price > 0)
+      const itemsWithoutPrice = parsedItems.filter(item => item.price <= 0)
+      const percentWithoutPrice = parsedItems.length > 0 ? (itemsWithoutPrice.length / parsedItems.length) * 100 : 0
+      
+      // If more than 80% of items have no price, warn the user
+      if (percentWithoutPrice > 80 && parsedItems.length > 3) {
+        setIsAnalyzing(false)
+        setAnalyzeProgress(0)
+        setAnalyzeStatus("")
+        toast({
+          title: "Orçamento sem preços",
+          description: `Este orçamento não contém preços unitários (${itemsWithoutPrice.length} de ${parsedItems.length} itens sem preço). Por favor, carregue um orçamento com preços preenchidos ou adicione os preços manualmente.`,
+          variant: "destructive",
+        })
+        return
+      }
+      
+      // Filter out items without valid prices for analysis (but keep a minimum of items)
+      const itemsToAnalyze = itemsWithPrice.length >= 3 ? itemsWithPrice : parsedItems
+      
+      const totalItems = itemsToAnalyze.length
       const analyzedItems: BudgetItem[] = []
 
       let belowCount = 0,
@@ -682,6 +712,9 @@ export default function AnaliseContent() {
         unknownCount = 0
       let totalBudget = 0,
         totalReference = 0
+      
+      // Track items without price for reporting
+      let itemsSkippedNoPrice = parsedItems.length - itemsToAnalyze.length
 
       // First pass: identify items needing GPT assistance (no match or low confidence < 60%)
       const itemsNeedingGPT: Array<{ index: number; name: string; unit: string; quantity: number; price: number }> = []
@@ -689,8 +722,8 @@ export default function AnaliseContent() {
       
       const CONFIDENCE_THRESHOLD = 60 // Minimum confidence to show match
       
-      for (let i = 0; i < parsedItems.length; i++) {
-        const item = parsedItems[i]
+      for (let i = 0; i < itemsToAnalyze.length; i++) {
+        const item = itemsToAnalyze[i]
         const match = findBestMatch(item.name, item.unit)
         localMatches.set(i, match)
         
@@ -706,6 +739,7 @@ export default function AnaliseContent() {
       
       if (itemsNeedingGPT.length > 0) {
         setAnalyzeProgress(5)
+        setAnalyzeStatus(`A procurar correspondências IA para ${itemsNeedingGPT.length} itens...`)
         
         // First try GPT matching against our database
         try {
@@ -746,6 +780,7 @@ export default function AnaliseContent() {
         })
         
         if (itemsStillNeedingPrices.length > 0) {
+          setAnalyzeStatus(`A consultar preços de mercado para ${itemsStillNeedingPrices.length} itens...`)
           try {
             const response = await fetch("/api/lookup-prices", {
               method: "POST",
@@ -764,6 +799,8 @@ export default function AnaliseContent() {
           }
         }
       }
+      
+      setAnalyzeStatus("A comparar preços e calcular variâncias...")
 
       // Map itemsNeedingGPT indices for quick lookup
       const gptItemIndexMap = new Map<number, number>()
@@ -771,9 +808,15 @@ export default function AnaliseContent() {
         gptItemIndexMap.set(item.index, gptIdx + 1) // GPT uses 1-based indices
       })
 
-      for (let i = 0; i < parsedItems.length; i++) {
-        const item = parsedItems[i]
-        setAnalyzeProgress(10 + Math.round(((i + 1) / totalItems) * 90))
+      for (let i = 0; i < itemsToAnalyze.length; i++) {
+        const item = itemsToAnalyze[i]
+        const currentProgress = 10 + Math.round(((i + 1) / totalItems) * 85)
+        setAnalyzeProgress(currentProgress)
+        
+        // Update status every 5 items or for the first few
+        if (i < 3 || i % 5 === 0) {
+          setAnalyzeStatus(`A analisar item ${i + 1} de ${totalItems}: ${item.name.substring(0, 40)}${item.name.length > 40 ? '...' : ''}`)
+        }
 
         let { material, confidence, matchDetails } = localMatches.get(i) || findBestMatch(item.name, item.unit)
         const itemTotal = item.quantity * item.price
@@ -788,6 +831,29 @@ export default function AnaliseContent() {
         let finalConfidence = confidence
         let finalMatchDetails = matchDetails
         let finalCategory = material?.category || "Sem categoria"
+        
+        // Skip items with zero price - mark them differently
+        if (item.price <= 0) {
+          analyzedItems.push({
+            id: `item-${i}`,
+            originalName: item.name,
+            matchedName: null,
+            unit: item.unit,
+            quantity: item.quantity,
+            budgetPrice: 0,
+            referenceMinPrice: null,
+            referenceMaxPrice: null,
+            referenceAvgPrice: null,
+            variance: null,
+            rating: "unknown",
+            category: "Sem preço",
+            matchConfidence: 0,
+            type: "work",
+            matchDetails: "Item sem preço no orçamento",
+          } as BudgetItem & { matchDetails: string })
+          unknownCount++
+          continue
+        }
 
         // Check if this item was sent to GPT for matching
         const gptIdx = gptItemIndexMap.get(i)
@@ -991,6 +1057,10 @@ export default function AnaliseContent() {
         recommendations.push(`Potencial de poupança identificado: ${potentialSavings.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} através de renegociação de preços acima da média.`)
       }
       
+      if (itemsSkippedNoPrice > 0) {
+        recommendations.push(`${itemsSkippedNoPrice} itens foram ignorados por não terem preço no orçamento original. Verifique se o ficheiro contém os preços unitários.`)
+      }
+      
       if (unknownCount > totalItems * 0.3) {
         recommendations.push(`${unknownCount} itens (${((unknownCount/totalItems)*100).toFixed(0)}%) não têm correspondência na base de dados. Considere adicionar mais referências de preços.`)
       }
@@ -1011,6 +1081,9 @@ export default function AnaliseContent() {
       if (recommendations.length === 0) {
         recommendations.push("O orçamento está globalmente alinhado com os preços de mercado.")
       }
+      
+      setAnalyzeProgress(95)
+      setAnalyzeStatus("A gerar relatório final...")
 
       setAnalysisResult({
         id: `analysis-${Date.now()}`,
@@ -1042,6 +1115,7 @@ export default function AnaliseContent() {
       console.error("Error analyzing file:", error)
     } finally {
       setIsAnalyzing(false)
+      setAnalyzeStatus("")
     }
   }
 
@@ -1369,11 +1443,18 @@ export default function AnaliseContent() {
 
               {isAnalyzing && (
                 <div className="mt-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>A analisar...</span>
-                    <span>{analyzeProgress}%</span>
-                  </div>
-                  <Progress value={analyzeProgress} />
+  <div className="flex justify-between text-sm">
+  <span className="text-muted-foreground">{analyzeStatus || "A analisar..."}</span>
+  <span className="font-medium">{analyzeProgress}%</span>
+  </div>
+  <Progress value={analyzeProgress} className="h-2" />
+  <p className="text-xs text-muted-foreground mt-1">
+    {analyzeProgress < 5 && "A extrair itens do documento..."}
+    {analyzeProgress >= 5 && analyzeProgress < 10 && "A procurar correspondências na base de dados..."}
+    {analyzeProgress >= 10 && analyzeProgress < 50 && "A analisar itens e calcular variâncias..."}
+    {analyzeProgress >= 50 && analyzeProgress < 90 && "A processar categorias e estatísticas..."}
+    {analyzeProgress >= 90 && "A finalizar análise..."}
+  </p>
                 </div>
               )}
 
