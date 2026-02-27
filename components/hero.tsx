@@ -60,8 +60,8 @@ export function Hero() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
-            <Button size="lg" className="gap-2 btn-ripple hover-lift hover-glow h-14 px-8 text-lg">
-              <FileUp className="h-6 w-6" />
+            <Button size="lg" className="gap-2 btn-ripple hover-lift hover-glow h-16 px-10 text-xl font-semibold">
+              <FileUp className="h-7 w-7" />
               {t("heroUploadButton")}
             </Button>
             <Button size="lg" variant="outline" className="gap-2 bg-transparent hover-lift group h-14 px-8 text-lg">

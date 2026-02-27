@@ -23,6 +23,7 @@ import {
   FileText,
   BarChart3,
   HelpCircle,
+  Database,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useData } from "@/contexts/data-context"
@@ -123,7 +124,7 @@ const ratingConfig = {
 const regions = ["Norte", "Centro", "Lisboa e Vale do Tejo", "Alentejo", "Algarve", "Açores", "Madeira"]
 
 export default function AnaliseContent() {
-  const { materials } = useData()
+  const { materials, importBudgetItems } = useData()
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analyzeProgress, setAnalyzeProgress] = useState(0)
@@ -420,115 +421,165 @@ export default function AnaliseContent() {
     return isNaN(num) ? 0 : num
   }
 
-  // Parse Portuguese budget PDF text - handles various formats
+  // Normalize unit strings
+  const normalizeUnit = (unit: string): string => {
+    const trimmed = unit.trim().toLowerCase()
+    const unitMap: Record<string, string> = {
+      "v.g.": "vg", "vg": "vg", "v.g": "vg",
+      "m.l.": "ml", "ml": "ml", "m.l": "ml",
+      "m2": "m2", "m²": "m2",
+      "m3": "m3", "m³": "m3",
+      "un.": "un", "un": "un", "unid.": "un", "unid": "un",
+      "kg": "kg", "pc": "pc", "pç": "pc",
+      "m": "m", "l": "l", "lt": "l",
+      "cx": "cx", "cj": "cj", "conj.": "cj", "degrau": "un"
+    }
+    return unitMap[trimmed.replace(/\./g, "")] || unitMap[trimmed] || trimmed.replace(/\./g, "")
+  }
+
+  // Check if string looks like a unit
+  const isUnit = (str: string): boolean => {
+    const normalized = str.trim().toLowerCase()
+    return /^(v\.?g\.?|m\.?l\.?|m[2²3³]?|un\.?|unid\.?|kg|pc|pç|l|lt|cx|cj|degrau)$/i.test(normalized)
+  }
+
+  // Advanced PDF text parser - handles any column order
   const parsePDFText = (text: string): Array<{ name: string; unit: string; quantity: number; price: number }> => {
     const items: Array<{ name: string; unit: string; quantity: number; price: number }> = []
     
-    // First, normalize the text - join lines and split by meaningful patterns
     const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
     const lines = normalizedText.split("\n").filter(l => l.trim().length > 0)
     
-
+    // Skip patterns for headers/footers
+    const skipPatterns = /^(Nº\s*Artigo|Designação|Unidade|Quantidade|Preço|total\s*geral|subtotal|iva|nota\s*:|observ|página|page|Empresa:|A\/C:|Telefone:|Ref\.?ª?|Obra:|ORÇAMENTO|Contacto|De:|Data:|Cliente:|Nº\s*Ref|Condições|Garantia|Assinatura|PLANILHA|TERMOS|ACRESCE|Capital|Alvará|NIF|NIPC|www\.|@|REVIVE|Valor\s*da\s*Proposta)/i
     
-    // Store description from previous lines
     let currentDescription = ""
     
-    // Skip patterns
-    const skipPatterns = /^(Nº\s*Artigo|Designação|Unidade|Quantidade|Preço|total|subtotal|iva|nota\s*:|observ|página|page|Empresa:|A\/C:|Telefone:|Ref\.ª|Obra:|ORÇAMENTO|Contacto|De:|Data:|Cliente:|Nº\s*Ref|Condições|Garantia|Assinatura)/i
+    // Pattern for data lines with embedded unit+qty+prices
+    const dataLinePattern = /^(v\.?g\.?|vg|m\.?l\.?|ml|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|degrau|m|l)(\d+[.,]?\d*)/i
     
-    // Pattern for budget data line: unit + quantity + prices
-    // Examples: "v.g.1,0022 000,00 €22 000,00 €", "m235,2030,00 €1 056,00 €", "m.l.18,50100,00 €1 850,00 €"
-    const budgetLinePattern = /^(Betão|Ferro|Cofragem|v\.?g\.?|vg|m\.?l\.?|ml|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|degrau)(\d+[.,]?\d*)/i
+    // Pattern for lines with separate columns
+    const separateColsPattern = /^(v\.?g\.?|vg|m\.?l\.?|ml|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|degrau|m|l)\s+(\d+[.,]?\d*)\s+([\d\s]+[.,]\d{2})\s*€/i
+    
+    // Pattern for tabular data (tab or multiple space separated)
+    const tabularPattern = /\t+|;+|\s{3,}/
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim()
       
       if (line.length < 2) continue
       if (skipPatterns.test(line)) continue
+      if (/^[\d\s.,]+\s*€$/.test(line) && line.length < 25) continue // Just a total
+      if (/^\d+[.,]?\d*$/.test(line)) continue // Just a section number
       
-      // Check if line is just a section total (number followed by €)
-      if (/^[\d\s.,]+\s*€$/.test(line)) continue
+      // Try tabular parsing first
+      const cols = line.split(tabularPattern).filter(c => c.trim().length > 0)
       
-      // Check if this is a budget data line
-      const budgetMatch = line.match(budgetLinePattern)
-      
-      if (budgetMatch) {
-        // Extract unit
-        let unit = budgetMatch[1].toLowerCase().replace(/\./g, "").replace("²", "2").replace("³", "3")
+      if (cols.length >= 3) {
+        // Identify column types dynamically
+        let descCol = -1, unitCol = -1, qtyCol = -1, priceCol = -1
         
-        // Handle special cases like "Betão", "Ferro", "Cofragem" which have unit embedded after
-        if (["betão", "ferro", "cofragem"].includes(unit)) {
-          // Look for actual unit in the rest of the line
-          const unitMatch = line.match(/(m3|m2|kg|m\.?l\.?|v\.?g\.?)/i)
-          if (unitMatch) {
-            unit = unitMatch[1].toLowerCase().replace(/\./g, "")
+        for (let j = 0; j < cols.length; j++) {
+          const col = cols[j].trim()
+          
+          if (isUnit(col) && unitCol === -1) {
+            unitCol = j
+          } else if (/€/.test(col) || /^\d+[.,]\d{2}$/.test(col)) {
+            if (priceCol === -1) priceCol = j
+          } else if (/^\d+[.,]?\d*$/.test(col) && qtyCol === -1 && col.length < 8) {
+            qtyCol = j
+          } else if (col.length > 10 && !/^[\d.,€\s]+$/.test(col)) {
+            if (descCol === -1) descCol = j
           }
         }
         
-        // Get the part after the initial unit/name
-        const afterUnit = line.substring(budgetMatch[0].length - budgetMatch[2].length)
+        // If we found a price, try to extract an item
+        if (priceCol >= 0) {
+          const price = parsePortugueseNumber(cols[priceCol])
+          const unit = unitCol >= 0 ? normalizeUnit(cols[unitCol]) : "un"
+          const qty = qtyCol >= 0 ? parsePortugueseNumber(cols[qtyCol]) : 1
+          let desc = descCol >= 0 ? cols[descCol] : currentDescription
+          
+          if (desc && price > 0) {
+            items.push({
+              name: desc.trim(),
+              unit,
+              quantity: qty > 0 && qty < 100000 ? qty : 1,
+              price
+            })
+            currentDescription = ""
+            continue
+          }
+        }
+      }
+      
+      // Try embedded data pattern (like "m235,2030,00 €1 056,00 €")
+      const dataMatch = line.match(dataLinePattern)
+      
+      if (dataMatch) {
+        let unit = normalizeUnit(dataMatch[1])
+        const restOfLine = line.substring(dataMatch[0].length - dataMatch[2].length)
         
-        // Extract quantity - first number
-        const qtyMatch = afterUnit.match(/^(\d+[.,]?\d*)/)
+        const qtyMatch = restOfLine.match(/^(\d+[.,]?\d*)/)
         let quantity = 1
         if (qtyMatch) {
           quantity = parsePortugueseNumber(qtyMatch[1])
-          if (quantity > 10000) quantity = 1 // Sanity check
+          if (quantity > 100000) quantity = 1
         }
         
-        // Find prices (numbers ending with €)
         const priceMatches = line.match(/([\d\s]+[.,]\d{2})\s*€/g)
         
-        if (priceMatches && priceMatches.length >= 1) {
+        if (priceMatches && priceMatches.length >= 1 && currentDescription) {
           const prices = priceMatches.map(p => parsePortugueseNumber(p))
           const unitPrice = prices[0]
           
-          // Build description from stored text or use the special unit name
-          let description = currentDescription
-          if (!description && ["betão", "ferro", "cofragem"].includes(budgetMatch[1].toLowerCase())) {
-            description = budgetMatch[1] // Use "Betão", "Ferro", etc. as description
-          }
-          
-          if (description && unitPrice > 0) {
+          if (unitPrice > 0) {
             items.push({
-              name: description,
-              unit: unit,
+              name: currentDescription.trim(),
+              unit,
               quantity: quantity || 1,
               price: unitPrice
             })
-
+            currentDescription = ""
           }
-          
-          currentDescription = ""
         }
-      } else if (/^\d+[.,]?\d*$/.test(line)) {
-        // Line is just a number (section number "0", "1", "2") - skip
-        continue
-      } else if (/^[\d.,\s]+€/.test(line) && line.length < 20) {
-        // Short line starting with price - skip
-        continue
       } else {
-        // This is a description line
-        let cleanLine = line
-          .replace(/^\d+[.,]\d*\s*/, "") // Remove article numbers like "0,01", "1,02"
-          .replace(/([\d\s]+[.,]\d{2})\s*€/g, "") // Remove prices
-          .replace(/\s+/g, " ")
-          .trim()
-        
-        // Skip if too short or just numbers/symbols
-        if (cleanLine.length < 3) continue
-        if (/^[\d.,\s€\-–—:;]+$/.test(cleanLine)) continue
-        
-        // Accumulate description
-        if (currentDescription) {
-          currentDescription += " " + cleanLine
+        // Try separate columns pattern
+        const sepMatch = line.match(separateColsPattern)
+        if (sepMatch && currentDescription) {
+          const unit = normalizeUnit(sepMatch[1])
+          const quantity = parsePortugueseNumber(sepMatch[2])
+          const price = parsePortugueseNumber(sepMatch[3])
+          
+          if (price > 0) {
+            items.push({
+              name: currentDescription.trim(),
+              unit,
+              quantity: quantity || 1,
+              price
+            })
+            currentDescription = ""
+          }
         } else {
-          currentDescription = cleanLine
+          // Description line - accumulate
+          let cleanLine = line
+            .replace(/^\d+[.,]\d*\s*/, "") // Remove article numbers
+            .replace(/([\d\s]+[.,]\d{2})\s*€/g, "") // Remove prices
+            .replace(/\s+/g, " ")
+            .trim()
+          
+          if (cleanLine.length < 3) continue
+          if (/^[\d.,\s€\-–—:;]+$/.test(cleanLine)) continue
+          
+          if (currentDescription) {
+            currentDescription += " " + cleanLine
+          } else {
+            currentDescription = cleanLine
+          }
         }
       }
     }
     
-
     return items
   }
   
@@ -844,6 +895,27 @@ export default function AnaliseContent() {
     a.href = url
     a.download = `analise-${analysisResult.fileName}-${new Date().toISOString().split("T")[0]}.csv`
     a.click()
+  }
+
+  // Import analyzed items to the materials database
+  const importToDatabase = () => {
+    if (!analysisResult) return
+    
+    const itemsToImport = analysisResult.items.map(item => ({
+      name: item.originalName,
+      unit: item.unit,
+      quantity: item.quantity,
+      price: item.budgetPrice
+    }))
+    
+    const importedCount = importBudgetItems(itemsToImport, "Importado de Orçamento")
+    
+    // Show feedback
+    if (importedCount > 0) {
+      alert(`${importedCount} novos itens foram adicionados à base de dados de materiais e serviços.`)
+    } else {
+      alert("Todos os itens já existem na base de dados. Os preços foram atualizados quando necessário.")
+    }
   }
 
   const filteredItems =
@@ -1188,6 +1260,10 @@ export default function AnaliseContent() {
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Nova Análise
                   </Button>
+                  <Button variant="outline" onClick={importToDatabase} className="bg-price-below/10 hover:bg-price-below/20 text-price-below border-price-below/30">
+                    <Database className="mr-2 h-4 w-4" />
+                    Importar para Base de Dados
+                  </Button>
                   <Button onClick={exportResults}>
                     <Download className="mr-2 h-4 w-4" />
                     Exportar CSV
@@ -1273,7 +1349,7 @@ export default function AnaliseContent() {
                                 </td>
                                 <td className="px-4 py-3 text-right text-sm">{item.quantity}</td>
                                 <td className="px-4 py-3 text-right text-sm font-medium">
-                                  €{item.budgetPrice.toFixed(2)}
+                                  ��{item.budgetPrice.toFixed(2)}
                                 </td>
                                 <td className="px-4 py-3 text-right text-sm">
                                   {item.referenceAvgPrice ? (
