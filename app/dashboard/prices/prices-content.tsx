@@ -146,11 +146,16 @@ export default function PricesContent() {
   }
 
   // Search materials/services with GPT
+  const [suggestionError, setSuggestionError] = useState<string | null>(null)
+  
   const searchWithGPT = async () => {
     setIsLoadingSuggestions(true)
     setSuggestions([])
+    setSuggestionError(null)
 
     try {
+      console.log("[v0] Searching for:", suggestionQuery, "type:", activeTab, "category:", suggestionCategory)
+      
       const response = await fetch("/api/suggest-materials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -161,15 +166,24 @@ export default function PricesContent() {
         })
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.suggestions && data.suggestions.length > 0) {
-          // Mark all as selected by default
-          setSuggestions(data.suggestions.map((s: SuggestedMaterial) => ({ ...s, selected: true })))
-        }
+      console.log("[v0] API response status:", response.status)
+      const data = await response.json()
+      console.log("[v0] API response data:", data)
+
+      if (!response.ok) {
+        setSuggestionError(data.error || data.message || "Erro ao pesquisar")
+        return
+      }
+
+      if (data.suggestions && data.suggestions.length > 0) {
+        // Mark all as selected by default
+        setSuggestions(data.suggestions.map((s: SuggestedMaterial) => ({ ...s, selected: true })))
+      } else {
+        setSuggestionError("Nenhum resultado encontrado. Tente outra pesquisa.")
       }
     } catch (err) {
-      console.error("Error fetching suggestions:", err)
+      console.error("[v0] Error fetching suggestions:", err)
+      setSuggestionError("Erro de conexão. Verifique se a API key está configurada.")
     } finally {
       setIsLoadingSuggestions(false)
     }
@@ -776,6 +790,15 @@ export default function PricesContent() {
                 <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
                 <p className="text-sm text-muted-foreground mt-2">
                   A consultar preços do mercado português...
+                </p>
+              </div>
+            )}
+
+            {suggestionError && !isLoadingSuggestions && (
+              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-center">
+                <p className="text-red-500 font-medium">{suggestionError}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Verifique se a chave API do OpenAI está configurada nas variáveis de ambiente.
                 </p>
               </div>
             )}
