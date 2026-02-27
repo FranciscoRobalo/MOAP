@@ -6,10 +6,31 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Pencil, Trash2, Save, X, RefreshCw, TrendingUp, TrendingDown, CheckCircle2, Search } from "lucide-react"
+import { Plus, Pencil, Trash2, Save, X, RefreshCw, TrendingUp, TrendingDown, CheckCircle2, Search, Sparkles, Loader2, Check } from "lucide-react"
 import { useData, type Material } from "@/contexts/data-context"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+
+interface SuggestedMaterial {
+  name: string
+  unit: string
+  priceMin: number
+  priceMax: number
+  category: string
+  type: "material" | "work"
+  description?: string
+  selected?: boolean
+}
 
 const materialCategories = [
   "Consumíveis",
@@ -71,6 +92,14 @@ export default function PricesContent() {
     }>
   >([])
 
+  // GPT Suggestions state
+  const [showSuggestDialog, setShowSuggestDialog] = useState(false)
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
+  const [suggestions, setSuggestions] = useState<SuggestedMaterial[]>([])
+  const [suggestionQuery, setSuggestionQuery] = useState("")
+  const [suggestionCategory, setSuggestionCategory] = useState("all")
+  const [addingMaterials, setAddingMaterials] = useState(false)
+
   const startEdit = (material: Material) => {
     setEditingId(material.id)
     setEditForm(material)
@@ -114,6 +143,69 @@ export default function PricesContent() {
       })
       setIsAdding(false)
     }
+  }
+
+  // Search materials/services with GPT
+  const searchWithGPT = async () => {
+    setIsLoadingSuggestions(true)
+    setSuggestions([])
+
+    try {
+      const response = await fetch("/api/suggest-materials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: activeTab === "materials" ? "material" : "work",
+          category: suggestionCategory,
+          query: suggestionQuery
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.suggestions && data.suggestions.length > 0) {
+          // Mark all as selected by default
+          setSuggestions(data.suggestions.map((s: SuggestedMaterial) => ({ ...s, selected: true })))
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching suggestions:", err)
+    } finally {
+      setIsLoadingSuggestions(false)
+    }
+  }
+
+  // Toggle selection of a suggestion
+  const toggleSuggestionSelection = (index: number) => {
+    setSuggestions(prev => prev.map((s, i) => 
+      i === index ? { ...s, selected: !s.selected } : s
+    ))
+  }
+
+  // Add selected suggestions to database
+  const addSelectedSuggestions = () => {
+    setAddingMaterials(true)
+    
+    const selectedItems = suggestions.filter(s => s.selected)
+    const today = new Date().toISOString().split("T")[0]
+    
+    selectedItems.forEach(item => {
+      addMaterial({
+        name: item.name,
+        unit: item.unit,
+        price: item.priceMin,
+        priceMax: item.priceMax,
+        category: item.category,
+        type: activeTab === "materials" ? "material" : "work",
+        region: "Nacional",
+        lastUpdated: today,
+      })
+    })
+    
+    setAddingMaterials(false)
+    setShowSuggestDialog(false)
+    setSuggestions([])
+    setSuggestionQuery("")
   }
 
   const syncPricesWithMarket = async () => {
@@ -194,6 +286,10 @@ export default function PricesContent() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={() => setShowSuggestDialog(true)} variant="outline" className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
+            <Sparkles className="mr-2 h-4 w-4" />
+            Pesquisar com IA
+          </Button>
           <Button onClick={syncPricesWithMarket} disabled={isSyncing} variant="outline">
             <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
             {isSyncing ? "A Sincronizar..." : "Sincronizar Preços IA"}
@@ -545,6 +641,169 @@ export default function PricesContent() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* GPT Search Dialog */}
+      <Dialog open={showSuggestDialog} onOpenChange={setShowSuggestDialog}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-yellow-500" />
+              Pesquisar {activeTab === "materials" ? "Materiais" : "Trabalhos"} com IA
+            </DialogTitle>
+            <DialogDescription>
+              A IA pesquisa preços atuais do mercado português de construção e sugere itens para adicionar à base de dados.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <Label htmlFor="search-query">Pesquisar por</Label>
+                <Input
+                  id="search-query"
+                  placeholder={activeTab === "materials" ? "Ex: isolamento, betão, tintas..." : "Ex: pintura, alvenaria, canalizações..."}
+                  value={suggestionQuery}
+                  onChange={(e) => setSuggestionQuery(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="search-category">Categoria</Label>
+                <Select value={suggestionCategory} onValueChange={setSuggestionCategory}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as categorias</SelectItem>
+                    {currentCategories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Button onClick={searchWithGPT} disabled={isLoadingSuggestions} className="w-full">
+              {isLoadingSuggestions ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  A pesquisar preços em Portugal...
+                </>
+              ) : (
+                <>
+                  <Search className="mr-2 h-4 w-4" />
+                  Pesquisar com ChatGPT
+                </>
+              )}
+            </Button>
+
+            {suggestions.length > 0 && (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/50 px-4 py-2 border-b flex items-center justify-between">
+                  <span className="text-sm font-medium">
+                    {suggestions.length} {activeTab === "materials" ? "materiais" : "trabalhos"} encontrados
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setSuggestions(prev => prev.map(s => ({ ...s, selected: true })))}
+                    >
+                      Selecionar todos
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setSuggestions(prev => prev.map(s => ({ ...s, selected: false })))}
+                    >
+                      Limpar seleção
+                    </Button>
+                  </div>
+                </div>
+                <div className="max-h-[300px] overflow-y-auto">
+                  <table className="w-full">
+                    <thead className="bg-muted/30 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium"></th>
+                        <th className="px-4 py-2 text-left text-xs font-medium">Nome</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium">Un.</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium">Preço (EUR)</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium">Categoria</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {suggestions.map((item, index) => (
+                        <tr 
+                          key={index} 
+                          className={`cursor-pointer hover:bg-muted/30 ${item.selected ? 'bg-primary/5' : ''}`}
+                          onClick={() => toggleSuggestionSelection(index)}
+                        >
+                          <td className="px-4 py-2">
+                            <Checkbox 
+                              checked={item.selected} 
+                              onCheckedChange={() => toggleSuggestionSelection(index)}
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <div>
+                              <p className="font-medium text-sm">{item.name}</p>
+                              {item.description && (
+                                <p className="text-xs text-muted-foreground">{item.description}</p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 text-sm text-muted-foreground">{item.unit}</td>
+                          <td className="px-4 py-2 text-sm">
+                            €{item.priceMin.toFixed(2)} - €{item.priceMax.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-2">
+                            <Badge variant="secondary" className="text-xs">
+                              {item.category}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {isLoadingSuggestions && (
+              <div className="text-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                <p className="text-sm text-muted-foreground mt-2">
+                  A consultar preços do mercado português...
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSuggestDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={addSelectedSuggestions} 
+              disabled={addingMaterials || suggestions.filter(s => s.selected).length === 0}
+            >
+              {addingMaterials ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  A adicionar...
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Adicionar {suggestions.filter(s => s.selected).length} itens
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
