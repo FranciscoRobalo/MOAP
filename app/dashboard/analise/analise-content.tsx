@@ -648,21 +648,26 @@ export default function AnaliseContent() {
 
     try {
       let parsedItems: Array<{ name: string; unit: string; quantity: number; price: number }> = []
+      const fileName = file.name.toLowerCase()
       
-      if (file.name.toLowerCase().endsWith(".pdf")) {
-        console.log("[v0] File is PDF, calling parsePDF...")
+      // PDF and Excel files go through the API (which uses GPT)
+      if (fileName.endsWith(".pdf") || fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+        console.log("[v0] File is PDF/Excel, sending to API...")
         try {
           parsedItems = await parsePDF(file)
-          console.log("[v0] parsePDF returned:", parsedItems.length, "items")
+          console.log("[v0] API returned:", parsedItems.length, "items")
         } catch (parseErr) {
-          console.error("[v0] parsePDF error:", parseErr)
-          // Fallback: try to read as text (some PDFs are text-based)
-          const content = await file.text()
-          parsedItems = parsePDFText(content)
-          console.log("[v0] Fallback parsePDFText returned:", parsedItems.length, "items")
+          console.error("[v0] API parsing error:", parseErr)
+          // For PDF, try fallback
+          if (fileName.endsWith(".pdf")) {
+            const content = await file.text()
+            parsedItems = parsePDFText(content)
+            console.log("[v0] Fallback parsePDFText returned:", parsedItems.length, "items")
+          }
         }
       } else {
-        console.log("[v0] File is not PDF, parsing as CSV...")
+        // CSV/TXT files parsed locally
+        console.log("[v0] File is CSV/TXT, parsing locally...")
         const content = await file.text()
         parsedItems = parseCSV(content)
         console.log("[v0] parseCSV returned:", parsedItems.length, "items")
@@ -992,16 +997,16 @@ export default function AnaliseContent() {
                 onClick={() => document.getElementById("file-upload")?.click()}
               >
                 <input
-                  id="file-upload"
-                  type="file"
-                  accept=".csv,.txt,.pdf"
-                  onChange={handleFileUpload}
-                  className="hidden"
+  id="file-upload"
+  type="file"
+  accept=".csv,.txt,.pdf,.xls,.xlsx"
+  onChange={handleFileUpload}
+  className="hidden"
                   disabled={isAnalyzing}
                 />
                 <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="font-medium mb-1">Arraste o ficheiro CSV ou PDF aqui</p>
-                <p className="text-sm text-muted-foreground mb-4">Formatos aceites: CSV, TXT, PDF</p>
+<p className="font-medium mb-1">Arraste o ficheiro aqui</p>
+<p className="text-sm text-muted-foreground mb-4">Formatos aceites: PDF, Excel (XLS/XLSX), CSV, TXT</p>
                 <Button variant="outline" disabled={isAnalyzing}>
                   Selecionar Ficheiro
                 </Button>
@@ -1041,7 +1046,7 @@ export default function AnaliseContent() {
                 <Info className="h-5 w-5 text-primary" />
                 Formatos Aceites
               </CardTitle>
-              <CardDescription>CSV, TXT ou PDF com orçamento de construção</CardDescription>
+              <CardDescription>PDF, Excel (XLS/XLSX), CSV ou TXT com orçamento de construção</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-lg bg-muted/50 p-4 font-mono text-sm">

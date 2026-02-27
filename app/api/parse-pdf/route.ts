@@ -1,80 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { extractText } from "unpdf"
-
-// ============================================================================
-// UTILITIES
-// ============================================================================
-
-// Parse Portuguese number format: "1 234,56" or "1.234,56" or "1234,56" -> 1234.56
-function parsePortugueseNumber(str: string): number {
-  if (!str) return 0
-  let cleaned = str.replace(/€/g, "").trim()
-  cleaned = cleaned.replace(/\s+/g, "")
-  // Portuguese format uses comma as decimal separator
-  if (cleaned.includes(",")) {
-    cleaned = cleaned.replace(/\./g, "").replace(",", ".")
-  }
-  const num = Number.parseFloat(cleaned)
-  return isNaN(num) ? 0 : num
-}
-
-// Normalize unit strings to standard format
-function normalizeUnit(unit: string): string {
-  if (!unit) return "un"
-  const trimmed = unit.trim().toLowerCase().replace(/\./g, "")
-  
-  const unitMap: Record<string, string> = {
-    "vg": "vg", "vglobal": "vg", "vb": "vg",
-    "ml": "ml", "metro linear": "ml",
-    "m2": "m2", "m²": "m2", "metro quadrado": "m2",
-    "m3": "m3", "m³": "m3", "metro cubico": "m3",
-    "un": "un", "und": "un", "unid": "un", "unidade": "un", 
-    "pç": "un", "pc": "un", "peça": "un",
-    "kg": "kg", "quilo": "kg",
-    "m": "m", "metro": "m",
-    "l": "l", "lt": "l", "litro": "l",
-    "cx": "cx", "caixa": "cx",
-    "cj": "cj", "conj": "cj", "conjunto": "cj",
-    "degrau": "degrau",
-    "mes": "mes", "mês": "mes",
-  }
-  
-  return unitMap[trimmed] || (trimmed.length <= 6 ? trimmed : "un")
-}
-
-// Check if line should be skipped
-function shouldSkipLine(line: string): boolean {
-  const skipPatterns = [
-    /^(Nº\s*Artigo|Art\.?º?\s*$|Item\s*$|Descrição\s*$|Designação\s*$)/i,
-    /^(Un\.?\s*$|Unidade\s*$|Quant\.?\s*$|Quantidade\s*$)/i,
-    /^(Preço\s*(unitário|total)?|Valor\s*(unitário|total)?)\s*$/i,
-    /^(Subtotal|IVA|Observ|Nota\s*:|Total\s*Geral)/i,
-    /^(Empresa:|A\/C:|Telefone:|Ref\.?ª?\/?\s*$|Obra:|ORÇAMENTO)/i,
-    /^(De:|Data:|Cliente:|Contacto|Condições|Garantia)/i,
-    /^(PLANILHA|TERMOS|ACRESCE|Capital|Alvará|NIF|NIPC|www\.|@)/i,
-    /^(Página|Page|\d+\s*de\s*\d+|\.xlsx|Notas:)/i,
-    /^U\.\s*M\.\s*$/i,
-    /^PROPOSTA/i,
-    /FRANCISCO SACRAMENTO/i,
-    /IMPIC/i,
-  ]
-  return skipPatterns.some(p => p.test(line))
-}
-
-// Check if line is a section header
-function isSectionHeader(line: string): boolean {
-  // Numbered section like "1.0    ESTALEIRO" or "2    DEMOLIÇÕES"
-  if (/^\d+\.?\d*\s{2,}[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]+$/.test(line)) return true
-  // All caps section like "AESTRUTURA" or "PAREDES"
-  if (/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{3,30}$/.test(line) && !line.includes(",")) return true
-  // Section number alone
-  if (/^\d+$/.test(line)) return true
-  return false
-}
-
-// ============================================================================
-// PARSING STRATEGIES
-// ============================================================================
+import OpenAI from "openai"
+import * as XLSX from "xlsx"
 
 interface ParsedItem {
   name: string
@@ -83,322 +10,345 @@ interface ParsedItem {
   price: number
 }
 
-// STRATEGY 1: OR_MORADIA_COBRE format
-// Pattern: "description\nun1.006228.006228.00" or "m2207.2524.915163.01"
-// Format: unit + qty (decimals with dots) + unitPrice (decimals with dots) + totalPrice
-function parseORAMoradiaFormat(line: string, description: string): ParsedItem | null {
-  // Match: unit followed by numbers with dots as decimals (NOT thousand separators)
-  // Examples: "un1.006228.006228.00", "m2207.2524.915163.01", "vg1.002615.762615.76"
-  const match = line.match(/^(un|vg|vb|m2|m²|m3|m³|ml|kg|pc|m|l)(\d+\.\d+)(\d+\.\d+)(\d+\.\d+)$/i)
-  
-  if (match && description) {
-    const unit = normalizeUnit(match[1])
-    const quantity = parseFloat(match[2])
-    const unitPrice = parseFloat(match[3])
-    
-    if (unitPrice > 0 && quantity > 0) {
-      return {
-        name: description.trim(),
-        unit,
-        quantity,
-        price: unitPrice
-      }
-    }
-  }
-  return null
+// Initialize OpenAI client
+const getOpenAIClient = () => {
+  if (!process.env.OPENAI_API_KEY) return null
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 }
 
-// STRATEGY 2: Z_0010-25 format with € symbols
-// Pattern: "v.g.1,000,00 €" or "m.l.18,50100,00 €1 850,00 €" or "m235,2030,00 €1 056,00 €"
-function parseZFormat(line: string, description: string): ParsedItem | null {
-  // Match unit at start, followed by quantity and prices with €
-  const unitMatch = line.match(/^(v\.?g\.?|vb|m\.?l\.?|m2|m²|m3|m³|un\.?d?|unid|kg|pc|pç|m|l)/i)
-  if (!unitMatch) return null
-  
-  const unit = normalizeUnit(unitMatch[1])
-  const afterUnit = line.substring(unitMatch[0].length)
-  
-  // Find all numbers that could be qty or prices
-  // Portuguese format: "1,00" for 1.00, "22 000,00" for 22000.00
-  const euroMatches = [...afterUnit.matchAll(/([\d\s]+[,]\d{2})\s*€/g)]
-  
-  if (euroMatches.length >= 1 && description) {
-    // First number before € is usually unit price, or could be qty then price
-    const firstPrice = parsePortugueseNumber(euroMatches[0][1])
-    
-    // Try to find quantity (number before the prices)
-    const qtyMatch = afterUnit.match(/^(\d+[,]?\d*)/)
-    let quantity = 1
-    if (qtyMatch) {
-      const qtyStr = qtyMatch[1]
-      // Check if this looks like a quantity (small number) vs part of a price
-      const potentialQty = parsePortugueseNumber(qtyStr)
-      if (potentialQty > 0 && potentialQty < 10000) {
-        quantity = potentialQty
-      }
-    }
-    
-    if (firstPrice > 0) {
-      return {
-        name: description.trim(),
-        unit,
-        quantity,
-        price: firstPrice
-      }
-    }
+// Parse Portuguese number format
+function parsePortugueseNumber(str: string): number {
+  if (!str || typeof str !== "string") return 0
+  let cleaned = str.replace(/€/g, "").replace(/\s+/g, "").trim()
+  if (cleaned.includes(",")) {
+    cleaned = cleaned.replace(/\./g, "").replace(",", ".")
   }
-  return null
+  const num = parseFloat(cleaned)
+  return isNaN(num) ? 0 : num
 }
 
-// STRATEGY 3: Sub-item format like "Betãom338,58200,00 €7 716,00 €"
-// These are component items (Betão, Ferro, Cofragem) with their own unit/qty/price
-function parseSubItemFormat(line: string): ParsedItem | null {
-  // Match: MaterialName + unit + qty + prices
-  const match = line.match(/^(Betão|Ferro|Cofragem|Aço)(m3|m²|m2|kg|m)(\d+[,.]?\d*)([\d\s,]+€[\d\s,]+€)/i)
+// Normalize unit strings
+function normalizeUnit(unit: string): string {
+  if (!unit) return "un"
+  const trimmed = unit.toString().trim().toLowerCase().replace(/\./g, "")
+  const unitMap: Record<string, string> = {
+    "vg": "vg", "vglobal": "vg", "vb": "vg", "verba": "vg",
+    "ml": "ml", "m.l": "ml", "metro linear": "ml",
+    "m2": "m2", "m²": "m2", "m 2": "m2",
+    "m3": "m3", "m³": "m3", "m 3": "m3",
+    "un": "un", "und": "un", "unid": "un", "unidade": "un", 
+    "pç": "un", "pc": "un", "peça": "un",
+    "kg": "kg", "quilo": "kg",
+    "m": "m", "metro": "m",
+    "l": "l", "lt": "l", "litro": "l",
+  }
+  return unitMap[trimmed] || (trimmed.length <= 6 ? trimmed : "un")
+}
+
+// ============================================================================
+// GPT PARSER - Uses OpenAI to intelligently parse budget text
+// ============================================================================
+
+async function parseWithGPT(text: string, debugInfo: string[]): Promise<ParsedItem[]> {
+  const openai = getOpenAIClient()
+  if (!openai) {
+    debugInfo.push("OpenAI API key not configured")
+    return []
+  }
   
-  if (match) {
-    const name = match[1]
-    const unit = normalizeUnit(match[2])
-    const quantity = parsePortugueseNumber(match[3])
-    const pricesStr = match[4]
+  debugInfo.push("Using GPT to parse budget text...")
+  
+  // Limit text to avoid token limits
+  const maxChars = 12000
+  const truncatedText = text.length > maxChars ? text.substring(0, maxChars) : text
+  debugInfo.push(`Text length for GPT: ${truncatedText.length} chars`)
+  
+  const systemPrompt = `You are an expert Portuguese construction budget parser. Your task is to extract ALL budget line items from the provided text.
+
+CRITICAL INSTRUCTIONS:
+1. The text may be continuous without line breaks - items are separated by article numbers like "0,01", "1,02", "2,01"
+2. Portuguese number format: "22 000,00" or "1.234,56" means 22000.00 or 1234.56
+3. Common units and their meanings:
+   - vg or v.g. = verba global (lump sum)
+   - m2 or m² = square meters
+   - m3 or m³ = cubic meters
+   - ml or m.l. = linear meters
+   - un or und = units
+   - kg = kilograms
+4. Data patterns to look for:
+   - "v.g.1,00" means unit=vg, quantity=1.00
+   - "m235,20" means unit=m2, quantity=35.20
+   - "22 000,00 €" or "22000,00€" means price=22000.00
+5. Each item typically has: article number, description text, unit, quantity, unit price, total price
+6. Extract the UNIT PRICE (preço unitário), not the total price
+7. Section headers like "ESTRUTURA", "ARQUITETURA", "ACABAMENTOS" in ALL CAPS are categories, NOT items
+8. Skip headers, footers, company info, totals, subtotals
+
+For each item found, extract:
+- name: The full description in Portuguese (minimum 10 characters)
+- unit: The measurement unit (vg, m2, m3, ml, un, kg, etc.)
+- quantity: The quantity as a number
+- price: The UNIT price as a number (not total)
+
+Return ONLY a valid JSON array. Example:
+[
+  {"name": "Montagem e desmontagem de estaleiro", "unit": "vg", "quantity": 1, "price": 22000},
+  {"name": "Betão C25/30 em fundações", "unit": "m3", "quantity": 38.58, "price": 200}
+]
+
+If no valid items found, return: []`
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Extract all budget items from this Portuguese construction budget:\n\n${truncatedText}` }
+      ],
+      temperature: 0.1,
+      max_tokens: 4000,
+    })
+
+    const content = response.choices[0]?.message?.content || "[]"
+    debugInfo.push(`GPT response received, length: ${content.length}`)
     
-    // Extract first price (unit price)
-    const priceMatch = pricesStr.match(/([\d\s,]+)€/)
-    if (priceMatch) {
-      const unitPrice = parsePortugueseNumber(priceMatch[1])
-      if (unitPrice > 0) {
-        return {
-          name,
-          unit,
-          quantity: quantity > 0 ? quantity : 1,
-          price: unitPrice
+    // Extract JSON array from response
+    let jsonStr = content
+    const jsonMatch = content.match(/\[[\s\S]*\]/)
+    if (jsonMatch) {
+      jsonStr = jsonMatch[0]
+    }
+    
+    const parsed = JSON.parse(jsonStr)
+    const items = Array.isArray(parsed) ? parsed : []
+    debugInfo.push(`GPT parsed ${items.length} items`)
+    
+    // Validate and normalize items
+    return items
+      .filter((item: ParsedItem) => 
+        item && 
+        item.name && 
+        typeof item.name === "string" && 
+        item.name.length > 5
+      )
+      .map((item: ParsedItem) => ({
+        name: String(item.name).trim(),
+        unit: normalizeUnit(String(item.unit || "un")),
+        quantity: typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1,
+        price: typeof item.price === "number" && item.price >= 0 ? item.price : 0
+      }))
+  } catch (error) {
+    debugInfo.push(`GPT error: ${error instanceof Error ? error.message : "Unknown"}`)
+    return []
+  }
+}
+
+// ============================================================================
+// EXCEL PARSER - Parse XLS/XLSX files
+// ============================================================================
+
+function parseExcelFile(buffer: ArrayBuffer, debugInfo: string[]): ParsedItem[] {
+  debugInfo.push("Parsing Excel file...")
+  const items: ParsedItem[] = []
+  
+  try {
+    const workbook = XLSX.read(buffer, { type: "array" })
+    debugInfo.push(`Excel sheets: ${workbook.SheetNames.join(", ")}`)
+    
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName]
+      const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][]
+      
+      debugInfo.push(`Sheet "${sheetName}": ${data.length} rows`)
+      
+      // Find header row to identify columns
+      let headerRow = -1
+      let descCol = -1, unitCol = -1, qtyCol = -1, priceCol = -1
+      
+      for (let i = 0; i < Math.min(data.length, 20); i++) {
+        const row = data[i]
+        if (!row || !Array.isArray(row)) continue
+        
+        for (let j = 0; j < row.length; j++) {
+          const cell = String(row[j] || "").toLowerCase().trim()
+          
+          if (cell.includes("descrição") || cell.includes("designação") || cell.includes("especificação")) {
+            descCol = j
+            headerRow = i
+          } else if (cell.includes("unid") || cell === "un" || cell === "und") {
+            unitCol = j
+            headerRow = i
+          } else if (cell.includes("quant") || cell === "qt" || cell === "qtd") {
+            qtyCol = j
+            headerRow = i
+          } else if (cell.includes("preço") && (cell.includes("unit") || cell.includes("€"))) {
+            priceCol = j
+            headerRow = i
+          } else if (cell.includes("valor") && cell.includes("unit")) {
+            priceCol = j
+            headerRow = i
+          }
+        }
+        
+        if (descCol >= 0 && headerRow >= 0) break
+      }
+      
+      debugInfo.push(`Header found at row ${headerRow}: desc=${descCol}, unit=${unitCol}, qty=${qtyCol}, price=${priceCol}`)
+      
+      // If no header found, try to detect columns from data
+      if (headerRow < 0) {
+        headerRow = 0
+        // Assume common column order: Article, Description, Unit, Qty, Unit Price, Total
+        for (let i = 0; i < Math.min(data.length, 30); i++) {
+          const row = data[i]
+          if (!row || row.length < 3) continue
+          
+          // Find first row with enough data
+          for (let j = 0; j < row.length; j++) {
+            const cell = String(row[j] || "")
+            if (cell.length > 20 && !/^\d+[.,]?\d*$/.test(cell) && descCol < 0) {
+              descCol = j
+            }
+          }
+          if (descCol >= 0) {
+            headerRow = i - 1
+            break
+          }
+        }
+      }
+      
+      // Parse data rows
+      for (let i = headerRow + 1; i < data.length; i++) {
+        const row = data[i]
+        if (!row || !Array.isArray(row)) continue
+        
+        let name = "", unit = "un", quantity = 1, price = 0
+        
+        // Extract description
+        if (descCol >= 0 && row[descCol]) {
+          name = String(row[descCol]).trim()
+        } else {
+          // Find longest text cell as description
+          let maxLen = 0
+          for (let j = 0; j < row.length; j++) {
+            const cell = String(row[j] || "")
+            if (cell.length > maxLen && cell.length > 10 && !/^[\d.,€\s]+$/.test(cell)) {
+              name = cell.trim()
+              maxLen = cell.length
+            }
+          }
+        }
+        
+        // Extract unit
+        if (unitCol >= 0 && row[unitCol]) {
+          unit = normalizeUnit(String(row[unitCol]))
+        }
+        
+        // Extract quantity
+        if (qtyCol >= 0 && row[qtyCol] != null) {
+          const q = typeof row[qtyCol] === "number" ? row[qtyCol] : parsePortugueseNumber(String(row[qtyCol]))
+          if (q > 0 && q < 100000) quantity = q
+        }
+        
+        // Extract price
+        if (priceCol >= 0 && row[priceCol] != null) {
+          price = typeof row[priceCol] === "number" ? row[priceCol] : parsePortugueseNumber(String(row[priceCol]))
+        }
+        
+        // If no specific columns, try to find numbers that look like prices
+        if (price === 0) {
+          for (let j = row.length - 1; j >= 0; j--) {
+            if (j === descCol) continue
+            const val = row[j]
+            const num = typeof val === "number" ? val : parsePortugueseNumber(String(val || ""))
+            if (num > 0 && num < 10000000) {
+              price = num
+              break
+            }
+          }
+        }
+        
+        // Add item if valid
+        if (name && name.length > 5 && !/^(total|subtotal|iva|observ)/i.test(name)) {
+          items.push({ name, unit, quantity, price })
         }
       }
     }
+    
+    debugInfo.push(`Excel parsing found ${items.length} items`)
+  } catch (error) {
+    debugInfo.push(`Excel parse error: ${error instanceof Error ? error.message : "Unknown"}`)
   }
-  return null
-}
-
-// STRATEGY 4: LPU_Travessa format - unit+qty only (no prices)
-// Pattern: "vg1,00" at the end of data
-// These files don't have prices in the text extraction!
-function parseLPUFormat(line: string, description: string): ParsedItem | null {
-  // Match simple unit+qty pattern like "vg1,00" or "m215,50"
-  const match = line.match(/^(v\.?g\.?|vb|m\.?l\.?|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|m|l)(\d+[,.]?\d*)$/i)
   
-  if (match && description) {
-    const unit = normalizeUnit(match[1])
-    const quantity = parsePortugueseNumber(match[2])
-    
-    // No price available in this format - set to 0 so it can still be imported
-    return {
-      name: description.trim(),
-      unit,
-      quantity: quantity > 0 ? quantity : 1,
-      price: 0 // Price not available in this format
-    }
-  }
-  return null
-}
-
-// STRATEGY 5: Mapa de Quantidades / GEO4MODULO format with tabs/spaces
-function parseTabularFormat(line: string): ParsedItem | null {
-  // Split by tabs or multiple spaces
-  const parts = line.split(/\t+|\s{3,}/).filter(p => p.trim().length > 0)
-  
-  if (parts.length >= 4) {
-    // Try to identify: description, unit, quantity, price
-    let desc = "", unit = "un", qty = 1, price = 0
-    
-    for (const part of parts) {
-      const trimmed = part.trim()
-      
-      // Check if it's a unit
-      if (/^(vg|vb|ml|m2|m²|m3|m³|un|und|unid|kg|pc|pç|m|l|mes)$/i.test(trimmed)) {
-        unit = normalizeUnit(trimmed)
-      }
-      // Check if it's a price (has € or looks like money)
-      else if (/€/.test(trimmed) || /^\d[\d\s]*[,]\d{2}$/.test(trimmed)) {
-        const p = parsePortugueseNumber(trimmed)
-        if (p > 0 && price === 0) price = p
-      }
-      // Check if it's a small number (quantity)
-      else if (/^\d+[,.]?\d*$/.test(trimmed)) {
-        const n = parsePortugueseNumber(trimmed)
-        if (n > 0 && n < 10000) qty = n
-      }
-      // Otherwise it might be description
-      else if (trimmed.length > 10 && !/^\d/.test(trimmed)) {
-        desc = trimmed
-      }
-    }
-    
-    if (desc && price > 0) {
-      return { name: desc, unit, quantity: qty, price }
-    }
-  }
-  return null
-}
-
-// STRATEGY 6: Inline price pattern
-// Match lines like: "Execução de paredes... m2 200.00 29.89 5978.88"
-function parseInlineFormat(line: string): ParsedItem | null {
-  // Look for description followed by unit, qty, and prices
-  const match = line.match(/^(.{20,}?)\s+(vg|vb|ml|m2|m²|m3|m³|un|und|kg|pc|m|l)\s+(\d+[,.]?\d*)\s+([\d,.\s]+)\s+([\d,.\s]+)$/i)
-  
-  if (match) {
-    const desc = match[1].trim()
-    const unit = normalizeUnit(match[2])
-    const qty = parsePortugueseNumber(match[3])
-    const unitPrice = parsePortugueseNumber(match[4])
-    
-    if (desc.length > 10 && unitPrice > 0) {
-      return {
-        name: desc,
-        unit,
-        quantity: qty > 0 ? qty : 1,
-        price: unitPrice
-      }
-    }
-  }
-  return null
+  return items
 }
 
 // ============================================================================
-// MAIN PARSER
+// REGEX FALLBACK PARSER
 // ============================================================================
 
-function parseBudgetText(text: string, debugInfo: string[] = []): ParsedItem[] {
+function parseWithRegex(text: string, debugInfo: string[]): ParsedItem[] {
+  debugInfo.push("Using regex fallback parser...")
   const items: ParsedItem[] = []
-  const lines = text.split(/[\r\n]+/)
   
-  debugInfo.push(`Total lines to parse: ${lines.length}`)
+  // Find all € prices
+  const euroMatches = [...text.matchAll(/([\d\s,.]+)\s*€/g)]
+  debugInfo.push(`Found ${euroMatches.length} € patterns`)
   
-  let currentDescription = ""
-  let linesSinceDescription = 0
-  let strategyCounts = { ora: 0, z: 0, sub: 0, tab: 0, inline: 0, lpu: 0 }
+  // Find all unit+quantity patterns
+  const unitQtyMatches = [...text.matchAll(/(v\.?g\.?|vb|m\.?l\.?|m2|m²|m3|m³|un\.?d?|unid|kg|pc|pç|m|l)\s*(\d+[,.]?\d*)/gi)]
+  debugInfo.push(`Found ${unitQtyMatches.length} unit+qty patterns`)
   
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
+  // Try to match unit patterns with following prices
+  for (const unitMatch of unitQtyMatches) {
+    const unitIndex = unitMatch.index || 0
+    const unit = normalizeUnit(unitMatch[1])
+    const qty = parsePortugueseNumber(unitMatch[2])
     
-    // Skip empty or very short lines
-    if (line.length < 2) {
-      linesSinceDescription++
-      continue
-    }
+    // Look for description before this unit (up to 500 chars back)
+    const startSearch = Math.max(0, unitIndex - 500)
+    const textBefore = text.substring(startSearch, unitIndex)
     
-    // Skip headers/footers
-    if (shouldSkipLine(line)) {
-      continue
-    }
+    // Find article number or significant text
+    const articleMatch = textBefore.match(/(\d+[,.]?\d{0,2})\s+([^€]{10,200})$/)
+    let description = ""
     
-    // Skip section headers but reset description
-    if (isSectionHeader(line)) {
-      currentDescription = ""
-      continue
-    }
-    
-    // Skip lines that are just totals (number + €)
-    if (/^[\d\s.,]+\s*€\s*$/.test(line) && line.length < 25) continue
-    if (/^\d+[,.]?\d*\s*$/.test(line) && line.length < 10) continue
-    
-    // Try all parsing strategies
-    let item: ParsedItem | null = null
-    
-    // Strategy 1: OR_MORADIA format (un1.006228.006228.00)
-    item = parseORAMoradiaFormat(line, currentDescription)
-    if (item && item.price > 0) {
-      items.push(item)
-      strategyCounts.ora++
-      currentDescription = ""
-      linesSinceDescription = 0
-      continue
-    }
-    
-    // Strategy 2: Z format with € (v.g.1,0022 000,00 €)
-    item = parseZFormat(line, currentDescription)
-    if (item && item.price > 0) {
-      items.push(item)
-      strategyCounts.z++
-      currentDescription = ""
-      linesSinceDescription = 0
-      continue
-    }
-    
-    // Strategy 3: Sub-item format (Betãom338,58200,00 €)
-    item = parseSubItemFormat(line)
-    if (item && item.price > 0) {
-      items.push(item)
-      strategyCounts.sub++
-      continue
-    }
-    
-    // Strategy 4: Tabular format
-    item = parseTabularFormat(line)
-    if (item && item.price > 0) {
-      items.push(item)
-      strategyCounts.tab++
-      currentDescription = ""
-      linesSinceDescription = 0
-      continue
-    }
-    
-    // Strategy 5: Inline format
-    item = parseInlineFormat(line)
-    if (item && item.price > 0) {
-      items.push(item)
-      strategyCounts.inline++
-      currentDescription = ""
-      linesSinceDescription = 0
-      continue
-    }
-    
-    // Strategy 6: LPU format (no prices, just unit+qty)
-    item = parseLPUFormat(line, currentDescription)
-    if (item) {
-      // Only add if we have no other items with prices, or this has a price
-      if (item.price > 0 || items.length === 0) {
-        items.push(item)
-        strategyCounts.lpu++
+    if (articleMatch) {
+      description = articleMatch[2].trim()
+    } else {
+      // Get last significant text block
+      const textBlocks = textBefore.split(/\d+[,.]?\d{0,2}\s*€/)
+      const lastBlock = textBlocks[textBlocks.length - 1]
+      if (lastBlock) {
+        description = lastBlock.replace(/^[\d\s.,€]+/, "").trim()
       }
-      currentDescription = ""
-      linesSinceDescription = 0
-      continue
     }
     
-    // If no pattern matched, this might be a description line
-    // Clean article numbers from start
-    let cleanLine = line
-      .replace(/^[\d]+[,.]?[\d]*\s*/, "") // Remove "0,01", "1.2", "2.1" etc
-      .replace(/^[\d]+\s+/, "") // Remove "1 ", "2 " etc
+    // Clean description
+    description = description
+      .replace(/^\d+[,.]?\d{0,2}\s*/, "")
+      .replace(/\s+/g, " ")
       .trim()
     
-    // Skip if too short or just numbers/punctuation
-    if (cleanLine.length < 5) continue
-    if (/^[\d.,\s€\-–—:;()\[\]]+$/.test(cleanLine)) continue
+    if (description.length < 10) continue
+    if (/^(Nº|Art|Designação|Preço|Total|Empresa|Obra)/i.test(description)) continue
     
-    // Reset description if too many lines passed
-    if (linesSinceDescription > 10) {
-      currentDescription = ""
-    }
+    // Find price after unit
+    const afterUnit = text.substring(unitIndex + (unitMatch[0]?.length || 0), unitIndex + 150)
+    const priceMatch = afterUnit.match(/([\d\s,.]+)\s*€/)
+    const price = priceMatch ? parsePortugueseNumber(priceMatch[1]) : 0
     
-    // Accumulate description
-    if (currentDescription && linesSinceDescription < 5) {
-      // Check if continuation or new description
-      const startsLower = /^[a-záéíóúâêôãõç]/.test(cleanLine)
-      if (startsLower) {
-        currentDescription += " " + cleanLine
-      } else {
-        currentDescription = cleanLine
-      }
-    } else {
-      currentDescription = cleanLine
+    if (price > 0) {
+      items.push({
+        name: description,
+        unit,
+        quantity: qty > 0 && qty < 100000 ? qty : 1,
+        price
+      })
     }
-    linesSinceDescription = 0
   }
   
-  debugInfo.push(`Strategy counts: ORA=${strategyCounts.ora}, Z=${strategyCounts.z}, SUB=${strategyCounts.sub}, TAB=${strategyCounts.tab}, INLINE=${strategyCounts.inline}, LPU=${strategyCounts.lpu}`)
-  
+  debugInfo.push(`Regex parser found ${items.length} items`)
   return items
 }
 
@@ -414,49 +364,108 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File
     
     if (!file) {
-      return NextResponse.json({ error: "No file provided", debug: ["No file in formData"] }, { status: 400 })
+      return NextResponse.json({ error: "No file provided", debug: ["No file in formData"], items: [] }, { status: 400 })
     }
     
-    debugInfo.push(`File: ${file.name}, Size: ${file.size} bytes`)
+    const fileName = file.name.toLowerCase()
+    debugInfo.push(`File: ${file.name}, Size: ${file.size} bytes, Type: ${file.type}`)
     
-    // Read file as ArrayBuffer and extract text using unpdf
     const arrayBuffer = await file.arrayBuffer()
-    debugInfo.push(`ArrayBuffer size: ${arrayBuffer.byteLength}`)
-    
+    let items: ParsedItem[] = []
     let text = ""
-    try {
-      const result = await extractText(arrayBuffer, { mergePages: true })
-      text = result.text
-      debugInfo.push(`Text extracted: ${text.length} chars`)
-    } catch (extractError) {
-      debugInfo.push(`Extract error: ${extractError instanceof Error ? extractError.message : "Unknown"}`)
+    
+    // Handle Excel files
+    if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+      debugInfo.push("Detected Excel file")
+      items = parseExcelFile(arrayBuffer, debugInfo)
+      
+      // If Excel parsing found items, return them
+      if (items.length > 0) {
+        return NextResponse.json({ 
+          success: true, 
+          items,
+          fileName: file.name,
+          debug: debugInfo
+        })
+      }
+      
+      // Convert Excel to text for GPT parsing
+      try {
+        const workbook = XLSX.read(arrayBuffer, { type: "array" })
+        text = workbook.SheetNames
+          .map(name => XLSX.utils.sheet_to_csv(workbook.Sheets[name]))
+          .join("\n\n")
+        debugInfo.push(`Excel converted to text: ${text.length} chars`)
+      } catch (e) {
+        debugInfo.push(`Excel to text conversion failed: ${e}`)
+      }
+    }
+    // Handle PDF files
+    else if (fileName.endsWith(".pdf")) {
+      debugInfo.push("Detected PDF file")
+      try {
+        const result = await extractText(arrayBuffer, { mergePages: true })
+        text = result.text
+        debugInfo.push(`PDF text extracted: ${text.length} chars`)
+      } catch (extractError) {
+        debugInfo.push(`PDF extract error: ${extractError instanceof Error ? extractError.message : "Unknown"}`)
+        return NextResponse.json({ 
+          error: "Failed to extract text from PDF",
+          debug: debugInfo,
+          items: []
+        }, { status: 500 })
+      }
+    }
+    // Handle CSV/TXT files
+    else if (fileName.endsWith(".csv") || fileName.endsWith(".txt")) {
+      debugInfo.push("Detected text file")
+      text = await file.text()
+      debugInfo.push(`Text file read: ${text.length} chars`)
+    }
+    else {
       return NextResponse.json({ 
-        error: "Failed to extract text from PDF",
+        error: "Unsupported file type. Please upload PDF, Excel (XLS/XLSX), or CSV files.",
         debug: debugInfo,
         items: []
-      }, { status: 500 })
+      }, { status: 400 })
     }
     
-    // Add sample of extracted text
-    debugInfo.push(`First 500 chars: ${text.substring(0, 500).replace(/\n/g, "\\n")}`)
+    if (text.length < 50 && items.length === 0) {
+      debugInfo.push("Text too short and no Excel items found")
+      return NextResponse.json({ 
+        error: "File appears to be empty or too short",
+        debug: debugInfo,
+        items: []
+      }, { status: 400 })
+    }
     
-    // Parse the text
-    let items = parseBudgetText(text, debugInfo)
+    // Add sample of text for debugging
+    if (text) {
+      debugInfo.push(`First 500 chars: ${text.substring(0, 500).replace(/\n/g, "\\n")}`)
+    }
     
-    debugInfo.push(`Raw items found: ${items.length}`)
+    // If no items yet, try GPT parsing
+    if (items.length === 0 && text) {
+      items = await parseWithGPT(text, debugInfo)
+    }
     
-    // Filter out items with invalid data
-    const beforeFilter = items.length
+    // Fallback to regex if GPT didn't work
+    if (items.length === 0 && text) {
+      items = parseWithRegex(text, debugInfo)
+    }
+    
+    debugInfo.push(`Total items before filtering: ${items.length}`)
+    
+    // Filter invalid items
     items = items.filter(item => 
       item.name && 
-      item.name.length > 3 && 
+      item.name.length > 5 && 
       item.quantity > 0 &&
       item.quantity < 1000000
     )
-    debugInfo.push(`After filter: ${items.length} (removed ${beforeFilter - items.length})`)
+    debugInfo.push(`Items after filtering: ${items.length}`)
     
     // Remove duplicates
-    const beforeDedup = items.length
     const seen = new Set<string>()
     items = items.filter(item => {
       const key = `${item.name.toLowerCase().substring(0, 50)}-${item.price.toFixed(2)}`
@@ -464,9 +473,8 @@ export async function POST(request: NextRequest) {
       seen.add(key)
       return true
     })
-    debugInfo.push(`After dedup: ${items.length} (removed ${beforeDedup - items.length})`)
+    debugInfo.push(`Final items after dedup: ${items.length}`)
     
-    // Add sample items to debug
     if (items.length > 0) {
       debugInfo.push(`Sample items: ${JSON.stringify(items.slice(0, 3))}`)
     }
@@ -474,15 +482,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       items,
-      textLength: text.length,
-      linesCount: text.split("\n").length,
+      textLength: text?.length || 0,
       fileName: file.name,
       debug: debugInfo
     })
   } catch (error) {
     debugInfo.push(`Fatal error: ${error instanceof Error ? error.message : "Unknown"}`)
     return NextResponse.json({ 
-      error: "Failed to parse PDF", 
+      error: "Failed to parse file", 
       message: error instanceof Error ? error.message : "Unknown error",
       items: [],
       debug: debugInfo
