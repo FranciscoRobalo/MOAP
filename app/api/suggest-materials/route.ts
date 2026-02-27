@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// Initialize OpenAI client - will be created per request to ensure fresh API key
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY not configured")
+  }
+  return new OpenAI({ apiKey })
+}
 
 interface SuggestedMaterial {
   name: string
@@ -19,9 +24,12 @@ export async function POST(request: NextRequest) {
   try {
     const { type, category, query } = await request.json()
     
-    if (!process.env.OPENAI_API_KEY) {
+    let openai: OpenAI
+    try {
+      openai = getOpenAIClient()
+    } catch {
       return NextResponse.json({ 
-        error: "OPENAI_API_KEY not configured",
+        error: "OPENAI_API_KEY não configurada. Adicione a chave nas variáveis de ambiente.",
         suggestions: []
       }, { status: 500 })
     }
@@ -125,9 +133,22 @@ Forneça 10-15 itens relevantes. Responda APENAS com um array JSON válido:
 
   } catch (error) {
     console.error("Error in suggest-materials API:", error)
+    
+    // Check for specific OpenAI errors
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    let userMessage = "Erro ao pesquisar materiais"
+    
+    if (errorMessage.includes("API key")) {
+      userMessage = "Chave API inválida ou não configurada"
+    } else if (errorMessage.includes("rate limit")) {
+      userMessage = "Limite de requisições excedido. Tente novamente em alguns segundos."
+    } else if (errorMessage.includes("timeout")) {
+      userMessage = "Tempo de resposta excedido. Tente novamente."
+    }
+    
     return NextResponse.json({ 
-      error: "Failed to get suggestions",
-      message: error instanceof Error ? error.message : "Unknown error",
+      error: userMessage,
+      message: errorMessage,
       suggestions: []
     }, { status: 500 })
   }
