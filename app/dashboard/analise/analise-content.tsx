@@ -140,6 +140,8 @@ export default function AnaliseContent() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analyzeProgress, setAnalyzeProgress] = useState(0)
   const [analyzeStatus, setAnalyzeStatus] = useState("")
+  const [isBulkReanalyzing, setIsBulkReanalyzing] = useState(false)
+  const [bulkReanalyzeProgress, setBulkReanalyzeProgress] = useState(0)
   const [selectedRegion, setSelectedRegion] = useState("Lisboa e Vale do Tejo")
   const [searchTerm, setSearchTerm] = useState("")
   const [filterRating, setFilterRating] = useState<string>("all")
@@ -1384,6 +1386,123 @@ export default function AnaliseContent() {
     }
   }
 
+  // Re-analyze ALL items with GPT
+  const reanalyzeAllItems = async () => {
+    if (!analysisResult || isBulkReanalyzing) return
+    
+    setIsBulkReanalyzing(true)
+    setBulkReanalyzeProgress(0)
+    
+    try {
+      const items = analysisResult.items
+      const updatedItems = [...items]
+      const batchSize = 5 // Process items in batches
+      
+      for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, Math.min(i + batchSize, items.length))
+        const progress = Math.round(((i + batch.length) / items.length) * 100)
+        setBulkReanalyzeProgress(progress)
+        
+        try {
+          const response = await fetch("/api/lookup-prices", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              items: batch.map(item => ({
+                name: item.originalName,
+                unit: item.unit,
+                quantity: item.quantity,
+                price: item.budgetPrice
+              }))
+            })
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            
+            batch.forEach((item) => {
+              const gptPrice = data.prices?.[item.originalName]
+              if (gptPrice && gptPrice.avgPrice > 0) {
+                const variance = ((item.budgetPrice - gptPrice.avgPrice) / gptPrice.avgPrice) * 100
+                let rating: BudgetItem["rating"] = "unknown"
+                
+                if (variance <= -10) rating = "below"
+                else if (variance <= 10) rating = "average"
+                else if (variance <= 50) rating = "above"
+                else rating = "critical"
+                
+                const idx = updatedItems.findIndex(u => u.id === item.id)
+                if (idx !== -1) {
+                  updatedItems[idx] = {
+                    ...updatedItems[idx],
+                    referenceMinPrice: gptPrice.minPrice,
+                    referenceMaxPrice: gptPrice.maxPrice,
+                    referenceAvgPrice: gptPrice.avgPrice,
+                    matchedName: item.originalName + " (IA)",
+                    matchConfidence: gptPrice.confidence || 75,
+                    variance,
+                    rating
+                  }
+                }
+              }
+            })
+          }
+        } catch {
+          // Continue with next batch
+        }
+        
+        // Small delay between batches to avoid rate limiting
+        if (i + batchSize < items.length) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+      
+      // Recalculate totals
+      const totalBudget = updatedItems.reduce((sum, i) => sum + (i.quantity * i.budgetPrice), 0)
+      const totalReference = updatedItems.reduce((sum, i) => sum + (i.referenceAvgPrice ? i.quantity * i.referenceAvgPrice : 0), 0)
+      const overallVariance = totalReference > 0 ? ((totalBudget - totalReference) / totalReference) * 100 : 0
+      
+      // Recalculate stats
+      const belowCount = updatedItems.filter(i => i.rating === "below").length
+      const avgCount = updatedItems.filter(i => i.rating === "average").length
+      const aboveCount = updatedItems.filter(i => i.rating === "above").length
+      const criticalCount = updatedItems.filter(i => i.rating === "critical").length
+      const unknownCount = updatedItems.filter(i => i.rating === "unknown").length
+      
+      setAnalysisResult({
+        ...analysisResult,
+        items: updatedItems,
+        totalBudget,
+        totalReference,
+        overallVariance,
+        stats: {
+          ...analysisResult.stats,
+          belowAverage: belowCount,
+          average: avgCount,
+          aboveAverage: aboveCount,
+          critical: criticalCount,
+          unknown: unknownCount,
+        }
+      })
+      
+      toast({
+        title: "Re-análise concluída",
+        description: `${items.length} itens foram re-analisados com IA.`,
+      })
+      
+    } catch (err) {
+      console.error("Error bulk re-analyzing:", err)
+      toast({
+        title: "Erro na re-análise",
+        description: "Ocorreu um erro ao re-analisar os itens.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsBulkReanalyzing(false)
+      setBulkReanalyzeProgress(0)
+    }
+  }
+
   const filteredItems =
     analysisResult?.items.filter((item) => {
       const matchesSearch =
@@ -1745,6 +1864,43 @@ export default function AnaliseContent() {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Bulk Re-analyze with AI */}
+              <div className="mb-4 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      Re-analisar todos os itens com IA
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Procura preços de referência atualizados para todos os {analysisResult.items.length} itens usando inteligência artificial
+                    </p>
+                  </div>
+                  <Button
+                    onClick={reanalyzeAllItems}
+                    disabled={isBulkReanalyzing}
+                    className="shrink-0"
+                  >
+                    {isBulkReanalyzing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        A re-analisar... {bulkReanalyzeProgress}%
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Re-analisar Tudo
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {isBulkReanalyzing && (
+                  <div className="mt-3">
+                    <Progress value={bulkReanalyzeProgress} className="h-1.5" />
+                  </div>
+                )}
+              </div>
+
               {/* Filters */}
               <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <div className="relative flex-1">
