@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, Save, FileText, Calculator, Copy, Download, X, ChevronDown, ChevronUp, MapPin } from "lucide-react"
+import { Plus, Trash2, Save, FileText, Calculator, Copy, Download, X, ChevronDown, ChevronUp, MapPin, Check, XCircle, Clock } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -109,6 +109,12 @@ export default function OrcamentosPage() {
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [expandedBudget, setExpandedBudget] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  
+  const pendingCount = budgets.filter(b => b.status === "pendente").length
+  const filteredBudgets = statusFilter === "all" 
+    ? budgets 
+    : budgets.filter(b => b.status === statusFilter)
 
   const [newBudget, setNewBudget] = useState({
     name: "",
@@ -122,8 +128,11 @@ export default function OrcamentosPage() {
 
   const statusConfig = {
     rascunho: { label: "Rascunho", color: "bg-muted text-muted-foreground" },
-    finalizado: { label: "Finalizado", color: "bg-price-below text-white" },
-    enviado: { label: "Enviado", color: "bg-primary text-primary-foreground" },
+    pendente: { label: "Pendente Aprovação", color: "bg-yellow-500 text-white" },
+    aprovado: { label: "Aprovado", color: "bg-price-below text-white" },
+    rejeitado: { label: "Rejeitado", color: "bg-price-high text-white" },
+    finalizado: { label: "Finalizado", color: "bg-primary text-primary-foreground" },
+    enviado: { label: "Enviado", color: "bg-blue-500 text-white" },
   }
 
   const calculateTotal = (items: BudgetItem[]) => {
@@ -280,11 +289,34 @@ export default function OrcamentosPage() {
         <div className="lg:col-span-1 space-y-4">
           <Card className="bg-card/50">
             <CardHeader>
-              <CardTitle className="text-lg">Orçamentos</CardTitle>
-              <CardDescription>{budgets.length} orçamentos criados</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Orçamentos</CardTitle>
+                  <CardDescription>{budgets.length} orçamentos criados</CardDescription>
+                </div>
+                {pendingCount > 0 && (
+                  <Badge className="bg-yellow-500 text-white animate-pulse">
+                    <Clock className="h-3 w-3 mr-1" />
+                    {pendingCount} pendente{pendingCount > 1 ? "s" : ""}
+                  </Badge>
+                )}
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="bg-input/50 mt-2">
+                  <SelectValue placeholder="Filtrar por estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os estados</SelectItem>
+                  <SelectItem value="pendente">Pendente Aprovação</SelectItem>
+                  <SelectItem value="aprovado">Aprovados</SelectItem>
+                  <SelectItem value="rejeitado">Rejeitados</SelectItem>
+                  <SelectItem value="rascunho">Rascunhos</SelectItem>
+                  <SelectItem value="finalizado">Finalizados</SelectItem>
+                </SelectContent>
+              </Select>
             </CardHeader>
             <CardContent className="space-y-2">
-              {budgets.map((budget) => {
+              {filteredBudgets.map((budget) => {
                 const status = statusConfig[budget.status as keyof typeof statusConfig] || { label: budget.status || "Unknown", color: "bg-muted text-muted-foreground" }
                 const isExpanded = expandedBudget === budget.id
 
@@ -315,7 +347,18 @@ export default function OrcamentosPage() {
                         </div>
                       </div>
                       <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs text-muted-foreground">{budget.items.length} itens</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{budget.items.length} itens</span>
+                          {budget.analysisVariance !== undefined && (
+                            <span className={`text-xs font-medium ${
+                              budget.analysisVariance > 10 ? "text-price-high" : 
+                              budget.analysisVariance < -10 ? "text-price-below" : 
+                              "text-price-avg"
+                            }`}>
+                              {budget.analysisVariance > 0 ? "+" : ""}{budget.analysisVariance.toFixed(1)}% vs mercado
+                            </span>
+                          )}
+                        </div>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -331,29 +374,61 @@ export default function OrcamentosPage() {
                     </div>
 
                     {isExpanded && (
-                      <div className="border-t px-3 py-2 bg-muted/30 flex gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => handleDuplicateBudget(budget)}>
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Download className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive"
-                          onClick={() => handleDeleteBudget(budget.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                      <div className="border-t px-3 py-2 bg-muted/30 space-y-2">
+                        {/* Approval buttons for pending budgets */}
+                        {budget.status === "pendente" && (
+                          <div className="flex gap-2 pb-2 border-b border-border/50">
+                            <Button
+                              size="sm"
+                              className="flex-1 bg-price-below hover:bg-price-below/90"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                updateBudget(budget.id, { status: "aprovado" })
+                              }}
+                            >
+                              <Check className="h-3 w-3 mr-1" />
+                              Aprovar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="flex-1"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                updateBudget(budget.id, { status: "rejeitado" })
+                              }}
+                            >
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Rejeitar
+                            </Button>
+                          </div>
+                        )}
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleDuplicateBudget(budget)}>
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Download className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive"
+                            onClick={() => handleDeleteBudget(budget.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
                 )
               })}
 
-              {budgets.length === 0 && (
-                <p className="text-center text-muted-foreground py-8 text-sm">Nenhum orçamento criado.</p>
+              {filteredBudgets.length === 0 && (
+                <p className="text-center text-muted-foreground py-8 text-sm">
+                  {statusFilter === "all" ? "Nenhum orçamento criado." : "Nenhum orçamento com este estado."}
+                </p>
               )}
             </CardContent>
           </Card>

@@ -31,8 +31,10 @@ export interface Budget {
   obraId: string
   obraName: string
   createdDate: string
-  status: "rascunho" | "finalizado" | "enviado"
+  status: "rascunho" | "pendente" | "aprovado" | "rejeitado" | "finalizado" | "enviado"
   items: BudgetItem[]
+  totalValue?: number
+  analysisVariance?: number
 }
 
 // Updated Obra interface
