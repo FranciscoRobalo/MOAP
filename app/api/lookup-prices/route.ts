@@ -100,15 +100,29 @@ Responda APENAS com um array JSON válido. Exemplo:
 ]`
 
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: `Forneça preços de referência para estes itens de construção em Portugal:\n\n${itemsList}` }
-          ],
-          temperature: 0.3,
-          max_tokens: 2000,
-        })
+        let response
+        // Try gpt-4o-mini first, fallback to gpt-3.5-turbo
+        try {
+          response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `Forneça preços de referência para estes itens de construção em Portugal:\n\n${itemsList}` }
+            ],
+            temperature: 0.3,
+            max_tokens: 2000,
+          })
+        } catch {
+          response = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `Forneça preços de referência para estes itens de construção em Portugal:\n\n${itemsList}` }
+            ],
+            temperature: 0.3,
+            max_tokens: 2000,
+          })
+        }
 
         const content = response.choices[0]?.message?.content || "[]"
         

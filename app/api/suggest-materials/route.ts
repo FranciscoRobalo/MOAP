@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 
-// Initialize OpenAI client - will be created per request to ensure fresh API key
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY not configured")
-  }
-  return new OpenAI({ apiKey })
-}
-
 interface SuggestedMaterial {
   name: string
   unit: string
@@ -21,18 +12,24 @@ interface SuggestedMaterial {
 }
 
 export async function POST(request: NextRequest) {
+  console.log("[suggest-materials] API called")
+  
   try {
-    const { type, category, query } = await request.json()
+    const body = await request.json()
+    const { type, category, query } = body
+    console.log("[suggest-materials] Request:", { type, category, query })
     
-    let openai: OpenAI
-    try {
-      openai = getOpenAIClient()
-    } catch {
+    const apiKey = process.env.OPENAI_API_KEY
+    console.log("[suggest-materials] API key exists:", !!apiKey)
+    
+    if (!apiKey) {
       return NextResponse.json({ 
         error: "OPENAI_API_KEY não configurada. Adicione a chave nas variáveis de ambiente.",
         suggestions: []
       }, { status: 500 })
     }
+    
+    const openai = new OpenAI({ apiKey })
 
     const itemType = type === "material" ? "materiais de construção" : "serviços/trabalhos de construção"
     const categoryFilter = category && category !== "all" ? `na categoria "${category}"` : "em todas as categorias"
@@ -90,17 +87,45 @@ Forneça 10-15 itens relevantes. Responda APENAS com um array JSON válido:
       ? `Pesquise ${itemType} ${categoryFilter} relacionados com: ${query}`
       : `Liste os ${itemType} mais comuns e úteis ${categoryFilter} para orçamentos de construção em Portugal.`
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 3000,
-    })
+    console.log("[suggest-materials] Calling OpenAI API...")
+    
+    let response
+    try {
+      // Try gpt-4o-mini first, fallback to gpt-3.5-turbo
+      try {
+        response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 3000,
+        })
+      } catch (modelError) {
+        console.log("[suggest-materials] gpt-4o-mini failed, trying gpt-3.5-turbo")
+        response = await openai.chat.completions.create({
+          model: "gpt-3.5-turbo",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 3000,
+        })
+      }
+      console.log("[suggest-materials] OpenAI response received")
+    } catch (openaiError) {
+      console.error("[suggest-materials] OpenAI API error:", openaiError)
+      const errMsg = openaiError instanceof Error ? openaiError.message : "Unknown OpenAI error"
+      return NextResponse.json({ 
+        error: `Erro na API OpenAI: ${errMsg}`,
+        suggestions: []
+      }, { status: 500 })
+    }
 
     const content = response.choices[0]?.message?.content || "[]"
+    console.log("[suggest-materials] Content length:", content.length)
     
     // Extract JSON from response
     let suggestions: SuggestedMaterial[] = []
@@ -108,9 +133,14 @@ Forneça 10-15 itens relevantes. Responda APENAS com um array JSON válido:
       const jsonMatch = content.match(/\[[\s\S]*\]/)
       if (jsonMatch) {
         suggestions = JSON.parse(jsonMatch[0])
+        console.log("[suggest-materials] Parsed", suggestions.length, "suggestions")
+      } else {
+        console.log("[suggest-materials] No JSON array found in response")
+        console.log("[suggest-materials] Response content:", content.substring(0, 500))
       }
     } catch (parseError) {
-      console.error("Failed to parse GPT response:", parseError)
+      console.error("[suggest-materials] Failed to parse GPT response:", parseError)
+      console.log("[suggest-materials] Raw content:", content.substring(0, 500))
     }
 
     // Validate and clean suggestions
@@ -123,6 +153,8 @@ Forneça 10-15 itens relevantes. Responda APENAS com um array JSON válido:
         type: type as "material" | "work"
       }))
 
+    console.log("[suggest-materials] Returning", suggestions.length, "valid suggestions")
+    
     return NextResponse.json({
       success: true,
       suggestions,
@@ -132,6 +164,7 @@ Forneça 10-15 itens relevantes. Responda APENAS com um array JSON válido:
     })
 
   } catch (error) {
+    console.error("[suggest-materials] Unexpected error:", error)
     console.error("Error in suggest-materials API:", error)
     
     // Check for specific OpenAI errors
