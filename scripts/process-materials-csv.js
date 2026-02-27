@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 // Read the CSV file
-const csvPath = path.join(process.cwd(), 'user_read_only_context/text_attachments/materiais_servicos_media-o2kfk.csv');
+const csvPath = path.join(process.cwd(), 'scripts/materiais_servicos.csv');
 const csvContent = fs.readFileSync(csvPath, 'utf-8');
 
 // Parse CSV
