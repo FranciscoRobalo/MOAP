@@ -21,6 +21,7 @@ import {
   TrendingUp,
   HelpCircle,
   UserPlus,
+  ExternalLink,
 } from "lucide-react"
 import { useAuth, type UserRole } from "@/contexts/auth-context"
 import { useData } from "@/contexts/data-context"
@@ -33,6 +34,7 @@ interface NavItem {
   href: string
   icon: React.ComponentType<{ className?: string }>
   roles: UserRole[]
+  external?: boolean
 }
 
 const navigation: NavItem[] = [
@@ -49,6 +51,7 @@ const navigation: NavItem[] = [
   { nameKey: "help", href: "/dashboard/ajuda", icon: HelpCircle, roles: ["admin", "public", "tecnico"] },
   { nameKey: "notifications", href: "/dashboard/notificacoes", icon: Bell, roles: ["admin", "public", "tecnico"] },
   { nameKey: "settings", href: "/dashboard/definicoes", icon: Settings, roles: ["admin", "public", "tecnico"] },
+  { nameKey: "LAT", href: "https://limarestas.vercel.app", icon: ExternalLink, roles: ["admin", "public", "tecnico"], external: true },
 ]
 
 export function DashboardSidebar() {
@@ -103,24 +106,21 @@ export function DashboardSidebar() {
           {/* Navigation */}
           <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
             {filteredNavigation.map((item) => {
-              const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
+              const isActive = !item.external && (pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href)))
               const showNotificationBadge = item.href === "/dashboard/notificacoes" && unreadCount > 0
               const showRegBadge = item.href === "/dashboard/registos" && pendingRegCount > 0
 
-              return (
-                <Link
-                  key={item.nameKey}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors relative",
-                    isActive
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                  )}
-                >
+              const linkClasses = cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors relative",
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+              )
+
+              const linkContent = (
+                <>
                   <item.icon className="h-5 w-5" />
-                  {t(item.nameKey as any)}
+                  {item.external ? item.nameKey : t(item.nameKey as any)}
                   {showNotificationBadge && (
                     <span className="absolute right-3 h-5 min-w-5 px-1 rounded-full bg-price-high text-[10px] font-bold flex items-center justify-center text-white">
                       {unreadCount > 9 ? "9+" : unreadCount}
@@ -131,6 +131,32 @@ export function DashboardSidebar() {
                       {pendingRegCount > 9 ? "9+" : pendingRegCount}
                     </span>
                   )}
+                </>
+              )
+
+              if (item.external) {
+                return (
+                  <a
+                    key={item.nameKey}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMobileOpen(false)}
+                    className={linkClasses}
+                  >
+                    {linkContent}
+                  </a>
+                )
+              }
+
+              return (
+                <Link
+                  key={item.nameKey}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={linkClasses}
+                >
+                  {linkContent}
                 </Link>
               )
             })}
