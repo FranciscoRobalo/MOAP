@@ -10,6 +10,7 @@ function parsePortugueseNumber(str: string): number {
   if (!str) return 0
   let cleaned = str.replace(/€/g, "").trim()
   cleaned = cleaned.replace(/\s+/g, "")
+  // Portuguese format uses comma as decimal separator
   if (cleaned.includes(",")) {
     cleaned = cleaned.replace(/\./g, "").replace(",", ".")
   }
@@ -41,41 +42,33 @@ function normalizeUnit(unit: string): string {
   return unitMap[trimmed] || (trimmed.length <= 6 ? trimmed : "un")
 }
 
-// Unit regex pattern for matching units at start of line
-const UNIT_PATTERN = /^(v\.?g\.?|vb|m\.?l\.?|m2|m²|m3|m³|un\.?d?\.?|unid\.?|kg|pc|pç|degrau|mes|mês|m|l|lt)/i
-
-// Check if a string is a valid unit
-function isUnit(str: string): boolean {
-  if (!str) return false
-  const normalized = str.trim().toLowerCase().replace(/\./g, "")
-  return /^(vg|vb|ml|m2|m²|m3|m³|un|und|unid|kg|pc|pç|l|lt|cx|cj|degrau|m|mes|mês)$/i.test(normalized)
-}
-
-// Skip patterns - headers, footers, metadata that should be ignored
-const SKIP_PATTERNS = [
-  /^(Nº\s*Artigo|Art\.?º?\s*$|Item\s*$|Descrição\s*$|Designação\s*$|Especificação\s*$)/i,
-  /^(Un\.?d?\.?\s*$|Unidade\s*$|Quant\.?\s*$|Quantidade\s*$)/i,
-  /^(Preço|Valor|Total\s*$|Subtotal|IVA|Observ|Nota\s*:)/i,
-  /^(Empresa:|A\/C:|Telefone:|Ref\.?ª?|Obra:|ORÇAMENTO|Contacto)/i,
-  /^(De:|Data:|Cliente:|Condições|Garantia|Assinatura)/i,
-  /^(PLANILHA|TERMOS|ACRESCE|Capital|Alvará|NIF|NIPC|www\.|@)/i,
-  /^(REVIVE|Valor\s*da\s*Proposta|RESUMO|LOCAL:|PRAZO|EXECUÇÃO)/i,
-  /^(Aos\s*valores|meses?\s*$|Página|Page)/i,
-  /^(ARQUITECTURA|FUNDAÇÕES|ELETRICIDADE|ÁGUAS|AQUECIMENTO)\s*$/i,
-]
-
+// Check if line should be skipped
 function shouldSkipLine(line: string): boolean {
-  return SKIP_PATTERNS.some(pattern => pattern.test(line))
+  const skipPatterns = [
+    /^(Nº\s*Artigo|Art\.?º?\s*$|Item\s*$|Descrição\s*$|Designação\s*$)/i,
+    /^(Un\.?\s*$|Unidade\s*$|Quant\.?\s*$|Quantidade\s*$)/i,
+    /^(Preço\s*(unitário|total)?|Valor\s*(unitário|total)?)\s*$/i,
+    /^(Subtotal|IVA|Observ|Nota\s*:|Total\s*Geral)/i,
+    /^(Empresa:|A\/C:|Telefone:|Ref\.?ª?\/?\s*$|Obra:|ORÇAMENTO)/i,
+    /^(De:|Data:|Cliente:|Contacto|Condições|Garantia)/i,
+    /^(PLANILHA|TERMOS|ACRESCE|Capital|Alvará|NIF|NIPC|www\.|@)/i,
+    /^(Página|Page|\d+\s*de\s*\d+|\.xlsx|Notas:)/i,
+    /^U\.\s*M\.\s*$/i,
+    /^PROPOSTA/i,
+    /FRANCISCO SACRAMENTO/i,
+    /IMPIC/i,
+  ]
+  return skipPatterns.some(p => p.test(line))
 }
 
-// Check if line is a section header (e.g., "1PAREDES", "ITEM 1 Estaleiro")
+// Check if line is a section header
 function isSectionHeader(line: string): boolean {
-  // All caps section names
-  if (/^(\d+\.?\d*\s*)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{4,}$/.test(line.trim())) return true
-  // ITEM X pattern
-  if (/^ITEM\s*\d+/i.test(line.trim())) return true
-  // Numbered section with title
-  if (/^\d+\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]+$/.test(line.trim())) return true
+  // Numbered section like "1.0    ESTALEIRO" or "2    DEMOLIÇÕES"
+  if (/^\d+\.?\d*\s{2,}[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]+$/.test(line)) return true
+  // All caps section like "AESTRUTURA" or "PAREDES"
+  if (/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{3,30}$/.test(line) && !line.includes(",")) return true
+  // Section number alone
+  if (/^\d+$/.test(line)) return true
   return false
 }
 
@@ -90,170 +83,184 @@ interface ParsedItem {
   price: number
 }
 
-// Strategy 1: Parse lines with embedded unit+qty at the START
-// Handles: "vg1,00", "m216970,7311954,02", "m.l.18,50100,00 €1 850,00 €"
-function parseEmbeddedDataLine(line: string, description: string): ParsedItem | null {
-  const match = line.match(UNIT_PATTERN)
-  if (!match) return null
-  
-  const unit = normalizeUnit(match[1])
-  const afterUnit = line.substring(match[0].length)
-  
-  // Try to extract quantity (first number after unit)
-  const qtyMatch = afterUnit.match(/^(\d+[.,]?\d*)/)
-  if (!qtyMatch) return null
-  
-  const quantity = parsePortugueseNumber(qtyMatch[1])
-  if (quantity <= 0 || quantity > 1000000) return null
-  
-  // Extract prices (numbers with 2 decimal places, optionally with €)
-  const priceMatches = line.match(/([\d\s]+[.,]\d{2})\s*€?/g)
-  if (!priceMatches || priceMatches.length === 0) return null
-  
-  // First price is usually unit price
-  const unitPrice = parsePortugueseNumber(priceMatches[0])
-  
-  if (description && unitPrice > 0) {
-    return {
-      name: description.trim(),
-      unit,
-      quantity,
-      price: unitPrice
-    }
-  }
-  
-  return null
-}
-
-// Strategy 2: Parse tabular data with clear separators (tabs, multiple spaces, semicolons)
-function parseTabularLine(line: string, description: string): ParsedItem | null {
-  // Split by tabs, semicolons, or 2+ spaces
-  const cols = line.split(/\t+|;+|\s{2,}/).map(c => c.trim()).filter(c => c.length > 0)
-  
-  if (cols.length < 2) return null
-  
-  // Try to identify columns
-  let unitCol = -1, qtyCol = -1, priceCol = -1, descCol = -1
-  
-  for (let i = 0; i < cols.length; i++) {
-    const col = cols[i]
-    
-    if (isUnit(col) && unitCol === -1) {
-      unitCol = i
-    } else if (/€/.test(col) || /^\d[\d\s]*[.,]\d{2}$/.test(col)) {
-      // Price column
-      if (priceCol === -1) priceCol = i
-    } else if (/^\d+[.,]?\d*$/.test(col) && col.length < 10 && qtyCol === -1) {
-      // Quantity column
-      qtyCol = i
-    } else if (col.length > 10 && !/^[\d.,€\s]+$/.test(col) && descCol === -1) {
-      // Description column
-      descCol = i
-    }
-  }
-  
-  // Need at least a price
-  if (priceCol === -1) return null
-  
-  const price = parsePortugueseNumber(cols[priceCol])
-  if (price <= 0) return null
-  
-  const unit = unitCol >= 0 ? normalizeUnit(cols[unitCol]) : "un"
-  const quantity = qtyCol >= 0 ? parsePortugueseNumber(cols[qtyCol]) : 1
-  const desc = descCol >= 0 ? cols[descCol] : description
-  
-  if (desc && desc.length > 3) {
-    return {
-      name: desc.trim(),
-      unit,
-      quantity: quantity > 0 && quantity < 1000000 ? quantity : 1,
-      price
-    }
-  }
-  
-  return null
-}
-
-// Strategy 3: Parse lines with standalone price patterns
-// Handles lines like: "1,00vg  €  2.200,00  €  2.200,00"
-function parsePricePatternLine(line: string, description: string): ParsedItem | null {
-  // Must have € symbol or clear price pattern
-  const priceMatches = line.match(/([\d\s]+[.,]\d{2})\s*€/g)
-  if (!priceMatches || priceMatches.length === 0) return null
-  
-  // Look for unit anywhere in the line
-  const unitMatch = line.match(/\b(v\.?g\.?|vb|m\.?l\.?|m2|m²|m3|m³|un\.?d?|unid\.?|kg|pc|pç|degrau|mes|mês|m|l)\b/i)
-  const unit = unitMatch ? normalizeUnit(unitMatch[1]) : "un"
-  
-  // Look for quantity (number before the unit or at start)
-  let quantity = 1
-  if (unitMatch) {
-    const beforeUnit = line.substring(0, unitMatch.index)
-    const qtyMatch = beforeUnit.match(/(\d+[.,]?\d*)\s*$/)
-    if (qtyMatch) {
-      quantity = parsePortugueseNumber(qtyMatch[1])
-    }
-  }
-  
-  const prices = priceMatches.map(p => parsePortugueseNumber(p))
-  const unitPrice = prices[0]
-  
-  if (description && unitPrice > 0) {
-    return {
-      name: description.trim(),
-      unit,
-      quantity: quantity > 0 && quantity < 1000000 ? quantity : 1,
-      price: unitPrice
-    }
-  }
-  
-  return null
-}
-
-// Strategy 4: Parse Mapa de Quantidades format (ITEM | Descrição | Unidade | Quantidade | Valor Unit. | Valor Total)
-function parseMapaQuantidadesLine(line: string): ParsedItem | null {
-  // Pattern: description followed by unit, qty, prices with €
-  const match = line.match(/^(.{15,}?)\s+(vg|un|m2|m²|m3|m³|ml|kg|mes|mês|m|l)\s+(\d+)\s+([\d\s.,]+)\s*€\s*([\d\s.,]+)\s*€/i)
-  
-  if (match) {
-    const name = match[1].trim()
-    const unit = normalizeUnit(match[2])
-    const quantity = parsePortugueseNumber(match[3])
-    const unitPrice = parsePortugueseNumber(match[4])
-    
-    if (name.length > 5 && unitPrice > 0) {
-      return {
-        name,
-        unit,
-        quantity: quantity > 0 ? quantity : 1,
-        price: unitPrice
-      }
-    }
-  }
-  
-  return null
-}
-
-// Strategy 5: Parse GEO4MODULO format (Quant. | Und. | Preço Unitário | Total)
-function parseGeoModuloLine(line: string, description: string): ParsedItem | null {
-  // Pattern: quantity, unit, unit price €, total €
-  const match = line.match(/^(\d+[.,]?\d*)\s*(vg|vb|un|und|m2|m²|m3|m³|ml|kg|l)\s*€?\s*([\d\s.,]+)\s*€?\s*([\d\s.,]+)?\s*€?/i)
+// STRATEGY 1: OR_MORADIA_COBRE format
+// Pattern: "description\nun1.006228.006228.00" or "m2207.2524.915163.01"
+// Format: unit + qty (decimals with dots) + unitPrice (decimals with dots) + totalPrice
+function parseORAMoradiaFormat(line: string, description: string): ParsedItem | null {
+  // Match: unit followed by numbers with dots as decimals (NOT thousand separators)
+  // Examples: "un1.006228.006228.00", "m2207.2524.915163.01", "vg1.002615.762615.76"
+  const match = line.match(/^(un|vg|vb|m2|m²|m3|m³|ml|kg|pc|m|l)(\d+\.\d+)(\d+\.\d+)(\d+\.\d+)$/i)
   
   if (match && description) {
-    const quantity = parsePortugueseNumber(match[1])
-    const unit = normalizeUnit(match[2])
-    const unitPrice = parsePortugueseNumber(match[3])
+    const unit = normalizeUnit(match[1])
+    const quantity = parseFloat(match[2])
+    const unitPrice = parseFloat(match[3])
     
-    if (unitPrice > 0) {
+    if (unitPrice > 0 && quantity > 0) {
       return {
         name: description.trim(),
         unit,
-        quantity: quantity > 0 ? quantity : 1,
+        quantity,
         price: unitPrice
       }
     }
   }
+  return null
+}
+
+// STRATEGY 2: Z_0010-25 format with € symbols
+// Pattern: "v.g.1,000,00 €" or "m.l.18,50100,00 €1 850,00 €" or "m235,2030,00 €1 056,00 €"
+function parseZFormat(line: string, description: string): ParsedItem | null {
+  // Match unit at start, followed by quantity and prices with €
+  const unitMatch = line.match(/^(v\.?g\.?|vb|m\.?l\.?|m2|m²|m3|m³|un\.?d?|unid|kg|pc|pç|m|l)/i)
+  if (!unitMatch) return null
   
+  const unit = normalizeUnit(unitMatch[1])
+  const afterUnit = line.substring(unitMatch[0].length)
+  
+  // Find all numbers that could be qty or prices
+  // Portuguese format: "1,00" for 1.00, "22 000,00" for 22000.00
+  const euroMatches = [...afterUnit.matchAll(/([\d\s]+[,]\d{2})\s*€/g)]
+  
+  if (euroMatches.length >= 1 && description) {
+    // First number before € is usually unit price, or could be qty then price
+    const firstPrice = parsePortugueseNumber(euroMatches[0][1])
+    
+    // Try to find quantity (number before the prices)
+    const qtyMatch = afterUnit.match(/^(\d+[,]?\d*)/)
+    let quantity = 1
+    if (qtyMatch) {
+      const qtyStr = qtyMatch[1]
+      // Check if this looks like a quantity (small number) vs part of a price
+      const potentialQty = parsePortugueseNumber(qtyStr)
+      if (potentialQty > 0 && potentialQty < 10000) {
+        quantity = potentialQty
+      }
+    }
+    
+    if (firstPrice > 0) {
+      return {
+        name: description.trim(),
+        unit,
+        quantity,
+        price: firstPrice
+      }
+    }
+  }
+  return null
+}
+
+// STRATEGY 3: Sub-item format like "Betãom338,58200,00 €7 716,00 €"
+// These are component items (Betão, Ferro, Cofragem) with their own unit/qty/price
+function parseSubItemFormat(line: string): ParsedItem | null {
+  // Match: MaterialName + unit + qty + prices
+  const match = line.match(/^(Betão|Ferro|Cofragem|Aço)(m3|m²|m2|kg|m)(\d+[,.]?\d*)([\d\s,]+€[\d\s,]+€)/i)
+  
+  if (match) {
+    const name = match[1]
+    const unit = normalizeUnit(match[2])
+    const quantity = parsePortugueseNumber(match[3])
+    const pricesStr = match[4]
+    
+    // Extract first price (unit price)
+    const priceMatch = pricesStr.match(/([\d\s,]+)€/)
+    if (priceMatch) {
+      const unitPrice = parsePortugueseNumber(priceMatch[1])
+      if (unitPrice > 0) {
+        return {
+          name,
+          unit,
+          quantity: quantity > 0 ? quantity : 1,
+          price: unitPrice
+        }
+      }
+    }
+  }
+  return null
+}
+
+// STRATEGY 4: LPU_Travessa format - unit+qty only (no prices)
+// Pattern: "vg1,00" at the end of data
+// These files don't have prices in the text extraction!
+function parseLPUFormat(line: string, description: string): ParsedItem | null {
+  // Match simple unit+qty pattern like "vg1,00" or "m215,50"
+  const match = line.match(/^(v\.?g\.?|vb|m\.?l\.?|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|m|l)(\d+[,.]?\d*)$/i)
+  
+  if (match && description) {
+    const unit = normalizeUnit(match[1])
+    const quantity = parsePortugueseNumber(match[2])
+    
+    // No price available in this format - set to 0 so it can still be imported
+    return {
+      name: description.trim(),
+      unit,
+      quantity: quantity > 0 ? quantity : 1,
+      price: 0 // Price not available in this format
+    }
+  }
+  return null
+}
+
+// STRATEGY 5: Mapa de Quantidades / GEO4MODULO format with tabs/spaces
+function parseTabularFormat(line: string): ParsedItem | null {
+  // Split by tabs or multiple spaces
+  const parts = line.split(/\t+|\s{3,}/).filter(p => p.trim().length > 0)
+  
+  if (parts.length >= 4) {
+    // Try to identify: description, unit, quantity, price
+    let desc = "", unit = "un", qty = 1, price = 0
+    
+    for (const part of parts) {
+      const trimmed = part.trim()
+      
+      // Check if it's a unit
+      if (/^(vg|vb|ml|m2|m²|m3|m³|un|und|unid|kg|pc|pç|m|l|mes)$/i.test(trimmed)) {
+        unit = normalizeUnit(trimmed)
+      }
+      // Check if it's a price (has € or looks like money)
+      else if (/€/.test(trimmed) || /^\d[\d\s]*[,]\d{2}$/.test(trimmed)) {
+        const p = parsePortugueseNumber(trimmed)
+        if (p > 0 && price === 0) price = p
+      }
+      // Check if it's a small number (quantity)
+      else if (/^\d+[,.]?\d*$/.test(trimmed)) {
+        const n = parsePortugueseNumber(trimmed)
+        if (n > 0 && n < 10000) qty = n
+      }
+      // Otherwise it might be description
+      else if (trimmed.length > 10 && !/^\d/.test(trimmed)) {
+        desc = trimmed
+      }
+    }
+    
+    if (desc && price > 0) {
+      return { name: desc, unit, quantity: qty, price }
+    }
+  }
+  return null
+}
+
+// STRATEGY 6: Inline price pattern
+// Match lines like: "Execução de paredes... m2 200.00 29.89 5978.88"
+function parseInlineFormat(line: string): ParsedItem | null {
+  // Look for description followed by unit, qty, and prices
+  const match = line.match(/^(.{20,}?)\s+(vg|vb|ml|m2|m²|m3|m³|un|und|kg|pc|m|l)\s+(\d+[,.]?\d*)\s+([\d,.\s]+)\s+([\d,.\s]+)$/i)
+  
+  if (match) {
+    const desc = match[1].trim()
+    const unit = normalizeUnit(match[2])
+    const qty = parsePortugueseNumber(match[3])
+    const unitPrice = parsePortugueseNumber(match[4])
+    
+    if (desc.length > 10 && unitPrice > 0) {
+      return {
+        name: desc,
+        unit,
+        quantity: qty > 0 ? qty : 1,
+        price: unitPrice
+      }
+    }
+  }
   return null
 }
 
@@ -263,187 +270,122 @@ function parseGeoModuloLine(line: string, description: string): ParsedItem | nul
 
 function parseBudgetText(text: string): ParsedItem[] {
   const items: ParsedItem[] = []
-  
-  // Normalize line endings
-  const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
-  const lines = normalizedText.split("\n")
+  const lines = text.split(/[\r\n]+/)
   
   let currentDescription = ""
-  let lastItemLine = -1
+  let linesSinceDescription = 0
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
     
-    // Skip empty lines
-    if (line.length < 2) continue
-    
-    // Skip headers/footers
-    if (shouldSkipLine(line)) {
-      currentDescription = ""
+    // Skip empty or very short lines
+    if (line.length < 2) {
+      linesSinceDescription++
       continue
     }
     
-    // Skip section headers but don't clear description
+    // Skip headers/footers
+    if (shouldSkipLine(line)) {
+      continue
+    }
+    
+    // Skip section headers but reset description
     if (isSectionHeader(line)) {
       currentDescription = ""
       continue
     }
     
-    // Skip pure total lines (just numbers with €)
-    if (/^[\d\s.,]+\s*€$/.test(line) && line.length < 30) continue
+    // Skip lines that are just totals (number + €)
+    if (/^[\d\s.,]+\s*€\s*$/.test(line) && line.length < 25) continue
+    if (/^\d+[,.]?\d*\s*$/.test(line) && line.length < 10) continue
     
-    // Skip pure section numbers
-    if (/^\d+([.,]\d+)?$/.test(line) && line.length < 8) continue
+    // Try all parsing strategies
+    let item: ParsedItem | null = null
     
-    // Try all parsing strategies in order of specificity
-    
-    // Strategy 1: Mapa de Quantidades format (full line with all data)
-    let item = parseMapaQuantidadesLine(line)
-    if (item) {
+    // Strategy 1: OR_MORADIA format (un1.006228.006228.00)
+    item = parseORAMoradiaFormat(line, currentDescription)
+    if (item && item.price > 0) {
       items.push(item)
       currentDescription = ""
-      lastItemLine = i
+      linesSinceDescription = 0
       continue
     }
     
-    // Strategy 2: GEO4MODULO format
-    item = parseGeoModuloLine(line, currentDescription)
-    if (item) {
+    // Strategy 2: Z format with € (v.g.1,0022 000,00 €)
+    item = parseZFormat(line, currentDescription)
+    if (item && item.price > 0) {
       items.push(item)
       currentDescription = ""
-      lastItemLine = i
+      linesSinceDescription = 0
       continue
     }
     
-    // Strategy 3: Embedded data at start of line (vg1,00...)
-    item = parseEmbeddedDataLine(line, currentDescription)
-    if (item) {
+    // Strategy 3: Sub-item format (Betãom338,58200,00 €)
+    item = parseSubItemFormat(line)
+    if (item && item.price > 0) {
       items.push(item)
-      currentDescription = ""
-      lastItemLine = i
       continue
     }
     
-    // Strategy 4: Tabular format with separators
-    item = parseTabularLine(line, currentDescription)
-    if (item) {
+    // Strategy 4: Tabular format
+    item = parseTabularFormat(line)
+    if (item && item.price > 0) {
       items.push(item)
       currentDescription = ""
-      lastItemLine = i
+      linesSinceDescription = 0
       continue
     }
     
-    // Strategy 5: Price pattern line
-    item = parsePricePatternLine(line, currentDescription)
-    if (item) {
+    // Strategy 5: Inline format
+    item = parseInlineFormat(line)
+    if (item && item.price > 0) {
       items.push(item)
       currentDescription = ""
-      lastItemLine = i
+      linesSinceDescription = 0
       continue
     }
     
-    // If none of the strategies worked, this might be a description line
-    // Clean the line
+    // Strategy 6: LPU format (no prices, just unit+qty)
+    item = parseLPUFormat(line, currentDescription)
+    if (item) {
+      // Only add if we have no other items with prices, or this has a price
+      if (item.price > 0 || items.length === 0) {
+        items.push(item)
+      }
+      currentDescription = ""
+      linesSinceDescription = 0
+      continue
+    }
+    
+    // If no pattern matched, this might be a description line
+    // Clean article numbers from start
     let cleanLine = line
-      // Remove leading article numbers (e.g., "0,01", "1.2.3", "2.1")
-      .replace(/^[\d]+([.,]\d+)*\s*/, "")
-      // Remove trailing prices if no description found
-      .replace(/([\d\s]+[.,]\d{2})\s*€?\s*$/g, "")
-      // Normalize whitespace
-      .replace(/\s+/g, " ")
+      .replace(/^[\d]+[,.]?[\d]*\s*/, "") // Remove "0,01", "1.2", "2.1" etc
+      .replace(/^[\d]+\s+/, "") // Remove "1 ", "2 " etc
       .trim()
     
     // Skip if too short or just numbers/punctuation
-    if (cleanLine.length < 3) continue
+    if (cleanLine.length < 5) continue
     if (/^[\d.,\s€\-–—:;()\[\]]+$/.test(cleanLine)) continue
     
+    // Reset description if too many lines passed
+    if (linesSinceDescription > 10) {
+      currentDescription = ""
+    }
+    
     // Accumulate description
-    if (currentDescription) {
-      // Check if this is a new description or continuation
-      const startsWithLower = /^[a-záéíóúâêôãõç]/.test(cleanLine)
-      const endsWithPunct = /[.,:;-]$/.test(currentDescription)
-      
-      if (startsWithLower || endsWithPunct || (i - lastItemLine <= 3)) {
-        // Continuation of previous description
+    if (currentDescription && linesSinceDescription < 5) {
+      // Check if continuation or new description
+      const startsLower = /^[a-záéíóúâêôãõç]/.test(cleanLine)
+      if (startsLower) {
         currentDescription += " " + cleanLine
       } else {
-        // New description - the previous one might not have had data
         currentDescription = cleanLine
       }
     } else {
       currentDescription = cleanLine
     }
-  }
-  
-  return items
-}
-
-// ============================================================================
-// ALTERNATIVE PARSER FOR SPECIFIC FORMATS
-// ============================================================================
-
-// This parser handles the OR_MORADIA_COBRE and similar formats
-// where data comes in separate columns on the same line
-function parseAlternativeFormat(text: string): ParsedItem[] {
-  const items: ParsedItem[] = []
-  const lines = text.split(/[\n\r]+/)
-  
-  let currentDescription = ""
-  
-  for (const rawLine of lines) {
-    const line = rawLine.trim()
-    if (line.length < 5) continue
-    if (shouldSkipLine(line)) continue
-    
-    // Check for pattern: description ... unit ... quantity ... prices
-    // Example: "Betãom338,58200,00 €7 716,00 €"
-    const compactMatch = line.match(/^([A-Za-záéíóúâêôãõçÀ-Ú][^€]{5,}?)(v\.?g\.?|vb|m\.?l\.?|m2|m²|m3|m³|un\.?d?|kg|pc|l|m)(\d+[.,]?\d*)([\d\s.,]+)€([\d\s.,]+)€/i)
-    
-    if (compactMatch) {
-      const name = compactMatch[1].trim()
-      const unit = normalizeUnit(compactMatch[2])
-      const quantity = parsePortugueseNumber(compactMatch[3])
-      const unitPrice = parsePortugueseNumber(compactMatch[4])
-      
-      if (name.length > 3 && unitPrice > 0) {
-        items.push({
-          name,
-          unit,
-          quantity: quantity > 0 ? quantity : 1,
-          price: unitPrice
-        })
-        currentDescription = ""
-        continue
-      }
-    }
-    
-    // Check for sub-item pattern (e.g., "Sapatas", "Vigas de Fundação" followed by data)
-    const subItemMatch = line.match(/^([A-Za-záéíóúâêôãõçÀ-Ú][A-Za-záéíóúâêôãõçÀ-Ú\s]{3,30}?)(m2|m3|m²|m³|kg|un|ml|vg)\s*(\d+[.,]?\d*)\s*([\d\s.,]+)€?([\d\s.,]+)?€?/i)
-    
-    if (subItemMatch) {
-      const name = (currentDescription ? currentDescription + " - " : "") + subItemMatch[1].trim()
-      const unit = normalizeUnit(subItemMatch[2])
-      const quantity = parsePortugueseNumber(subItemMatch[3])
-      const unitPrice = parsePortugueseNumber(subItemMatch[4])
-      
-      if (unitPrice > 0) {
-        items.push({
-          name,
-          unit,
-          quantity: quantity > 0 ? quantity : 1,
-          price: unitPrice
-        })
-        continue
-      }
-    }
-    
-    // Accumulate description for multi-line items
-    if (!/€/.test(line) && !/^\d+[.,]?\d*$/.test(line)) {
-      const cleanLine = line.replace(/^\d+([.,]\d+)*\s*/, "").trim()
-      if (cleanLine.length > 5 && !/^[\d.,\s]+$/.test(cleanLine)) {
-        currentDescription = cleanLine
-      }
-    }
+    linesSinceDescription = 0
   }
   
   return items
@@ -462,35 +404,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
     
-    console.log("[v0] PDF Parser: Processing file:", file.name, "Size:", file.size)
-    
     // Read file as ArrayBuffer and extract text using unpdf
     const arrayBuffer = await file.arrayBuffer()
     const { text } = await extractText(arrayBuffer, { mergePages: true })
     
-    console.log("[v0] PDF Parser: Extracted text length:", text.length)
-    
-    // Try main parser first
+    // Parse the text
     let items = parseBudgetText(text)
-    
-    console.log("[v0] PDF Parser: Main parser found", items.length, "items")
-    
-    // If main parser found few items, try alternative parser
-    if (items.length < 5) {
-      const altItems = parseAlternativeFormat(text)
-      console.log("[v0] PDF Parser: Alternative parser found", altItems.length, "items")
-      
-      // Use whichever found more items
-      if (altItems.length > items.length) {
-        items = altItems
-      }
-    }
     
     // Filter out items with invalid data
     items = items.filter(item => 
       item.name && 
       item.name.length > 3 && 
-      item.price > 0 &&
       item.quantity > 0 &&
       item.quantity < 1000000
     )
@@ -498,13 +422,11 @@ export async function POST(request: NextRequest) {
     // Remove duplicates
     const seen = new Set<string>()
     items = items.filter(item => {
-      const key = `${item.name.toLowerCase().substring(0, 50)}-${item.price}`
+      const key = `${item.name.toLowerCase().substring(0, 50)}-${item.price.toFixed(2)}`
       if (seen.has(key)) return false
       seen.add(key)
       return true
     })
-    
-    console.log("[v0] PDF Parser: Final item count:", items.length)
     
     return NextResponse.json({ 
       success: true, 
@@ -517,7 +439,8 @@ export async function POST(request: NextRequest) {
     console.error("[v0] PDF parsing error:", error)
     return NextResponse.json({ 
       error: "Failed to parse PDF", 
-      message: error instanceof Error ? error.message : "Unknown error"
+      message: error instanceof Error ? error.message : "Unknown error",
+      items: []
     }, { status: 500 })
   }
 }

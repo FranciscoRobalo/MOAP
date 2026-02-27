@@ -443,141 +443,140 @@ export default function AnaliseContent() {
     return /^(v\.?g\.?|m\.?l\.?|m[2²3³]?|un\.?|unid\.?|kg|pc|pç|l|lt|cx|cj|degrau)$/i.test(normalized)
   }
 
-  // Advanced PDF text parser - handles any column order
+  // Advanced PDF text parser - handles multiple Portuguese budget formats
   const parsePDFText = (text: string): Array<{ name: string; unit: string; quantity: number; price: number }> => {
     const items: Array<{ name: string; unit: string; quantity: number; price: number }> = []
-    
-    const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
-    const lines = normalizedText.split("\n").filter(l => l.trim().length > 0)
-    
-    // Skip patterns for headers/footers
-    const skipPatterns = /^(Nº\s*Artigo|Designação|Unidade|Quantidade|Preço|total\s*geral|subtotal|iva|nota\s*:|observ|página|page|Empresa:|A\/C:|Telefone:|Ref\.?ª?|Obra:|ORÇAMENTO|Contacto|De:|Data:|Cliente:|Nº\s*Ref|Condições|Garantia|Assinatura|PLANILHA|TERMOS|ACRESCE|Capital|Alvará|NIF|NIPC|www\.|@|REVIVE|Valor\s*da\s*Proposta)/i
+    const lines = text.split(/[\r\n]+/)
     
     let currentDescription = ""
+    let linesSinceDescription = 0
     
-    // Pattern for data lines with embedded unit+qty+prices
-    const dataLinePattern = /^(v\.?g\.?|vg|m\.?l\.?|ml|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|degrau|m|l)(\d+[.,]?\d*)/i
+    // Skip patterns
+    const shouldSkip = (line: string) => {
+      const patterns = [
+        /^(Nº\s*Artigo|Art\.?º?\s*$|Item\s*$|Descrição\s*$|Designação\s*$)/i,
+        /^(Un\.?\s*$|Unidade\s*$|Quant\.?\s*$|Quantidade\s*$)/i,
+        /^(Preço|Valor)\s*(unitário|total)?\s*$/i,
+        /^(Subtotal|IVA|Observ|Nota\s*:|Total\s*Geral|Página|Page)/i,
+        /^(Empresa:|A\/C:|Telefone:|Ref\.?ª?|Obra:|ORÇAMENTO|De:|Data:|Cliente:)/i,
+      ]
+      return patterns.some(p => p.test(line))
+    }
     
-    // Pattern for lines with separate columns
-    const separateColsPattern = /^(v\.?g\.?|vg|m\.?l\.?|ml|m2|m²|m3|m³|un\.?|unid\.?|kg|pc|pç|degrau|m|l)\s+(\d+[.,]?\d*)\s+([\d\s]+[.,]\d{2})\s*€/i
-    
-    // Pattern for tabular data (tab or multiple space separated)
-    const tabularPattern = /\t+|;+|\s{3,}/
+    // Check if section header
+    const isSectionHeader = (line: string) => {
+      if (/^\d+\.?\d*\s{2,}[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]+$/.test(line)) return true
+      if (/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{3,30}$/.test(line) && !line.includes(",")) return true
+      if (/^\d+$/.test(line)) return true
+      return false
+    }
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim()
       
-      if (line.length < 2) continue
-      if (skipPatterns.test(line)) continue
-      if (/^[\d\s.,]+\s*€$/.test(line) && line.length < 25) continue // Just a total
-      if (/^\d+[.,]?\d*$/.test(line)) continue // Just a section number
+      if (line.length < 2) { linesSinceDescription++; continue }
+      if (shouldSkip(line)) continue
+      if (isSectionHeader(line)) { currentDescription = ""; continue }
+      if (/^[\d\s.,]+\s*€\s*$/.test(line) && line.length < 25) continue
+      if (/^\d+[,.]?\d*\s*$/.test(line) && line.length < 10) continue
       
-      // Try tabular parsing first
-      const cols = line.split(tabularPattern).filter(c => c.trim().length > 0)
+      // OR_MORADIA format: un1.006228.006228.00
+      const oraMatch = line.match(/^(un|vg|vb|m2|m²|m3|m³|ml|kg|pc|m|l)(\d+\.\d+)(\d+\.\d+)(\d+\.\d+)$/i)
+      if (oraMatch && currentDescription) {
+        items.push({
+          name: currentDescription.trim(),
+          unit: normalizeUnit(oraMatch[1]),
+          quantity: parseFloat(oraMatch[2]),
+          price: parseFloat(oraMatch[3])
+        })
+        currentDescription = ""
+        linesSinceDescription = 0
+        continue
+      }
       
-      if (cols.length >= 3) {
-        // Identify column types dynamically
-        let descCol = -1, unitCol = -1, qtyCol = -1, priceCol = -1
-        
-        for (let j = 0; j < cols.length; j++) {
-          const col = cols[j].trim()
+      // Z format with €: v.g.1,0022 000,00 €
+      const unitMatch = line.match(/^(v\.?g\.?|vb|m\.?l\.?|m2|m²|m3|m³|un\.?d?|unid|kg|pc|pç|m|l)/i)
+      if (unitMatch && currentDescription) {
+        const euroMatches = [...line.matchAll(/([\d\s]+[,]\d{2})\s*€/g)]
+        if (euroMatches.length >= 1) {
+          const afterUnit = line.substring(unitMatch[0].length)
+          const qtyMatch = afterUnit.match(/^(\d+[,]?\d*)/)
+          const quantity = qtyMatch ? parsePortugueseNumber(qtyMatch[1]) : 1
+          const price = parsePortugueseNumber(euroMatches[0][1])
           
-          if (isUnit(col) && unitCol === -1) {
-            unitCol = j
-          } else if (/€/.test(col) || /^\d+[.,]\d{2}$/.test(col)) {
-            if (priceCol === -1) priceCol = j
-          } else if (/^\d+[.,]?\d*$/.test(col) && qtyCol === -1 && col.length < 8) {
-            qtyCol = j
-          } else if (col.length > 10 && !/^[\d.,€\s]+$/.test(col)) {
-            if (descCol === -1) descCol = j
-          }
-        }
-        
-        // If we found a price, try to extract an item
-        if (priceCol >= 0) {
-          const price = parsePortugueseNumber(cols[priceCol])
-          const unit = unitCol >= 0 ? normalizeUnit(cols[unitCol]) : "un"
-          const qty = qtyCol >= 0 ? parsePortugueseNumber(cols[qtyCol]) : 1
-          let desc = descCol >= 0 ? cols[descCol] : currentDescription
-          
-          if (desc && price > 0) {
+          if (price > 0) {
             items.push({
-              name: desc.trim(),
-              unit,
-              quantity: qty > 0 && qty < 100000 ? qty : 1,
+              name: currentDescription.trim(),
+              unit: normalizeUnit(unitMatch[1]),
+              quantity: quantity > 0 && quantity < 10000 ? quantity : 1,
               price
             })
             currentDescription = ""
+            linesSinceDescription = 0
             continue
           }
         }
       }
       
-      // Try embedded data pattern (like "m235,2030,00 €1 056,00 €")
-      const dataMatch = line.match(dataLinePattern)
-      
-      if (dataMatch) {
-        let unit = normalizeUnit(dataMatch[1])
-        const restOfLine = line.substring(dataMatch[0].length - dataMatch[2].length)
-        
-        const qtyMatch = restOfLine.match(/^(\d+[.,]?\d*)/)
-        let quantity = 1
-        if (qtyMatch) {
-          quantity = parsePortugueseNumber(qtyMatch[1])
-          if (quantity > 100000) quantity = 1
-        }
-        
-        const priceMatches = line.match(/([\d\s]+[.,]\d{2})\s*€/g)
-        
-        if (priceMatches && priceMatches.length >= 1 && currentDescription) {
-          const prices = priceMatches.map(p => parsePortugueseNumber(p))
-          const unitPrice = prices[0]
-          
-          if (unitPrice > 0) {
-            items.push({
-              name: currentDescription.trim(),
-              unit,
-              quantity: quantity || 1,
-              price: unitPrice
-            })
-            currentDescription = ""
-          }
-        }
-      } else {
-        // Try separate columns pattern
-        const sepMatch = line.match(separateColsPattern)
-        if (sepMatch && currentDescription) {
-          const unit = normalizeUnit(sepMatch[1])
-          const quantity = parsePortugueseNumber(sepMatch[2])
-          const price = parsePortugueseNumber(sepMatch[3])
-          
-          if (price > 0) {
-            items.push({
-              name: currentDescription.trim(),
-              unit,
-              quantity: quantity || 1,
-              price
-            })
-            currentDescription = ""
-          }
-        } else {
-          // Description line - accumulate
-          let cleanLine = line
-            .replace(/^\d+[.,]\d*\s*/, "") // Remove article numbers
-            .replace(/([\d\s]+[.,]\d{2})\s*€/g, "") // Remove prices
-            .replace(/\s+/g, " ")
-            .trim()
-          
-          if (cleanLine.length < 3) continue
-          if (/^[\d.,\s€\-–—:;]+$/.test(cleanLine)) continue
-          
-          if (currentDescription) {
-            currentDescription += " " + cleanLine
-          } else {
-            currentDescription = cleanLine
-          }
+      // Sub-item format: Betãom338,58200,00 €7 716,00 €
+      const subMatch = line.match(/^(Betão|Ferro|Cofragem|Aço)(m3|m²|m2|kg|m)(\d+[,.]?\d*)([\d\s,]+€[\d\s,]+€)/i)
+      if (subMatch) {
+        const priceMatch = subMatch[4].match(/([\d\s,]+)€/)
+        if (priceMatch) {
+          items.push({
+            name: subMatch[1],
+            unit: normalizeUnit(subMatch[2]),
+            quantity: parsePortugueseNumber(subMatch[3]),
+            price: parsePortugueseNumber(priceMatch[1])
+          })
+          continue
         }
       }
+      
+      // Tabular format with tabs/spaces
+      const parts = line.split(/\t+|\s{3,}/).filter(p => p.trim().length > 0)
+      if (parts.length >= 4) {
+        let desc = "", unit = "un", qty = 1, price = 0
+        for (const part of parts) {
+          const t = part.trim()
+          if (/^(vg|vb|ml|m2|m²|m3|m³|un|und|unid|kg|pc|pç|m|l|mes)$/i.test(t)) {
+            unit = normalizeUnit(t)
+          } else if (/€/.test(t) || /^\d[\d\s]*[,]\d{2}$/.test(t)) {
+            const p = parsePortugueseNumber(t)
+            if (p > 0 && price === 0) price = p
+          } else if (/^\d+[,.]?\d*$/.test(t)) {
+            const n = parsePortugueseNumber(t)
+            if (n > 0 && n < 10000) qty = n
+          } else if (t.length > 10 && !/^\d/.test(t)) {
+            desc = t
+          }
+        }
+        if (desc && price > 0) {
+          items.push({ name: desc, unit, quantity: qty, price })
+          currentDescription = ""
+          linesSinceDescription = 0
+          continue
+        }
+      }
+      
+      // Description accumulation
+      let cleanLine = line
+        .replace(/^[\d]+[,.]?[\d]*\s*/, "")
+        .replace(/^[\d]+\s+/, "")
+        .trim()
+      
+      if (cleanLine.length < 5) continue
+      if (/^[\d.,\s€\-–—:;()\[\]]+$/.test(cleanLine)) continue
+      
+      if (linesSinceDescription > 10) currentDescription = ""
+      
+      if (currentDescription && linesSinceDescription < 5) {
+        const startsLower = /^[a-záéíóúâêôãõç]/.test(cleanLine)
+        currentDescription = startsLower ? currentDescription + " " + cleanLine : cleanLine
+      } else {
+        currentDescription = cleanLine
+      }
+      linesSinceDescription = 0
     }
     
     return items
@@ -585,8 +584,6 @@ export default function AnaliseContent() {
   
   // Read PDF file - use API route for server-side parsing or fallback to client-side
   const parsePDF = async (file: File): Promise<Array<{ name: string; unit: string; quantity: number; price: number }>> => {
-    console.log("[v0] Starting PDF parsing for:", file.name, "Size:", file.size)
-    
     // First try the API route (uses unpdf for proper PDF text extraction)
     try {
       const formData = new FormData()
@@ -598,41 +595,27 @@ export default function AnaliseContent() {
       })
       
       const data = await response.json()
-      console.log("[v0] API response:", { 
-        ok: response.ok, 
-        itemsCount: data.items?.length || 0,
-        textLength: data.textLength,
-        error: data.error
-      })
       
       if (data.items && data.items.length > 0) {
-        console.log("[v0] API extracted items successfully:", data.items.length)
         return data.items
       }
-      
-      // API parsed but found no items, might be a format issue
-      if (data.textLength && data.textLength > 100) {
-        console.log("[v0] API found text but no items, will try client-side parsing")
-      }
-    } catch (apiError) {
-      console.error("[v0] API request failed:", apiError)
+    } catch {
+      // API failed, continue to fallback
     }
     
     // Fallback: try reading file as text directly (works for text-based PDFs only)
     try {
       const text = await file.text()
-      console.log("[v0] Direct text read length:", text.length)
       
       if (text.length > 50) {
         const items = parsePDFText(text)
-        console.log("[v0] Client-side parsing found:", items.length, "items")
         
         if (items.length > 0) {
           return items
         }
       }
-    } catch (textError) {
-      console.error("[v0] Text reading failed:", textError)
+    } catch {
+      // Text reading failed
     }
     
     throw new Error("Não foi possível extrair itens do PDF. Por favor, converta para CSV.")
@@ -645,15 +628,10 @@ export default function AnaliseContent() {
     try {
       let parsedItems: Array<{ name: string; unit: string; quantity: number; price: number }> = []
       
-      // Check file type and parse accordingly
-      console.log("[v0] Analyzing file:", file.name, "type:", file.type)
-      
       if (file.name.toLowerCase().endsWith(".pdf")) {
         try {
           parsedItems = await parsePDF(file)
-          console.log("[v0] PDF parsed successfully, items:", parsedItems.length)
-        } catch (pdfError) {
-          console.error("[v0] PDF parsing error:", pdfError)
+        } catch {
           // Fallback: try to read as text (some PDFs are text-based)
           const content = await file.text()
           parsedItems = parsePDFText(content)
@@ -661,14 +639,8 @@ export default function AnaliseContent() {
       } else {
         const content = await file.text()
         parsedItems = parseCSV(content)
-        console.log("[v0] CSV parsed, items:", parsedItems.length)
       }
 
-      console.log("[v0] Total parsed items:", parsedItems.length)
-      if (parsedItems.length > 0 && parsedItems.length <= 5) {
-        console.log("[v0] Sample items:", parsedItems.slice(0, 5))
-      }
-      
       const totalItems = parsedItems.length
       const analyzedItems: BudgetItem[] = []
 
