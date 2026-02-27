@@ -11,6 +11,14 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Upload,
   AlertTriangle,
   TrendingUp,
@@ -24,6 +32,9 @@ import {
   BarChart3,
   HelpCircle,
   Database,
+  Pencil,
+  Sparkles,
+  Loader2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useData } from "@/contexts/data-context"
@@ -132,6 +143,9 @@ export default function AnaliseContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterRating, setFilterRating] = useState<string>("all")
   const [activeTab, setActiveTab] = useState("all")
+  const [editingItem, setEditingItem] = useState<BudgetItem | null>(null)
+  const [editForm, setEditForm] = useState({ name: "", unit: "", quantity: "", price: "" })
+  const [isReanalyzing, setIsReanalyzing] = useState<string | null>(null)
 
   // Normalize text for matching - enhanced for Portuguese construction terms
   const normalizeText = (text: string): string => {
@@ -1024,6 +1038,198 @@ export default function AnaliseContent() {
     }
   }
 
+  // Open edit dialog for an item
+  const openEditDialog = (item: BudgetItem) => {
+    setEditingItem(item)
+    setEditForm({
+      name: item.originalName,
+      unit: item.unit,
+      quantity: item.quantity.toString(),
+      price: item.budgetPrice.toString()
+    })
+  }
+
+  // Save edited item and re-analyze
+  const saveEditedItem = async () => {
+    if (!editingItem || !analysisResult) return
+    
+    setIsReanalyzing(editingItem.id)
+    
+    try {
+      // Call GPT to get price for the edited item
+      const response = await fetch("/api/lookup-prices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{
+            name: editForm.name,
+            unit: editForm.unit,
+            quantity: parseFloat(editForm.quantity) || 1,
+            price: parseFloat(editForm.price) || 0
+          }]
+        })
+      })
+      
+      let refMin: number | null = null
+      let refMax: number | null = null
+      let refAvg: number | null = null
+      let matchedName: string | null = null
+      let confidence = 0
+      let rating: BudgetItem["rating"] = "unknown"
+      let variance: number | null = null
+      
+      if (response.ok) {
+        const data = await response.json()
+        const gptPrice = data.prices?.[editForm.name]
+        
+        if (gptPrice && gptPrice.avgPrice > 0) {
+          refMin = gptPrice.minPrice
+          refMax = gptPrice.maxPrice
+          refAvg = gptPrice.avgPrice
+          matchedName = editForm.name + " (GPT)"
+          confidence = gptPrice.confidence || 70
+          
+          const budgetPrice = parseFloat(editForm.price) || 0
+          if (refAvg > 0) {
+            variance = ((budgetPrice - refAvg) / refAvg) * 100
+            
+            if (variance <= -10) rating = "below"
+            else if (variance <= 10) rating = "average"
+            else if (variance <= 50) rating = "above"
+            else rating = "critical"
+          }
+        }
+      }
+      
+      // Also try local database match
+      const { material, confidence: localConf } = findBestMatch(editForm.name, editForm.unit)
+      if (material && localConf >= 18 && (!refAvg || localConf > confidence)) {
+        refMin = material.price
+        refMax = material.priceMax || material.price
+        refAvg = (refMin + refMax) / 2
+        matchedName = material.name
+        confidence = localConf
+        
+        const budgetPrice = parseFloat(editForm.price) || 0
+        if (refAvg > 0) {
+          variance = ((budgetPrice - refAvg) / refAvg) * 100
+          
+          if (variance <= -10) rating = "below"
+          else if (variance <= 10) rating = "average"
+          else if (variance <= 50) rating = "above"
+          else rating = "critical"
+        }
+      }
+      
+      // Update the item in the results
+      const updatedItems = analysisResult.items.map(item => {
+        if (item.id === editingItem.id) {
+          return {
+            ...item,
+            originalName: editForm.name,
+            unit: editForm.unit,
+            quantity: parseFloat(editForm.quantity) || 1,
+            budgetPrice: parseFloat(editForm.price) || 0,
+            referenceMinPrice: refMin,
+            referenceMaxPrice: refMax,
+            referenceAvgPrice: refAvg,
+            matchedName,
+            matchConfidence: confidence,
+            variance,
+            rating
+          }
+        }
+        return item
+      })
+      
+      // Recalculate totals
+      const totalBudget = updatedItems.reduce((sum, i) => sum + (i.quantity * i.budgetPrice), 0)
+      const totalReference = updatedItems.reduce((sum, i) => sum + (i.referenceAvgPrice ? i.quantity * i.referenceAvgPrice : 0), 0)
+      const overallVariance = totalReference > 0 ? ((totalBudget - totalReference) / totalReference) * 100 : 0
+      
+      setAnalysisResult({
+        ...analysisResult,
+        items: updatedItems,
+        totalBudget,
+        totalReference,
+        overallVariance
+      })
+      
+    } catch (err) {
+      console.error("Error re-analyzing item:", err)
+    } finally {
+      setIsReanalyzing(null)
+      setEditingItem(null)
+    }
+  }
+
+  // Re-analyze a single item with GPT (without editing)
+  const reanalyzeItem = async (item: BudgetItem) => {
+    if (!analysisResult) return
+    
+    setIsReanalyzing(item.id)
+    
+    try {
+      const response = await fetch("/api/lookup-prices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{
+            name: item.originalName,
+            unit: item.unit,
+            quantity: item.quantity,
+            price: item.budgetPrice
+          }]
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const gptPrice = data.prices?.[item.originalName]
+        
+        if (gptPrice && gptPrice.avgPrice > 0) {
+          const variance = ((item.budgetPrice - gptPrice.avgPrice) / gptPrice.avgPrice) * 100
+          let rating: BudgetItem["rating"] = "unknown"
+          
+          if (variance <= -10) rating = "below"
+          else if (variance <= 10) rating = "average"
+          else if (variance <= 50) rating = "above"
+          else rating = "critical"
+          
+          const updatedItems = analysisResult.items.map(i => {
+            if (i.id === item.id) {
+              return {
+                ...i,
+                referenceMinPrice: gptPrice.minPrice,
+                referenceMaxPrice: gptPrice.maxPrice,
+                referenceAvgPrice: gptPrice.avgPrice,
+                matchedName: item.originalName + " (GPT)",
+                matchConfidence: gptPrice.confidence || 70,
+                variance,
+                rating
+              }
+            }
+            return i
+          })
+          
+          const totalReference = updatedItems.reduce((sum, i) => sum + (i.referenceAvgPrice ? i.quantity * i.referenceAvgPrice : 0), 0)
+          const overallVariance = totalReference > 0 ? ((analysisResult.totalBudget - totalReference) / totalReference) * 100 : 0
+          
+          setAnalysisResult({
+            ...analysisResult,
+            items: updatedItems,
+            totalReference,
+            overallVariance
+          })
+        }
+      }
+    } catch (err) {
+      console.error("Error re-analyzing item:", err)
+    } finally {
+      setIsReanalyzing(null)
+    }
+  }
+
   const filteredItems =
     analysisResult?.items.filter((item) => {
       const matchesSearch =
@@ -1429,6 +1635,7 @@ export default function AnaliseContent() {
                             <th className="px-4 py-3 text-right text-sm font-medium">Preço Ref.</th>
                             <th className="px-4 py-3 text-right text-sm font-medium">Variação</th>
                             <th className="px-4 py-3 text-center text-sm font-medium">Classif.</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium">Ações</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
@@ -1487,6 +1694,33 @@ export default function AnaliseContent() {
                                     </Badge>
                                   </div>
                                 </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex justify-center gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => openEditDialog(item)}
+                                      disabled={isReanalyzing === item.id}
+                                      title="Editar item"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => reanalyzeItem(item)}
+                                      disabled={isReanalyzing === item.id}
+                                      title="Re-analisar com IA"
+                                      className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
+                                    >
+                                      {isReanalyzing === item.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Sparkles className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                </td>
                               </tr>
                             )
                           })}
@@ -1505,6 +1739,87 @@ export default function AnaliseContent() {
           </Card>
         </div>
       )}
+
+      {/* Edit Item Dialog */}
+      <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Editar Item</DialogTitle>
+            <DialogDescription>
+              Corrija os dados do item e clique em guardar para re-analisar com os novos valores.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name">Descrição do Item</Label>
+              <Input
+                id="edit-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                placeholder="Ex: Pintura interior a tinta plástica"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-unit">Unidade</Label>
+                <Input
+                  id="edit-unit"
+                  value={editForm.unit}
+                  onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
+                  placeholder="m2"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-quantity">Quantidade</Label>
+                <Input
+                  id="edit-quantity"
+                  type="number"
+                  value={editForm.quantity}
+                  onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
+                  placeholder="100"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-price">Preço Unit. (EUR)</Label>
+                <Input
+                  id="edit-price"
+                  type="number"
+                  step="0.01"
+                  value={editForm.price}
+                  onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+                  placeholder="12.50"
+                />
+              </div>
+            </div>
+            {editingItem?.rating === "unknown" && (
+              <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-3 text-sm">
+                <p className="text-yellow-500 font-medium mb-1">Item sem referência de preço</p>
+                <p className="text-muted-foreground">
+                  Ao guardar, a IA irá procurar preços de referência no mercado português para este item.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingItem(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={saveEditedItem} disabled={isReanalyzing === editingItem?.id}>
+              {isReanalyzing === editingItem?.id ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  A analisar...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Guardar e Re-analisar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
