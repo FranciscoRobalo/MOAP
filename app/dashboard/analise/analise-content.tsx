@@ -908,7 +908,7 @@ export default function AnaliseContent() {
       }
       
       if (potentialSavings > 1000) {
-        recommendations.push(`Potencial de poupança identificado: €${potentialSavings.toLocaleString("pt-PT", { minimumFractionDigits: 2 })} através de renegociação de preços acima da média.`)
+        recommendations.push(`Potencial de poupança identificado: ${potentialSavings.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} através de renegociação de preços acima da média.`)
       }
       
       if (unknownCount > totalItems * 0.3) {
@@ -1363,13 +1363,13 @@ export default function AnaliseContent() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card className="bg-card/50">
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">€{analysisResult.totalBudget.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold">{analysisResult.totalBudget.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
                 <p className="text-sm text-muted-foreground">Total do Orçamento</p>
               </CardContent>
             </Card>
             <Card className="bg-card/50">
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">€{analysisResult.totalReference.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold">{analysisResult.totalReference.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
                 <p className="text-sm text-muted-foreground">Total de Referência</p>
               </CardContent>
             </Card>
@@ -1424,7 +1424,7 @@ export default function AnaliseContent() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-xl font-bold text-price-above">€{analysisResult.stats.potentialSavings.toLocaleString("pt-PT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                    <div className="text-xl font-bold text-price-above">{analysisResult.stats.potentialSavings.toLocaleString("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
                     <p className="text-sm text-muted-foreground">Poupança Potencial</p>
                   </div>
                   <div className="h-12 w-12 rounded-full bg-price-above/10 flex items-center justify-center">
@@ -1497,7 +1497,7 @@ export default function AnaliseContent() {
                             <Badge variant="outline" className="text-xs">{cat.count} itens</Badge>
                           </div>
                           <div className="flex items-center gap-4">
-                            <span className="text-muted-foreground">€{cat.total.toLocaleString("pt-PT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                            <span className="text-muted-foreground">{cat.total.toLocaleString("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                             <span className={cn("font-medium", varianceColor)}>
                               {isPositiveVariance ? "+" : ""}{cat.variance.toFixed(1)}%
                             </span>
@@ -1662,14 +1662,14 @@ export default function AnaliseContent() {
                                 </td>
                                 <td className="px-4 py-3 text-right text-sm">{item.quantity}</td>
                                 <td className="px-4 py-3 text-right text-sm font-medium">
-                                  ��{item.budgetPrice.toFixed(2)}
+                                  {item.budgetPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
                                 </td>
                                 <td className="px-4 py-3 text-right text-sm">
                                   {item.referenceAvgPrice ? (
                                     <div>
-                                      <div>€{item.referenceAvgPrice.toFixed(2)}</div>
+                                      <div>{item.referenceAvgPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
                                       <div className="text-xs text-muted-foreground">
-                                        €{item.referenceMinPrice?.toFixed(2)} - €{item.referenceMaxPrice?.toFixed(2)}
+                                        {item.referenceMinPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} - {item.referenceMaxPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
                                       </div>
                                     </div>
                                   ) : (
