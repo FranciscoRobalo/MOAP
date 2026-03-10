@@ -6,17 +6,59 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
 import { useLanguage } from "@/contexts/language-context"
-import { AlertTriangle, Building2, Calendar, Calculator, MessageSquare, ArrowRight, Clock } from "lucide-react"
+import { AlertTriangle, Building2, Calendar, Calculator, MessageSquare, ArrowRight, Clock, Settings2, Plus, X, Check, BarChart3, DollarSign, Users, FileText, TrendingUp } from "lucide-react"
 import { useEffect, useState } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+
+// Available card types for customization
+type CardType = "obras" | "budgets" | "visits" | "messages" | "analytics" | "prices" | "users" | "documents"
+
+const STORAGE_KEY = "dashboard-visible-cards"
+const DEFAULT_CARDS: CardType[] = ["obras", "budgets", "visits", "messages"]
 
 export default function DashboardPage() {
-  const { obras, budgets, visitas, conversations, notifications } = useData()
+  const { obras, budgets, visitas, conversations, notifications, materials } = useData()
   const { t, language } = useLanguage()
   const [isVisible, setIsVisible] = useState(false)
+  const [visibleCards, setVisibleCards] = useState<CardType[]>(DEFAULT_CARDS)
+  const [showCustomizeDialog, setShowCustomizeDialog] = useState(false)
+  const [tempVisibleCards, setTempVisibleCards] = useState<CardType[]>(DEFAULT_CARDS)
 
   useEffect(() => {
     setIsVisible(true)
+    // Load saved preferences
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        setVisibleCards(parsed)
+        setTempVisibleCards(parsed)
+      } catch {
+        // Use defaults
+      }
+    }
   }, [])
+
+  const saveCardPreferences = () => {
+    setVisibleCards(tempVisibleCards)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tempVisibleCards))
+    setShowCustomizeDialog(false)
+  }
+
+  const toggleCard = (card: CardType) => {
+    setTempVisibleCards(prev => 
+      prev.includes(card) ? prev.filter(c => c !== card) : [...prev, card]
+    )
+  }
 
   const statusConfig = {
     pendente: { label: t("pending"), color: "bg-muted text-muted-foreground" },
@@ -37,8 +79,9 @@ export default function DashboardPage() {
     0,
   )
 
-  const stats = [
-    {
+  // All available card configurations
+  const allCardConfigs: Record<CardType, { title: string; value: string; description: string; icon: any; trend: string; link: string }> = {
+    obras: {
       title: t("projects"),
       value: obras.length.toString(),
       description: `${approvedObras} ${t("approved").toLowerCase()}`,
@@ -46,15 +89,15 @@ export default function DashboardPage() {
       trend: `+${pendingObras} ${t("pending").toLowerCase()}`,
       link: "/dashboard/obras",
     },
-    {
+    budgets: {
       title: t("budgets"),
       value: budgets.length.toString(),
       description: `€${(totalBudgetValue / 1000).toFixed(0)}k total`,
       icon: Calculator,
-      trend: `${budgets.filter((b) => b.status === "finalizado").length} ${language === "pt" ? "finalizados" : language === "es" ? "finalizados" : "completed"}`,
-      link: "/dashboard/orcamentos",
+      trend: `${budgets.filter((b) => b.status === "pendente").length} ${language === "pt" ? "pendentes" : language === "es" ? "pendientes" : "pending"}`,
+      link: "/dashboard/registos",
     },
-    {
+    visits: {
       title: t("upcomingVisits"),
       value: upcomingVisits.toString(),
       description: language === "pt" ? "Próximas visitas" : language === "es" ? "Próximas visitas" : "Upcoming visits",
@@ -62,7 +105,7 @@ export default function DashboardPage() {
       trend: `${visitas.filter((v) => v.status === "realizada").length} ${language === "pt" ? "realizadas" : language === "es" ? "realizadas" : "completed"}`,
       link: "/dashboard/visitas",
     },
-    {
+    messages: {
       title: t("messages"),
       value: unreadMessages.toString(),
       description: language === "pt" ? "Por ler" : language === "es" ? "Sin leer" : "Unread",
@@ -70,7 +113,53 @@ export default function DashboardPage() {
       trend: `${conversations.length} ${language === "pt" ? "conversas" : language === "es" ? "conversaciones" : "conversations"}`,
       link: "/dashboard/messages",
     },
-  ]
+    analytics: {
+      title: language === "pt" ? "Análises" : language === "es" ? "Análisis" : "Analytics",
+      value: budgets.filter(b => b.analysisVariance !== undefined).length.toString(),
+      description: language === "pt" ? "Orçamentos analisados" : "Analyzed budgets",
+      icon: BarChart3,
+      trend: language === "pt" ? "Ver relatórios" : "View reports",
+      link: "/dashboard/analytics",
+    },
+    prices: {
+      title: language === "pt" ? "Preços" : language === "es" ? "Precios" : "Prices",
+      value: materials.length.toString(),
+      description: language === "pt" ? "Materiais na base de dados" : "Materials in database",
+      icon: DollarSign,
+      trend: language === "pt" ? "Base de dados" : "Database",
+      link: "/dashboard/prices",
+    },
+    users: {
+      title: language === "pt" ? "Utilizadores" : language === "es" ? "Usuarios" : "Users",
+      value: "3",
+      description: language === "pt" ? "Tipos de conta" : "Account types",
+      icon: Users,
+      trend: language === "pt" ? "Gerir utilizadores" : "Manage users",
+      link: "/dashboard/users",
+    },
+    documents: {
+      title: language === "pt" ? "Documentos" : language === "es" ? "Documentos" : "Documents",
+      value: obras.length.toString(),
+      description: language === "pt" ? "Ficheiros submetidos" : "Submitted files",
+      icon: FileText,
+      trend: language === "pt" ? "Ver documentos" : "View documents",
+      link: "/dashboard/obras",
+    },
+  }
+
+  const cardLabels: Record<CardType, string> = {
+    obras: language === "pt" ? "Obras" : language === "es" ? "Obras" : "Projects",
+    budgets: language === "pt" ? "Orçamentos" : language === "es" ? "Presupuestos" : "Budgets",
+    visits: language === "pt" ? "Visitas" : language === "es" ? "Visitas" : "Visits",
+    messages: language === "pt" ? "Mensagens" : language === "es" ? "Mensajes" : "Messages",
+    analytics: language === "pt" ? "Análises" : language === "es" ? "Análisis" : "Analytics",
+    prices: language === "pt" ? "Preços" : language === "es" ? "Precios" : "Prices",
+    users: language === "pt" ? "Utilizadores" : language === "es" ? "Usuarios" : "Users",
+    documents: language === "pt" ? "Documentos" : language === "es" ? "Documentos" : "Documents",
+  }
+
+  // Filter stats based on visible cards
+  const stats = visibleCards.map(cardType => allCardConfigs[cardType]).filter(Boolean)
 
   const recentObras = obras.slice(0, 4)
 
@@ -87,14 +176,65 @@ export default function DashboardPage() {
             {t("welcomeBack")} {t("dashboardSubtitle").toLowerCase()}.
           </p>
         </div>
-        {unreadNotifications > 0 && (
-          <Link href="/dashboard/notificacoes">
-            <Button variant="outline" size="sm" className="hover-lift bg-transparent">
-              <AlertTriangle className="mr-2 h-4 w-4 text-price-above animate-bounce-subtle" />
-              <span className="badge-pulse">{unreadNotifications}</span> {t("notifications").toLowerCase()}
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <Dialog open={showCustomizeDialog} onOpenChange={(open) => {
+            setShowCustomizeDialog(open)
+            if (open) setTempVisibleCards(visibleCards)
+          }}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="hover-lift bg-transparent">
+                <Settings2 className="mr-2 h-4 w-4" />
+                {language === "pt" ? "Personalizar" : language === "es" ? "Personalizar" : "Customize"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>
+                  {language === "pt" ? "Personalizar Visão Geral" : language === "es" ? "Personalizar Vista General" : "Customize Overview"}
+                </DialogTitle>
+                <DialogDescription>
+                  {language === "pt" ? "Selecione os cartões que deseja ver no painel principal." : "Select the cards you want to see on the main dashboard."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-3 py-4">
+                {(Object.keys(cardLabels) as CardType[]).map((cardType) => (
+                  <div
+                    key={cardType}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      tempVisibleCards.includes(cardType) 
+                        ? "border-primary bg-primary/5" 
+                        : "border-border hover:border-primary/50"
+                    }`}
+                    onClick={() => toggleCard(cardType)}
+                  >
+                    <Checkbox 
+                      checked={tempVisibleCards.includes(cardType)}
+                      onCheckedChange={() => toggleCard(cardType)}
+                    />
+                    <Label className="cursor-pointer flex-1">{cardLabels[cardType]}</Label>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowCustomizeDialog(false)}>
+                  {language === "pt" ? "Cancelar" : "Cancel"}
+                </Button>
+                <Button onClick={saveCardPreferences}>
+                  <Check className="mr-2 h-4 w-4" />
+                  {language === "pt" ? "Guardar" : "Save"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          {unreadNotifications > 0 && (
+            <Link href="/dashboard/notificacoes">
+              <Button variant="outline" size="sm" className="hover-lift bg-transparent">
+                <AlertTriangle className="mr-2 h-4 w-4 text-price-above animate-bounce-subtle" />
+                <span className="badge-pulse">{unreadNotifications}</span> {t("notifications").toLowerCase()}
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" data-tutorial="stats">

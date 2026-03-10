@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, Save, FileText, Calculator, Copy, Download, X, ChevronDown, ChevronUp, MapPin, Check, XCircle, Clock } from "lucide-react"
+import { Plus, Trash2, Save, FileText, Calculator, Copy, Download, X, ChevronDown, ChevronUp, MapPin, Check, XCircle, Clock, Database, Sparkles, Loader2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useData, type Budget, type BudgetItem } from "@/contexts/data-context"
+import { useAuth } from "@/contexts/auth-context"
+import { toast } from "sonner"
 
 const availableMaterials = [
   { id: "1", name: "Cimento Portland", unit: "kg", price: 0.15, category: "Estrutura" },
@@ -105,7 +107,10 @@ const obras = [
 ]
 
 export default function OrcamentosPage() {
-  const { budgets, addBudget, updateBudget, deleteBudget } = useData()
+  const { budgets, addBudget, updateBudget, deleteBudget, importBudgetItems } = useData()
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
+  const [isReanalyzing, setIsReanalyzing] = useState<string | null>(null)
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [expandedBudget, setExpandedBudget] = useState<string | null>(null)
@@ -375,32 +380,81 @@ export default function OrcamentosPage() {
 
                     {isExpanded && (
                       <div className="border-t px-3 py-2 bg-muted/30 space-y-2">
-                        {/* Approval buttons for pending budgets */}
-                        {budget.status === "pendente" && (
-                          <div className="flex gap-2 pb-2 border-b border-border/50">
-                            <Button
-                              size="sm"
-                              className="flex-1 bg-price-below hover:bg-price-below/90"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                updateBudget(budget.id, { status: "aprovado" })
-                              }}
-                            >
-                              <Check className="h-3 w-3 mr-1" />
-                              Aprovar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="flex-1"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                updateBudget(budget.id, { status: "rejeitado" })
-                              }}
-                            >
-                              <XCircle className="h-3 w-3 mr-1" />
-                              Rejeitar
-                            </Button>
+                        {/* Approval buttons for pending budgets - Admin only */}
+                        {budget.status === "pendente" && isAdmin && (
+                          <div className="space-y-2 pb-2 border-b border-border/50">
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                className="flex-1 bg-price-below hover:bg-price-below/90"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  updateBudget(budget.id, { status: "aprovado" })
+                                  toast.success("Orçamento aprovado com sucesso!")
+                                }}
+                              >
+                                <Check className="h-3 w-3 mr-1" />
+                                Aprovar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="flex-1"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  updateBudget(budget.id, { status: "rejeitado" })
+                                  toast.error("Orçamento rejeitado")
+                                }}
+                              >
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Rejeitar
+                              </Button>
+                            </div>
+                            {/* Admin AI tools */}
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 bg-price-below/10 hover:bg-price-below/20 text-price-below border-price-below/30"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const itemsToImport = budget.items.map(item => ({
+                                    name: item.materialName,
+                                    unit: item.unit,
+                                    priceMin: item.unitPrice * 0.9,
+                                    priceMax: item.unitPrice * 1.1,
+                                    category: item.category || "Geral",
+                                    type: "material" as const
+                                  }))
+                                  const importedCount = importBudgetItems(itemsToImport, "Importado de Orçamento")
+                                  toast.success(`${importedCount} itens importados para a base de dados!`)
+                                }}
+                              >
+                                <Database className="h-3 w-3 mr-1" />
+                                Importar para BD
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1"
+                                disabled={isReanalyzing === budget.id}
+                                onClick={async (e) => {
+                                  e.stopPropagation()
+                                  setIsReanalyzing(budget.id)
+                                  // Simulate AI analysis
+                                  await new Promise(resolve => setTimeout(resolve, 2000))
+                                  toast.success("Análise IA concluída!")
+                                  setIsReanalyzing(null)
+                                }}
+                              >
+                                {isReanalyzing === budget.id ? (
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                ) : (
+                                  <Sparkles className="h-3 w-3 mr-1" />
+                                )}
+                                Analisar com IA
+                              </Button>
+                            </div>
                           </div>
                         )}
                         <div className="flex gap-1">

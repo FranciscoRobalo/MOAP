@@ -12,8 +12,8 @@ export default function Home() {
       <Header />
       <Hero />
       <Features />
-      <HowItWorks />
       <ReportLegend />
+      <HowItWorks />
       <UploadSection />
       <Footer />
     </main>

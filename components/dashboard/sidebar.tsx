@@ -41,7 +41,6 @@ const navigation: NavItem[] = [
   { nameKey: "overview", href: "/dashboard", icon: LayoutGrid, roles: ["admin", "public", "tecnico"] },
   { nameKey: "budgetAnalysis", href: "/dashboard/analise", icon: BarChart3, roles: ["admin", "public", "tecnico"] },
   { nameKey: "analytics", href: "/dashboard/analytics", icon: TrendingUp, roles: ["admin"] },
-  { nameKey: "budgets", href: "/dashboard/orcamentos", icon: Calculator, roles: ["admin", "tecnico"] },
   { nameKey: "materialPrices", href: "/dashboard/prices", icon: DollarSign, roles: ["admin"] },
   { nameKey: "budgetApproval", href: "/dashboard/registos", icon: UserPlus, roles: ["admin"] },
   { nameKey: "messages", href: "/dashboard/messages", icon: MessageSquare, roles: ["admin", "public", "tecnico"] },
