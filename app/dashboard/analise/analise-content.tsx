@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -38,6 +38,10 @@ import {
   Save,
   MapPin,
   Check,
+  ArrowLeft,
+  CreditCard,
+  Lock,
+  AlertCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useData } from "@/contexts/data-context"
@@ -169,6 +173,10 @@ export default function AnaliseContent() {
   const [pendingItemCount, setPendingItemCount] = useState(0)
   const [selectedPricingTier, setSelectedPricingTier] = useState<number | null>(null)
   const [paidLineLimit, setPaidLineLimit] = useState<number | null>(null)
+  // Payment flow steps: "select" | "checkout" | "processing" | "success"
+  const [paymentStep, setPaymentStep] = useState<"select" | "checkout" | "processing" | "success">("select")
+  const [paymentForm, setPaymentForm] = useState({ name: "", card: "", expiry: "", cvv: "" })
+  const [paymentError, setPaymentError] = useState("")
   
   // Pricing tiers for budget analysis
   const pricingTiers = [
@@ -688,6 +696,36 @@ export default function AnaliseContent() {
   const analyzeFileWithLimit = async (file: File, lineLimit: number | null) => {
     await analyzeFile(file, lineLimit)
   }
+
+  // On mount: check if there's a pending file stored from the landing page upload
+  useEffect(() => {
+    const base64 = sessionStorage.getItem("pending_budget_file")
+    const name = sessionStorage.getItem("pending_budget_name")
+    const type = sessionStorage.getItem("pending_budget_type")
+
+    if (base64 && name) {
+      // Convert base64 back to a File object
+      const byteString = atob(base64.split(",")[1])
+      const mimeType = type || "application/octet-stream"
+      const ab = new ArrayBuffer(byteString.length)
+      const ia = new Uint8Array(ab)
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i)
+      }
+      const restoredFile = new File([ab], name, { type: mimeType })
+
+      // Clear sessionStorage so it doesn't re-trigger on refresh
+      sessionStorage.removeItem("pending_budget_file")
+      sessionStorage.removeItem("pending_budget_name")
+      sessionStorage.removeItem("pending_budget_type")
+      sessionStorage.removeItem("pending_budget_region")
+      sessionStorage.removeItem("pending_budget_year")
+
+      // Auto-trigger the analysis
+      analyzeFile(restoredFile, null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const analyzeFile = async (file: File, lineLimit: number | null = null) => {
     setIsAnalyzing(true)
@@ -2435,154 +2473,282 @@ export default function AnaliseContent() {
 
       {/* Payment Dialog for Public Users (8+ lines) */}
       <Dialog open={showPaymentDialog} onOpenChange={(open) => {
-        setShowPaymentDialog(open)
         if (!open) {
+          setShowPaymentDialog(false)
           setSelectedPricingTier(null)
           setPendingFile(null)
           setPendingItemCount(0)
+          setPaymentStep("select")
+          setPaymentForm({ name: "", card: "", expiry: "", cvv: "" })
+          setPaymentError("")
         }
       }}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <FileText className="h-6 w-6 text-primary" />
-              Orçamento com {pendingItemCount} Linhas
-            </DialogTitle>
-            <DialogDescription className="text-base">
-              O seu orçamento excede o limite gratuito de 8 linhas. Selecione um plano para continuar a análise.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4 space-y-4">
-            {/* Pricing Tiers - Now Clickable */}
-            <div className="grid gap-3">
+
+          {/* STEP: Plan Selection */}
+          {paymentStep === "select" && (<>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <FileText className="h-6 w-6 text-primary" />
+                Orçamento com {pendingItemCount} Linhas
+              </DialogTitle>
+              <DialogDescription className="text-base">
+                O seu orçamento excede o limite gratuito de 8 linhas. Selecione um plano para continuar a análise.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-3">
               {pricingTiers.map((tier, index) => {
                 const isFreeTier = tier.price === 0
                 const rangeStart = index === 0 ? 1 : pricingTiers[index - 1].maxLines + 1
-                const rangeEnd = tier.maxLines === Infinity ? "+" : tier.maxLines
+                const rangeEnd = tier.maxLines === Infinity ? "200+" : tier.maxLines
                 const isSelected = selectedPricingTier === index
-                
                 return (
                   <button
                     key={index}
                     onClick={() => setSelectedPricingTier(index)}
-                    className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all cursor-pointer hover:border-primary/50 ${
-                      isSelected 
-                        ? "border-primary bg-primary/10 shadow-md" 
-                        : isFreeTier 
-                          ? "border-price-below/30 bg-price-below/5 hover:bg-price-below/10" 
+                    className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all cursor-pointer hover:border-primary/50 ${
+                      isSelected
+                        ? "border-primary bg-primary/10 shadow-md"
+                        : isFreeTier
+                          ? "border-price-below/30 bg-price-below/5 hover:bg-price-below/10"
                           : "border-border bg-muted/30 hover:bg-muted/50"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      {isSelected && (
-                        <div className="h-5 w-5 rounded-full border-2 border-primary bg-primary flex items-center justify-center">
-                          <Check className="h-3 w-3 text-white" />
-                        </div>
-                      )}
-                      {!isSelected && (
-                        <div className="h-5 w-5 rounded-full border-2 border-muted-foreground/30" />
-                      )}
-                      <span className="font-medium">
-                        {rangeStart}–{rangeEnd} linhas
-                      </span>
+                      <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"}`}>
+                        {isSelected && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <span className="font-medium text-sm">{rangeStart}–{rangeEnd} linhas</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {isFreeTier ? (
                         <Badge className="bg-price-below text-white text-sm px-3 py-1">Grátis</Badge>
                       ) : (
-                        <span className={`font-bold text-lg ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
+                        <span className={`font-bold text-base ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
                           €{tier.price.toFixed(2).replace(".", ",")}
                         </span>
                       )}
-                      {!isFreeTier && (
-                        <span className="text-xs text-muted-foreground">(inclui PDF)</span>
-                      )}
+                      {!isFreeTier && <span className="text-xs text-muted-foreground">(inclui PDF)</span>}
                     </div>
                   </button>
                 )
               })}
             </div>
-
-            {/* Selected Tier Info */}
-            {selectedPricingTier !== null && (
-              <div className={`rounded-lg border p-4 ${
-                pricingTiers[selectedPricingTier].price === 0
-                  ? "bg-price-below/10 border-price-below/30" 
-                  : "bg-primary/5 border-primary/30"
-              }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium">Valor a pagar:</span>
-                  <span className={`text-2xl font-bold ${
-                    pricingTiers[selectedPricingTier].price === 0
-                      ? "text-price-below" 
-                      : "text-primary"
-                  }`}>
-                    {pricingTiers[selectedPricingTier].price === 0 ? "Grátis" : `€${pricingTiers[selectedPricingTier].price.toFixed(2).replace(".", ",")}`}
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {selectedPricingTier === 0 
-                    ? "Análise de até 8 itens (limite gratuito)"
-                    : `Análise completa com relatório PDF incluído`
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => { setShowPaymentDialog(false); setSelectedPricingTier(null); setPendingFile(null); setPendingItemCount(0) }}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedPricingTier === null) return
+                  if (pricingTiers[selectedPricingTier].price === 0) {
+                    // Free tier — go straight to analysis
+                    const fileToAnalyze = pendingFile!
+                    const lineLimit = 8
+                    setShowPaymentDialog(false)
+                    setSelectedPricingTier(null)
+                    setPendingFile(null)
+                    setPendingItemCount(0)
+                    setPaymentStep("select")
+                    analyzeFileWithLimit(fileToAnalyze, lineLimit)
+                    toast.success("Análise com limite gratuito iniciada!", { description: "Mostrando os primeiros 8 itens." })
+                  } else {
+                    setPaymentStep("checkout")
                   }
+                }}
+                disabled={selectedPricingTier === null}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {selectedPricingTier !== null && pricingTiers[selectedPricingTier].price === 0
+                  ? "Continuar com Análise Grátis (8 itens)"
+                  : selectedPricingTier !== null
+                    ? `Continuar para Pagamento`
+                    : "Selecionar Plano"
+                }
+              </Button>
+            </DialogFooter>
+          </>)}
+
+          {/* STEP: Checkout Form */}
+          {paymentStep === "checkout" && selectedPricingTier !== null && (<>
+            <DialogHeader>
+              <div className="flex items-center gap-2 mb-1">
+                <button onClick={() => setPaymentStep("select")} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <DialogTitle className="text-xl">Pagamento Seguro</DialogTitle>
+              </div>
+              <DialogDescription>
+                Plano selecionado: <span className="font-semibold text-foreground">{(() => { const t = pricingTiers[selectedPricingTier]; const start = selectedPricingTier === 0 ? 1 : pricingTiers[selectedPricingTier - 1].maxLines + 1; const end = t.maxLines === Infinity ? "200+" : t.maxLines; return `${start}–${end} linhas` })()} — €{pricingTiers[selectedPricingTier].price.toFixed(2).replace(".", ",")}</span>
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4 space-y-4">
+              {/* Card visual */}
+              <div className="relative h-40 rounded-2xl bg-gradient-to-br from-primary/80 to-primary p-5 text-primary-foreground shadow-lg overflow-hidden select-none">
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 80% 20%, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+                <div className="flex justify-between items-start mb-6">
+                  <span className="text-xs font-medium tracking-widest uppercase opacity-70">MOAP Pay</span>
+                  <div className="flex gap-1">
+                    <div className="h-6 w-6 rounded-full bg-white/40" />
+                    <div className="h-6 w-6 rounded-full bg-white/20 -ml-3" />
+                  </div>
+                </div>
+                <p className="font-mono text-lg tracking-[0.2em] mb-3">
+                  {paymentForm.card ? paymentForm.card.replace(/(.{4})/g, "$1 ").trim() : "•••• •••• •••• ••••"}
+                </p>
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="text-xs opacity-60 mb-0.5">Titular</p>
+                    <p className="text-sm font-medium uppercase tracking-wide">{paymentForm.name || "NOME DO TITULAR"}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs opacity-60 mb-0.5">Validade</p>
+                    <p className="text-sm font-medium">{paymentForm.expiry || "MM/AA"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {paymentError && (
+                <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {paymentError}
+                </div>
+              )}
+
+              {/* Form fields */}
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="card-name" className="text-sm">Nome no Cartão</Label>
+                  <Input
+                    id="card-name"
+                    placeholder="João Silva"
+                    value={paymentForm.name}
+                    onChange={(e) => setPaymentForm(f => ({ ...f, name: e.target.value.toUpperCase() }))}
+                    className="uppercase"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="card-number" className="text-sm">Número do Cartão</Label>
+                  <div className="relative">
+                    <Input
+                      id="card-number"
+                      placeholder="1234 5678 9012 3456"
+                      maxLength={19}
+                      value={paymentForm.card.replace(/(\d{4})(?=\d)/g, "$1 ")}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "").slice(0, 16)
+                        setPaymentForm(f => ({ ...f, card: digits }))
+                      }}
+                      className="font-mono pr-10"
+                    />
+                    <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="card-expiry" className="text-sm">Validade</Label>
+                    <Input
+                      id="card-expiry"
+                      placeholder="MM/AA"
+                      maxLength={5}
+                      value={paymentForm.expiry}
+                      onChange={(e) => {
+                        let val = e.target.value.replace(/\D/g, "").slice(0, 4)
+                        if (val.length >= 3) val = val.slice(0, 2) + "/" + val.slice(2)
+                        setPaymentForm(f => ({ ...f, expiry: val }))
+                      }}
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="card-cvv" className="text-sm">CVV</Label>
+                    <Input
+                      id="card-cvv"
+                      placeholder="•••"
+                      maxLength={3}
+                      type="password"
+                      value={paymentForm.cvv}
+                      onChange={(e) => setPaymentForm(f => ({ ...f, cvv: e.target.value.replace(/\D/g, "").slice(0, 3) }))}
+                      className="font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                <Lock className="h-3 w-3" />
+                Pagamento seguro simulado — nenhum dado real é processado
+              </p>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setPaymentStep("select")}>Voltar</Button>
+              <Button
+                onClick={() => {
+                  setPaymentError("")
+                  if (!paymentForm.name.trim()) { setPaymentError("Introduza o nome do titular."); return }
+                  if (paymentForm.card.length < 16) { setPaymentError("Número de cartão inválido."); return }
+                  if (paymentForm.expiry.length < 5) { setPaymentError("Data de validade inválida."); return }
+                  if (paymentForm.cvv.length < 3) { setPaymentError("CVV inválido."); return }
+                  setPaymentStep("processing")
+                  setTimeout(() => setPaymentStep("success"), 2200)
+                }}
+                className="bg-primary hover:bg-primary/90 gap-2"
+              >
+                <Lock className="h-4 w-4" />
+                Pagar €{pricingTiers[selectedPricingTier].price.toFixed(2).replace(".", ",")}
+              </Button>
+            </DialogFooter>
+          </>)}
+
+          {/* STEP: Processing */}
+          {paymentStep === "processing" && (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <div className="relative h-16 w-16">
+                <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
+                <div className="absolute inset-0 rounded-full border-4 border-t-primary animate-spin" />
+              </div>
+              <p className="font-semibold text-lg">A processar pagamento...</p>
+              <p className="text-sm text-muted-foreground">Por favor aguarde</p>
+            </div>
+          )}
+
+          {/* STEP: Success */}
+          {paymentStep === "success" && selectedPricingTier !== null && (
+            <div className="flex flex-col items-center justify-center py-10 gap-4 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-price-below/20 border-2 border-price-below">
+                <Check className="h-8 w-8 text-price-below" />
+              </div>
+              <div>
+                <p className="font-bold text-xl mb-1">Pagamento Confirmado!</p>
+                <p className="text-muted-foreground text-sm">
+                  €{pricingTiers[selectedPricingTier].price.toFixed(2).replace(".", ",")} debitado com sucesso.
                 </p>
               </div>
-            )}
-          </div>
+              <div className="rounded-lg border bg-muted/30 px-6 py-3 text-sm text-muted-foreground">
+                Ref: MOAP-{Math.random().toString(36).slice(2, 10).toUpperCase()}
+              </div>
+              <Button
+                className="mt-2 w-full bg-primary hover:bg-primary/90"
+                onClick={() => {
+                  const fileToAnalyze = pendingFile!
+                  const lineLimit = pricingTiers[selectedPricingTier].maxLines === Infinity ? null : pricingTiers[selectedPricingTier].maxLines
+                  setShowPaymentDialog(false)
+                  setSelectedPricingTier(null)
+                  setPendingFile(null)
+                  setPendingItemCount(0)
+                  setPaymentStep("select")
+                  setPaymentForm({ name: "", card: "", expiry: "", cvv: "" })
+                  analyzeFileWithLimit(fileToAnalyze, lineLimit)
+                  toast.success("A análise vai começar agora!")
+                }}
+              >
+                Iniciar Análise
+              </Button>
+            </div>
+          )}
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setShowPaymentDialog(false)
-                setSelectedPricingTier(null)
-                setPendingFile(null)
-                setPendingItemCount(0)
-              }}
-              className="w-full sm:w-auto"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={async () => {
-                if (selectedPricingTier === null || !pendingFile) return
-                
-                const selectedTier = pricingTiers[selectedPricingTier]
-                const lineLimit = selectedTier.maxLines === Infinity ? null : selectedTier.maxLines
-                
-                if (selectedTier.price === 0) {
-                  toast.success("Análise com limite gratuito iniciada!", {
-                    description: "Mostrando os primeiros 8 itens."
-                  })
-                } else {
-                  toast.success("Pagamento processado com sucesso!", {
-                    description: "A análise vai começar agora."
-                  })
-                }
-                
-                // Store the line limit and file, then close dialog
-                const fileToAnalyze = pendingFile
-                setPaidLineLimit(lineLimit)
-                setShowPaymentDialog(false)
-                setSelectedPricingTier(null)
-                setPendingFile(null)
-                setPendingItemCount(0)
-                
-                // Re-trigger the analysis with the file and line limit
-                analyzeFileWithLimit(fileToAnalyze, lineLimit)
-              }}
-              disabled={selectedPricingTier === null}
-              className="w-full sm:w-auto bg-primary hover:bg-primary/90"
-            >
-              {selectedPricingTier !== null && pricingTiers[selectedPricingTier].price === 0 
-                ? "Continuar com Análise Grátis (8 itens)"
-                : selectedPricingTier !== null
-                ? `Pagar €${pricingTiers[selectedPricingTier].price.toFixed(2).replace(".", ",")}`
-                : "Selecionar Plano"
-              }
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -3,13 +3,13 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, Eye, EyeOff, AlertCircle } from "lucide-react"
+import { FileText, Eye, EyeOff, AlertCircle, Upload } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useLanguage } from "@/contexts/language-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
@@ -23,7 +23,10 @@ export default function LoginPage() {
   const [isVisible, setIsVisible] = useState(false)
   const { login } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { t } = useLanguage()
+  const redirectTo = searchParams.get("redirect") || "/dashboard"
+  const hasPendingFile = searchParams.get("pending_file") === "1"
 
   useEffect(() => {
     setIsVisible(true)
@@ -37,7 +40,7 @@ export default function LoginPage() {
     const success = await login(username, password)
 
     if (success) {
-      router.push("/dashboard")
+      router.push(redirectTo)
     } else {
       setError(t("invalidCredentials"))
     }
@@ -83,6 +86,12 @@ export default function LoginPage() {
             <CardDescription>{t("loginSubtitle")}</CardDescription>
           </CardHeader>
           <CardContent>
+            {hasPendingFile && (
+              <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3 mb-4 text-sm text-primary">
+                <Upload className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>O seu ficheiro esta guardado. Apos iniciar sessao, a analise comecara automaticamente.</span>
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive animate-fade-in-down">
@@ -161,7 +170,7 @@ export default function LoginPage() {
             <div className="mt-6 text-center space-y-2">
               <p className="text-sm text-muted-foreground">
                 {t("noAccount")}{" "}
-                <Link href="/register" className="text-primary hover:underline font-medium">
+                <Link href={`/register${hasPendingFile ? "?redirect=/dashboard/analise&pending_file=1" : ""}`} className="text-primary hover:underline font-medium">
                   {t("registerHere")}
                 </Link>
               </p>
