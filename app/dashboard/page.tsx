@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
 import { useLanguage } from "@/contexts/language-context"
-import { AlertTriangle, Building2, Calendar, Calculator, MessageSquare, ArrowRight, Clock, Settings2, Plus, X, Check, BarChart3, DollarSign, Users, FileText, TrendingUp } from "lucide-react"
+import { AlertTriangle, Building2, Calculator, MessageSquare, ArrowRight, Settings2, Plus, X, Check, BarChart3, DollarSign, Users, FileText, TrendingUp } from "lucide-react"
 import { useEffect, useState } from "react"
 import {
   Dialog,
@@ -20,10 +20,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 
 // Available card types for customization
-type CardType = "obras" | "budgets" | "visits" | "messages" | "analytics" | "prices" | "users" | "documents"
+type CardType = "obras" | "budgets" | "messages" | "analytics" | "prices" | "users" | "documents"
 
 const STORAGE_KEY = "dashboard-visible-cards"
-const DEFAULT_CARDS: CardType[] = ["obras", "budgets", "visits", "messages"]
+const DEFAULT_CARDS: CardType[] = ["obras", "budgets", "messages"]
 
 export default function DashboardPage() {
   const { obras, budgets, visitas, conversations, notifications, materials } = useData()
@@ -70,7 +70,6 @@ export default function DashboardPage() {
 
   const approvedObras = obras.filter((o) => o.status === "aprovado").length
   const pendingObras = obras.filter((o) => o.status === "pendente" || o.status === "em_analise").length
-  const upcomingVisits = visitas.filter((v) => v.status === "agendada").length
   const unreadMessages = conversations.reduce((sum, c) => sum + c.unread, 0)
   const unreadNotifications = notifications.filter((n) => !n.read).length
 
@@ -96,14 +95,6 @@ export default function DashboardPage() {
       icon: Calculator,
       trend: `${budgets.filter((b) => b.status === "pendente").length} ${language === "pt" ? "pendentes" : language === "es" ? "pendientes" : "pending"}`,
       link: "/dashboard/registos",
-    },
-    visits: {
-      title: t("upcomingVisits"),
-      value: upcomingVisits.toString(),
-      description: language === "pt" ? "Próximas visitas" : language === "es" ? "Próximas visitas" : "Upcoming visits",
-      icon: Calendar,
-      trend: `${visitas.filter((v) => v.status === "realizada").length} ${language === "pt" ? "realizadas" : language === "es" ? "realizadas" : "completed"}`,
-      link: "/dashboard/visitas",
     },
     messages: {
       title: t("messages"),
@@ -150,7 +141,6 @@ export default function DashboardPage() {
   const cardLabels: Record<CardType, string> = {
     obras: language === "pt" ? "Obras" : language === "es" ? "Obras" : "Projects",
     budgets: language === "pt" ? "Orçamentos" : language === "es" ? "Presupuestos" : "Budgets",
-    visits: language === "pt" ? "Visitas" : language === "es" ? "Visitas" : "Visits",
     messages: language === "pt" ? "Mensagens" : language === "es" ? "Mensajes" : "Messages",
     analytics: language === "pt" ? "Análises" : language === "es" ? "Análisis" : "Analytics",
     prices: language === "pt" ? "Preços" : language === "es" ? "Precios" : "Prices",
@@ -398,85 +388,6 @@ export default function DashboardPage() {
                   <Link href="/dashboard/obras/nova">
                     <Button className="mt-4 btn-ripple" size="sm">
                       {t("createProject")}
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Upcoming Visits */}
-        <Card
-          className={`bg-card/50 transition-all duration-500 ${
-            isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8"
-          }`}
-          style={{ transitionDelay: "800ms" }}
-        >
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>{t("upcomingVisits")}</CardTitle>
-              <CardDescription>
-                {language === "pt"
-                  ? "Visitas agendadas"
-                  : language === "es"
-                    ? "Visitas programadas"
-                    : "Scheduled visits"}
-              </CardDescription>
-            </div>
-            <Link href="/dashboard/visitas">
-              <Button variant="ghost" size="sm" className="group">
-                {language === "pt" ? "Ver todas" : language === "es" ? "Ver todas" : "View all"}
-                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {visitas
-                .filter((v) => v.status === "agendada")
-                .slice(0, 4)
-                .map((visita, index) => (
-                  <div
-                    key={visita.id}
-                    className={`flex items-center justify-between rounded-lg border border-border/50 bg-background/50 p-4 transition-all duration-300 hover-scale ${
-                      isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
-                    }`}
-                    style={{ transitionDelay: `${900 + index * 100}ms` }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-price-average/10">
-                        <Calendar className="h-5 w-5 text-price-average" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{visita.obraName}</p>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {new Date(visita.date).toLocaleDateString(
-                            language === "pt" ? "pt-PT" : language === "es" ? "es-ES" : "en-GB",
-                          )}{" "}
-                          {language === "pt" ? "às" : language === "es" ? "a las" : "at"} {visita.time}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge className="bg-primary/20 text-primary">
-                      {language === "pt" ? "Agendada" : language === "es" ? "Programada" : "Scheduled"}
-                    </Badge>
-                  </div>
-                ))}
-              {visitas.filter((v) => v.status === "agendada").length === 0 && (
-                <div className="text-center py-8 animate-fade-in">
-                  <Calendar className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
-                  <p className="text-muted-foreground">
-                    {language === "pt"
-                      ? "Nenhuma visita agendada"
-                      : language === "es"
-                        ? "No hay visitas programadas"
-                        : "No scheduled visits"}
-                  </p>
-                  <Link href="/dashboard/visitas">
-                    <Button className="mt-4 btn-ripple" size="sm">
-                      {t("scheduleVisit")}
                     </Button>
                   </Link>
                 </div>
