@@ -191,9 +191,25 @@ export default function RegistosContent() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{t("budgetApproval")}</h1>
-        <p className="text-muted-foreground">Gerir orçamentos e registos de utilizadores pendentes de aprovação.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Aprovações</h1>
+          <p className="text-muted-foreground">Gerir orçamentos e registos de utilizadores pendentes de aprovação.</p>
+        </div>
+        <div className="flex gap-2">
+          {pendingBudgets.length > 0 && (
+            <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-sm">
+              <Calculator className="h-3.5 w-3.5" />
+              {pendingBudgets.length} orçamento{pendingBudgets.length !== 1 ? "s" : ""} pendente{pendingBudgets.length !== 1 ? "s" : ""}
+            </Badge>
+          )}
+          {pendingRegCount > 0 && (
+            <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-sm">
+              <User className="h-3.5 w-3.5" />
+              {pendingRegCount} registo{pendingRegCount !== 1 ? "s" : ""} pendente{pendingRegCount !== 1 ? "s" : ""}
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Main Tabs: Budgets vs Users */}
@@ -201,14 +217,14 @@ export default function RegistosContent() {
         <TabsList className="grid w-full grid-cols-2 max-w-md">
           <TabsTrigger value="budgets" className="gap-2">
             <Calculator className="h-4 w-4" />
-            Orçamentos
+            Aprovacao de Orcamentos
             {pendingBudgets.length > 0 && (
               <Badge className="ml-1 bg-yellow-500 text-white animate-pulse">{pendingBudgets.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="users" className="gap-2">
             <User className="h-4 w-4" />
-            Utilizadores
+            Registos de Utilizadores
             {pendingRegCount > 0 && (
               <Badge className="ml-1 bg-yellow-500 text-white animate-pulse">{pendingRegCount}</Badge>
             )}
