@@ -166,6 +166,7 @@ export default function AnaliseContent() {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [pendingItemCount, setPendingItemCount] = useState(0)
+  const [selectedPricingTier, setSelectedPricingTier] = useState<number | null>(null)
   
   // Pricing tiers for budget analysis
   const pricingTiers = [
@@ -2419,7 +2420,14 @@ export default function AnaliseContent() {
       </Dialog>
 
       {/* Payment Dialog for Public Users (8+ lines) */}
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+      <Dialog open={showPaymentDialog} onOpenChange={(open) => {
+        setShowPaymentDialog(open)
+        if (!open) {
+          setSelectedPricingTier(null)
+          setPendingFile(null)
+          setPendingItemCount(0)
+        }
+      }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
@@ -2432,29 +2440,34 @@ export default function AnaliseContent() {
           </DialogHeader>
           
           <div className="py-4 space-y-4">
-            {/* Pricing Tiers */}
+            {/* Pricing Tiers - Now Clickable */}
             <div className="grid gap-3">
               {pricingTiers.map((tier, index) => {
-                const isCurrentTier = pendingItemCount <= tier.maxLines && 
-                  (index === 0 || pendingItemCount > pricingTiers[index - 1].maxLines)
                 const isFreeTier = tier.price === 0
                 const rangeStart = index === 0 ? 1 : pricingTiers[index - 1].maxLines + 1
                 const rangeEnd = tier.maxLines === Infinity ? "+" : tier.maxLines
+                const isSelected = selectedPricingTier === index
                 
                 return (
-                  <div
+                  <button
                     key={index}
-                    className={`flex items-center justify-between p-3 rounded-lg border-2 transition-colors ${
-                      isCurrentTier 
-                        ? "border-primary bg-primary/5" 
+                    onClick={() => setSelectedPricingTier(index)}
+                    className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all cursor-pointer hover:border-primary/50 ${
+                      isSelected 
+                        ? "border-primary bg-primary/10 shadow-md" 
                         : isFreeTier 
-                          ? "border-price-below/30 bg-price-below/5" 
-                          : "border-border bg-muted/30"
+                          ? "border-price-below/30 bg-price-below/5 hover:bg-price-below/10" 
+                          : "border-border bg-muted/30 hover:bg-muted/50"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      {isCurrentTier && (
-                        <Badge className="bg-primary text-primary-foreground">O seu plano</Badge>
+                      {isSelected && (
+                        <div className="h-5 w-5 rounded-full border-2 border-primary bg-primary flex items-center justify-center">
+                          <Check className="h-3 w-3 text-white" />
+                        </div>
+                      )}
+                      {!isSelected && (
+                        <div className="h-5 w-5 rounded-full border-2 border-muted-foreground/30" />
                       )}
                       <span className="font-medium">
                         {rangeStart}–{rangeEnd} linhas
@@ -2464,7 +2477,7 @@ export default function AnaliseContent() {
                       {isFreeTier ? (
                         <Badge className="bg-price-below text-white text-sm px-3 py-1">Grátis</Badge>
                       ) : (
-                        <span className={`font-bold text-lg ${isCurrentTier ? "text-primary" : "text-muted-foreground"}`}>
+                        <span className={`font-bold text-lg ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
                           €{tier.price.toFixed(2).replace(".", ",")}
                         </span>
                       )}
@@ -2472,23 +2485,36 @@ export default function AnaliseContent() {
                         <span className="text-xs text-muted-foreground">(inclui PDF)</span>
                       )}
                     </div>
-                  </div>
+                  </button>
                 )
               })}
             </div>
 
-            {/* Current Selection Info */}
-            <div className="rounded-lg border bg-primary/5 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">Valor a pagar:</span>
-                <span className="text-2xl font-bold text-primary">
-                  €{getPricingTier(pendingItemCount).price.toFixed(2).replace(".", ",")}
-                </span>
+            {/* Selected Tier Info */}
+            {selectedPricingTier !== null && (
+              <div className={`rounded-lg border p-4 ${
+                pricingTiers[selectedPricingTier].price === 0
+                  ? "bg-price-below/10 border-price-below/30" 
+                  : "bg-primary/5 border-primary/30"
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium">Valor a pagar:</span>
+                  <span className={`text-2xl font-bold ${
+                    pricingTiers[selectedPricingTier].price === 0
+                      ? "text-price-below" 
+                      : "text-primary"
+                  }`}>
+                    {pricingTiers[selectedPricingTier].price === 0 ? "Grátis" : `€${pricingTiers[selectedPricingTier].price.toFixed(2).replace(".", ",")}`}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {selectedPricingTier === 0 
+                    ? "Análise de até 8 itens (limite gratuito)"
+                    : `Análise completa com relatório PDF incluído`
+                  }
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Análise completa de {pendingItemCount} itens com relatório PDF incluído.
-              </p>
-            </div>
+            )}
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -2496,6 +2522,7 @@ export default function AnaliseContent() {
               variant="outline" 
               onClick={() => {
                 setShowPaymentDialog(false)
+                setSelectedPricingTier(null)
                 setPendingFile(null)
                 setPendingItemCount(0)
               }}
@@ -2505,27 +2532,37 @@ export default function AnaliseContent() {
             </Button>
             <Button 
               onClick={() => {
-                // Simulate payment - in production, integrate with Stripe
-                toast.success("Pagamento processado com sucesso!", {
-                  description: "A análise vai começar agora."
-                })
-                setShowPaymentDialog(false)
-                // Continue with analysis after payment
-                if (pendingFile) {
-                  // Reset the file input trigger analysis again with admin bypass
-                  const tempIsAdmin = true // Bypass the check after payment
-                  setIsAnalyzing(true)
-                  setAnalyzeProgress(0)
-                  setAnalyzeStatus("A processar após pagamento...")
-                  // Re-trigger analysis - for now just close dialog
-                  // In production, you'd call the analysis function with a "paid" flag
+                if (selectedPricingTier === null) return
+                
+                const selectedTier = pricingTiers[selectedPricingTier]
+                
+                if (selectedTier.price === 0) {
+                  // Free tier - analyze only first 8 items
+                  toast.success("Análise com limite gratuito iniciada!", {
+                    description: "Mostrando os primeiros 8 itens."
+                  })
+                } else {
+                  // Paid tier - simulate payment
+                  toast.success("Pagamento processado com sucesso!", {
+                    description: "A análise vai começar agora."
+                  })
                 }
+                
+                setShowPaymentDialog(false)
+                // Here you would continue with the analysis with the selected tier limit
+                setSelectedPricingTier(null)
                 setPendingFile(null)
                 setPendingItemCount(0)
               }}
+              disabled={selectedPricingTier === null}
               className="w-full sm:w-auto bg-primary hover:bg-primary/90"
             >
-              Pagar €{getPricingTier(pendingItemCount).price.toFixed(2).replace(".", ",")}
+              {selectedPricingTier !== null && pricingTiers[selectedPricingTier].price === 0 
+                ? "Continuar com Análise Grátis (8 itens)"
+                : selectedPricingTier !== null
+                ? `Pagar €${pricingTiers[selectedPricingTier].price.toFixed(2).replace(".", ",")}`
+                : "Selecionar Plano"
+              }
             </Button>
           </DialogFooter>
         </DialogContent>
