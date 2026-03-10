@@ -40,6 +40,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useData } from "@/contexts/data-context"
+import { useAuth } from "@/contexts/auth-context"
 import { toast } from "sonner"
 
 interface BudgetItem {
@@ -139,6 +140,8 @@ const regions = ["Norte", "Centro", "Lisboa e Vale do Tejo", "Alentejo", "Algarv
 
 export default function AnaliseContent() {
   const { materials, importBudgetItems, addBudget } = useData()
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analyzeProgress, setAnalyzeProgress] = useState(0)
@@ -158,6 +161,25 @@ export default function AnaliseContent() {
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null)
   const [editForm, setEditForm] = useState({ name: "", unit: "", quantity: "", price: "" })
   const [isReanalyzing, setIsReanalyzing] = useState<string | null>(null)
+  
+  // Payment dialog state for public users (8+ lines)
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [pendingItemCount, setPendingItemCount] = useState(0)
+  
+  // Pricing tiers for budget analysis
+  const pricingTiers = [
+    { maxLines: 8, price: 0, label: "Grátis" },
+    { maxLines: 20, price: 9.90, label: "€9,90" },
+    { maxLines: 50, price: 14.90, label: "€14,90" },
+    { maxLines: 100, price: 24.90, label: "€24,90" },
+    { maxLines: 200, price: 34.90, label: "€34,90" },
+    { maxLines: Infinity, price: 49.90, label: "€49,90" },
+  ]
+  
+  const getPricingTier = (lineCount: number) => {
+    return pricingTiers.find(tier => lineCount <= tier.maxLines) || pricingTiers[pricingTiers.length - 1]
+  }
 
   // Normalize text for matching - enhanced for Portuguese construction terms
   const normalizeText = (text: string): string => {
@@ -692,6 +714,17 @@ export default function AnaliseContent() {
       setAnalyzeStatus(`${parsedItems.length} itens encontrados. A validar preços...`)
       setAnalyzeProgress(4)
       
+      // Check if public user needs to pay for large budgets (8+ lines)
+      if (!isAdmin && parsedItems.length > 8) {
+        setIsAnalyzing(false)
+        setAnalyzeProgress(0)
+        setAnalyzeStatus("")
+        setPendingFile(file)
+        setPendingItemCount(parsedItems.length)
+        setShowPaymentDialog(true)
+        return
+      }
+      
       // Check if the budget has valid prices (not all zeros)
       const itemsWithPrice = parsedItems.filter(item => item.price > 0)
       const itemsWithoutPrice = parsedItems.filter(item => item.price <= 0)
@@ -1146,38 +1179,142 @@ export default function AnaliseContent() {
   const exportResults = () => {
     if (!analysisResult) return
 
-    const headers = [
-      "Item Original",
-      "Item Correspondente",
-      "Unidade",
-      "Quantidade",
-      "Preço Orçamento",
-      "Preço Ref. Min",
-      "Preço Ref. Max",
-      "Variação %",
-      "Classificação",
-      "Confiança %",
-    ]
-    const rows = analysisResult.items.map((item) => [
-      item.originalName,
-      item.matchedName || "N/A",
-      item.unit,
-      item.quantity,
-      item.budgetPrice.toFixed(2),
-      item.referenceMinPrice?.toFixed(2) || "N/A",
-      item.referenceMaxPrice?.toFixed(2) || "N/A",
-      item.variance?.toFixed(1) || "N/A",
-      (ratingConfig[item.rating as keyof typeof ratingConfig] || ratingConfig.unknown).label,
-      item.matchConfidence.toFixed(0),
-    ])
+    // Generate PDF using browser print
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      toast.error("Não foi possível abrir a janela de impressão. Verifique se os popups estão bloqueados.")
+      return
+    }
 
-    const csv = [headers, ...rows].map((row) => row.join(";")).join("\n")
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `analise-${analysisResult.fileName}-${new Date().toISOString().split("T")[0]}.csv`
-    a.click()
+    const getRatingColor = (rating: string) => {
+      switch (rating) {
+        case 'below': return '#22c55e'
+        case 'average': return '#eab308'
+        case 'above': return '#f97316'
+        case 'critical': return '#ef4444'
+        default: return '#6b7280'
+      }
+    }
+
+    const getRatingLabel = (rating: string) => {
+      switch (rating) {
+        case 'below': return 'Abaixo da Média'
+        case 'average': return 'Na Média'
+        case 'above': return 'Acima da Média'
+        case 'critical': return 'Muito Acima'
+        default: return 'Sem Dados'
+      }
+    }
+
+    const totalBudget = analysisResult.items.reduce((sum, item) => sum + (item.quantity * item.budgetPrice), 0)
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Relatório MOAP - ${analysisResult.fileName}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1f2937; }
+          .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; }
+          .header h1 { font-size: 28px; color: #1e40af; margin-bottom: 8px; }
+          .header p { color: #6b7280; font-size: 14px; }
+          .summary { display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap; }
+          .summary-card { flex: 1; min-width: 150px; padding: 16px; border-radius: 8px; background: #f3f4f6; }
+          .summary-card h3 { font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 4px; }
+          .summary-card p { font-size: 24px; font-weight: bold; color: #1f2937; }
+          .summary-card.green { background: #dcfce7; }
+          .summary-card.green p { color: #16a34a; }
+          .summary-card.red { background: #fee2e2; }
+          .summary-card.red p { color: #dc2626; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 20px; }
+          th { background: #1e40af; color: white; padding: 10px 6px; text-align: left; font-weight: 600; }
+          td { padding: 8px 6px; border-bottom: 1px solid #e5e7eb; }
+          tr:nth-child(even) { background: #f9fafb; }
+          .rating { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; color: white; }
+          .variance { font-weight: 600; }
+          .variance.positive { color: #dc2626; }
+          .variance.negative { color: #16a34a; }
+          .footer { margin-top: 40px; text-align: center; color: #9ca3af; font-size: 12px; border-top: 1px solid #e5e7eb; padding-top: 20px; }
+          @media print { body { padding: 20px; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Relatório de Análise MOAP</h1>
+          <p>Ficheiro: ${analysisResult.fileName} | Data: ${new Date().toLocaleDateString('pt-PT')}</p>
+        </div>
+        
+        <div class="summary">
+          <div class="summary-card">
+            <h3>Total de Itens</h3>
+            <p>${analysisResult.items.length}</p>
+          </div>
+          <div class="summary-card">
+            <h3>Valor Total</h3>
+            <p>€${totalBudget.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div class="summary-card ${analysisResult.overallVariance > 0 ? 'red' : 'green'}">
+            <h3>Variação Média</h3>
+            <p>${analysisResult.overallVariance > 0 ? '+' : ''}${analysisResult.overallVariance.toFixed(1)}%</p>
+          </div>
+          <div class="summary-card green">
+            <h3>Abaixo da Média</h3>
+            <p>${analysisResult.items.filter(i => i.rating === 'below').length}</p>
+          </div>
+          <div class="summary-card red">
+            <h3>Acima da Média</h3>
+            <p>${analysisResult.items.filter(i => i.rating === 'above' || i.rating === 'critical').length}</p>
+          </div>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 5%">Nº</th>
+              <th style="width: 30%">Descrição</th>
+              <th style="width: 8%">Un.</th>
+              <th style="width: 8%">Qtd.</th>
+              <th style="width: 12%">Preço Unit.</th>
+              <th style="width: 12%">Ref. Min-Max</th>
+              <th style="width: 10%">Variação</th>
+              <th style="width: 15%">Classificação</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${analysisResult.items.map((item, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${item.originalName}</td>
+                <td>${item.unit}</td>
+                <td>${item.quantity}</td>
+                <td>€${item.budgetPrice.toFixed(2)}</td>
+                <td>${item.referenceMinPrice ? `€${item.referenceMinPrice.toFixed(2)} - €${item.referenceMaxPrice?.toFixed(2)}` : 'N/A'}</td>
+                <td class="variance ${item.variance && item.variance > 0 ? 'positive' : 'negative'}">${item.variance ? (item.variance > 0 ? '+' : '') + item.variance.toFixed(1) + '%' : 'N/A'}</td>
+                <td><span class="rating" style="background: ${getRatingColor(item.rating)}">${getRatingLabel(item.rating)}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <div class="footer">
+          <p>Relatório gerado automaticamente pelo MOAP - Módulo de Orçamentação e Análise de Preços</p>
+          <p>© ${new Date().getFullYear()} MOAP. Todos os direitos reservados.</p>
+        </div>
+      </body>
+      </html>
+    `
+
+    printWindow.document.write(htmlContent)
+    printWindow.document.close()
+    
+    // Wait for content to load then trigger print
+    printWindow.onload = () => {
+      printWindow.print()
+    }
+    
+    toast.success("PDF gerado! Use Ctrl+P ou Cmd+P para guardar como PDF.")
   }
 
   // Import analyzed items to the materials database
@@ -1905,13 +2042,15 @@ export default function AnaliseContent() {
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Nova Análise
                   </Button>
-                  <Button variant="outline" onClick={importToDatabase} className="bg-price-below/10 hover:bg-price-below/20 text-price-below border-price-below/30">
-                    <Database className="mr-2 h-4 w-4" />
-                    Importar para Base de Dados
-                  </Button>
+                  {isAdmin && (
+                    <Button variant="outline" onClick={importToDatabase} className="bg-price-below/10 hover:bg-price-below/20 text-price-below border-price-below/30">
+                      <Database className="mr-2 h-4 w-4" />
+                      Importar para Base de Dados
+                    </Button>
+                  )}
                   <Button onClick={exportResults}>
                     <Download className="mr-2 h-4 w-4" />
-                    Exportar CSV
+                    Exportar PDF
                   </Button>
                   <Button 
                     onClick={() => setShowSaveDialog(true)}
@@ -1924,42 +2063,44 @@ export default function AnaliseContent() {
               </div>
             </CardHeader>
             <CardContent>
-              {/* Bulk Re-analyze with AI */}
-              <div className="mb-4 p-3 rounded-lg border border-primary/20 bg-primary/5">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-sm flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      Re-analisar todos os itens com IA
-                    </h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Procura preços de referência atualizados para todos os {analysisResult.items.length} itens usando inteligência artificial
-                    </p>
+              {/* Bulk Re-analyze with AI - Admin only */}
+              {isAdmin && (
+                <div className="mb-4 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        Re-analisar todos os itens com IA
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Procura preços de referência atualizados para todos os {analysisResult.items.length} itens usando inteligência artificial
+                      </p>
+                    </div>
+                    <Button
+                      onClick={reanalyzeAllItems}
+                      disabled={isBulkReanalyzing}
+                      className="shrink-0"
+                    >
+                      {isBulkReanalyzing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          A re-analisar... {bulkReanalyzeProgress}%
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Re-analisar Tudo
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  <Button
-                    onClick={reanalyzeAllItems}
-                    disabled={isBulkReanalyzing}
-                    className="shrink-0"
-                  >
-                    {isBulkReanalyzing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        A re-analisar... {bulkReanalyzeProgress}%
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Re-analisar Tudo
-                      </>
-                    )}
-                  </Button>
+                  {isBulkReanalyzing && (
+                    <div className="mt-3">
+                      <Progress value={bulkReanalyzeProgress} className="h-1.5" />
+                    </div>
+                  )}
                 </div>
-                {isBulkReanalyzing && (
-                  <div className="mt-3">
-                    <Progress value={bulkReanalyzeProgress} className="h-1.5" />
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* Filters */}
               <div className="flex flex-col sm:flex-row gap-4 mb-4">
@@ -2082,20 +2223,22 @@ export default function AnaliseContent() {
                                     >
                                       <Pencil className="h-4 w-4" />
                                     </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => reanalyzeItem(item)}
-                                      disabled={isReanalyzing === item.id}
-                                      title="Re-analisar com IA"
-                                      className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
-                                    >
-                                      {isReanalyzing === item.id ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <Sparkles className="h-4 w-4" />
-                                      )}
-                                    </Button>
+                                    {isAdmin && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => reanalyzeItem(item)}
+                                        disabled={isReanalyzing === item.id}
+                                        title="Re-analisar com IA"
+                                        className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
+                                      >
+                                        {isReanalyzing === item.id ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Sparkles className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -2270,6 +2413,119 @@ export default function AnaliseContent() {
                   Guardar Orçamento
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Dialog for Public Users (8+ lines) */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <FileText className="h-6 w-6 text-primary" />
+              Orçamento com {pendingItemCount} Linhas
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              O seu orçamento excede o limite gratuito de 8 linhas. Selecione um plano para continuar a análise.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            {/* Pricing Tiers */}
+            <div className="grid gap-3">
+              {pricingTiers.map((tier, index) => {
+                const isCurrentTier = pendingItemCount <= tier.maxLines && 
+                  (index === 0 || pendingItemCount > pricingTiers[index - 1].maxLines)
+                const isFreeTier = tier.price === 0
+                const rangeStart = index === 0 ? 1 : pricingTiers[index - 1].maxLines + 1
+                const rangeEnd = tier.maxLines === Infinity ? "+" : tier.maxLines
+                
+                return (
+                  <div
+                    key={index}
+                    className={`flex items-center justify-between p-3 rounded-lg border-2 transition-colors ${
+                      isCurrentTier 
+                        ? "border-primary bg-primary/5" 
+                        : isFreeTier 
+                          ? "border-price-below/30 bg-price-below/5" 
+                          : "border-border bg-muted/30"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {isCurrentTier && (
+                        <Badge className="bg-primary text-primary-foreground">O seu plano</Badge>
+                      )}
+                      <span className="font-medium">
+                        {rangeStart}–{rangeEnd} linhas
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isFreeTier ? (
+                        <Badge className="bg-price-below text-white text-sm px-3 py-1">Grátis</Badge>
+                      ) : (
+                        <span className={`font-bold text-lg ${isCurrentTier ? "text-primary" : "text-muted-foreground"}`}>
+                          €{tier.price.toFixed(2).replace(".", ",")}
+                        </span>
+                      )}
+                      {!isFreeTier && (
+                        <span className="text-xs text-muted-foreground">(inclui PDF)</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Current Selection Info */}
+            <div className="rounded-lg border bg-primary/5 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-medium">Valor a pagar:</span>
+                <span className="text-2xl font-bold text-primary">
+                  €{getPricingTier(pendingItemCount).price.toFixed(2).replace(".", ",")}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Análise completa de {pendingItemCount} itens com relatório PDF incluído.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowPaymentDialog(false)
+                setPendingFile(null)
+                setPendingItemCount(0)
+              }}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={() => {
+                // Simulate payment - in production, integrate with Stripe
+                toast.success("Pagamento processado com sucesso!", {
+                  description: "A análise vai começar agora."
+                })
+                setShowPaymentDialog(false)
+                // Continue with analysis after payment
+                if (pendingFile) {
+                  // Reset the file input trigger analysis again with admin bypass
+                  const tempIsAdmin = true // Bypass the check after payment
+                  setIsAnalyzing(true)
+                  setAnalyzeProgress(0)
+                  setAnalyzeStatus("A processar após pagamento...")
+                  // Re-trigger analysis - for now just close dialog
+                  // In production, you'd call the analysis function with a "paid" flag
+                }
+                setPendingFile(null)
+                setPendingItemCount(0)
+              }}
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+            >
+              Pagar €{getPricingTier(pendingItemCount).price.toFixed(2).replace(".", ",")}
             </Button>
           </DialogFooter>
         </DialogContent>

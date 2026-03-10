@@ -39,6 +39,9 @@ export function Header() {
           <Link href="#carregar" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
             {t("uploadDocument")}
           </Link>
+          <Link href="/login?action=budget-request" className="text-sm font-medium text-primary transition-colors hover:text-primary/80">
+            {t("heroBudgetRequest")}
+          </Link>
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
@@ -91,6 +94,9 @@ export function Header() {
             </Link>
             <Link href="#carregar" className="text-sm text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>
               {t("uploadDocument")}
+            </Link>
+            <Link href="/login?action=budget-request" className="text-sm font-medium text-primary" onClick={() => setMobileMenuOpen(false)}>
+              {t("heroBudgetRequest")}
             </Link>
             <div className="flex flex-col gap-2 pt-4">
               {user ? (

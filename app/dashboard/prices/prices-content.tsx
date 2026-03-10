@@ -299,7 +299,7 @@ export default function PricesContent() {
             </span>
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
           <Button onClick={() => setShowSuggestDialog(true)} variant="outline" className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
             <Sparkles className="mr-2 h-4 w-4" />
             Pesquisar com IA
@@ -308,9 +308,29 @@ export default function PricesContent() {
             <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
             {isSyncing ? "A Sincronizar..." : "Sincronizar Preços IA"}
           </Button>
-          <Button onClick={() => setIsAdding(true)} disabled={isAdding}>
+          <Button 
+            onClick={() => {
+              setActiveTab("materials")
+              setNewMaterial({ ...newMaterial, type: "material" })
+              setIsAdding(true)
+            }} 
+            disabled={isAdding}
+            variant="outline"
+          >
             <Plus className="mr-2 h-4 w-4" />
-            Adicionar {activeTab === "materials" ? "Material" : "Trabalho"}
+            Adicionar Material
+          </Button>
+          <Button 
+            onClick={() => {
+              setActiveTab("works")
+              setNewMaterial({ ...newMaterial, type: "work" })
+              setIsAdding(true)
+            }} 
+            disabled={isAdding}
+            className="bg-price-below hover:bg-price-below/90"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar Serviço/Trabalho
           </Button>
         </div>
       </div>
