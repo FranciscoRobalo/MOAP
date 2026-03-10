@@ -168,6 +168,7 @@ export default function AnaliseContent() {
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [pendingItemCount, setPendingItemCount] = useState(0)
   const [selectedPricingTier, setSelectedPricingTier] = useState<number | null>(null)
+  const [paidLineLimit, setPaidLineLimit] = useState<number | null>(null)
   
   // Pricing tiers for budget analysis
   const pricingTiers = [
@@ -683,7 +684,12 @@ export default function AnaliseContent() {
     throw new Error("Não foi possível extrair itens do PDF. Por favor, converta para CSV.")
   }
 
-  const analyzeFile = async (file: File) => {
+  // Wrapper for analyzing with a specific line limit (after payment selection)
+  const analyzeFileWithLimit = async (file: File, lineLimit: number | null) => {
+    await analyzeFile(file, lineLimit)
+  }
+
+  const analyzeFile = async (file: File, lineLimit: number | null = null) => {
     setIsAnalyzing(true)
     setAnalyzeProgress(0)
     setAnalyzeStatus("A ler ficheiro...")
@@ -717,7 +723,8 @@ export default function AnaliseContent() {
       setAnalyzeProgress(4)
       
       // Check if public user needs to pay for large budgets (8+ lines)
-      if (!isAdmin && parsedItems.length > 8) {
+      // Skip this check if a lineLimit is already set (meaning payment was handled)
+      if (!isAdmin && parsedItems.length > 8 && lineLimit === null) {
         setIsAnalyzing(false)
         setAnalyzeProgress(0)
         setAnalyzeStatus("")
@@ -725,6 +732,12 @@ export default function AnaliseContent() {
         setPendingItemCount(parsedItems.length)
         setShowPaymentDialog(true)
         return
+      }
+      
+      // Apply line limit if set (free tier = 8 items max)
+      if (lineLimit !== null && parsedItems.length > lineLimit) {
+        parsedItems = parsedItems.slice(0, lineLimit)
+        setAnalyzeStatus(`Limitado a ${lineLimit} itens (plano gratuito). A validar preços...`)
       }
       
       // Check if the budget has valid prices (not all zeros)
@@ -2532,28 +2545,32 @@ export default function AnaliseContent() {
               Cancelar
             </Button>
             <Button 
-              onClick={() => {
-                if (selectedPricingTier === null) return
+              onClick={async () => {
+                if (selectedPricingTier === null || !pendingFile) return
                 
                 const selectedTier = pricingTiers[selectedPricingTier]
+                const lineLimit = selectedTier.maxLines === Infinity ? null : selectedTier.maxLines
                 
                 if (selectedTier.price === 0) {
-                  // Free tier - analyze only first 8 items
                   toast.success("Análise com limite gratuito iniciada!", {
                     description: "Mostrando os primeiros 8 itens."
                   })
                 } else {
-                  // Paid tier - simulate payment
                   toast.success("Pagamento processado com sucesso!", {
                     description: "A análise vai começar agora."
                   })
                 }
                 
+                // Store the line limit and file, then close dialog
+                const fileToAnalyze = pendingFile
+                setPaidLineLimit(lineLimit)
                 setShowPaymentDialog(false)
-                // Here you would continue with the analysis with the selected tier limit
                 setSelectedPricingTier(null)
                 setPendingFile(null)
                 setPendingItemCount(0)
+                
+                // Re-trigger the analysis with the file and line limit
+                analyzeFileWithLimit(fileToAnalyze, lineLimit)
               }}
               disabled={selectedPricingTier === null}
               className="w-full sm:w-auto bg-primary hover:bg-primary/90"
