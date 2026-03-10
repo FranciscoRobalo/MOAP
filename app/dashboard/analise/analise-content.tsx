@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -688,6 +688,36 @@ export default function AnaliseContent() {
   const analyzeFileWithLimit = async (file: File, lineLimit: number | null) => {
     await analyzeFile(file, lineLimit)
   }
+
+  // On mount: check if there's a pending file stored from the landing page upload
+  useEffect(() => {
+    const base64 = sessionStorage.getItem("pending_budget_file")
+    const name = sessionStorage.getItem("pending_budget_name")
+    const type = sessionStorage.getItem("pending_budget_type")
+
+    if (base64 && name) {
+      // Convert base64 back to a File object
+      const byteString = atob(base64.split(",")[1])
+      const mimeType = type || "application/octet-stream"
+      const ab = new ArrayBuffer(byteString.length)
+      const ia = new Uint8Array(ab)
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i)
+      }
+      const restoredFile = new File([ab], name, { type: mimeType })
+
+      // Clear sessionStorage so it doesn't re-trigger on refresh
+      sessionStorage.removeItem("pending_budget_file")
+      sessionStorage.removeItem("pending_budget_name")
+      sessionStorage.removeItem("pending_budget_type")
+      sessionStorage.removeItem("pending_budget_region")
+      sessionStorage.removeItem("pending_budget_year")
+
+      // Auto-trigger the analysis
+      analyzeFile(restoredFile, null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const analyzeFile = async (file: File, lineLimit: number | null = null) => {
     setIsAnalyzing(true)

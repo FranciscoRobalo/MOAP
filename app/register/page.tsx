@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -34,7 +34,10 @@ export default function RegisterPage() {
   const [isVisible, setIsVisible] = useState(false)
   const { register } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { t } = useLanguage()
+  const redirectTo = searchParams.get("redirect") || "/dashboard"
+  const hasPendingFile = searchParams.get("pending_file") === "1"
 
   useEffect(() => {
     setIsVisible(true)
@@ -71,6 +74,10 @@ export default function RegisterPage() {
 
     if (result.success) {
       setSuccess(true)
+      // Redirect after a short delay to show success message, then go to target
+      setTimeout(() => {
+        router.push(redirectTo)
+      }, 1500)
     } else {
       setError(t(result.message as any))
     }
