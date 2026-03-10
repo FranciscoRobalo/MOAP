@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,44 @@ import { useLanguage } from "@/contexts/language-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={<RegisterPageSkeleton />}>
+      <RegisterPageContent />
+    </Suspense>
+  )
+}
+
+function RegisterPageSkeleton() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="flex items-center justify-center gap-2 mb-8">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary animate-pulse">
+            <FileText className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <span className="text-2xl font-bold tracking-tight">MOAP</span>
+        </div>
+        <Card className="border-border/50 bg-card/50 backdrop-blur">
+          <CardHeader className="text-center">
+            <div className="h-7 w-32 mx-auto bg-muted animate-pulse rounded" />
+            <div className="h-4 w-48 mx-auto bg-muted animate-pulse rounded mt-2" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                <div className="h-10 w-full bg-muted animate-pulse rounded" />
+              </div>
+            ))}
+            <div className="h-10 w-full bg-muted animate-pulse rounded" />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+function RegisterPageContent() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
