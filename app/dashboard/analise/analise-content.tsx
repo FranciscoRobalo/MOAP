@@ -42,7 +42,21 @@ import {
   CreditCard,
   Lock,
   AlertCircle,
+  History,
+  Trash2,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Target,
+  Zap,
+  Filter,
+  CheckSquare,
+  Square,
+  Lightbulb,
+  FileDown,
+  Printer,
 } from "lucide-react"
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { cn } from "@/lib/utils"
 import { useData } from "@/contexts/data-context"
 import { useAuth } from "@/contexts/auth-context"
@@ -91,6 +105,34 @@ interface AnalysisResult {
   }
   categoryBreakdown: { category: string; total: number; count: number; variance: number }[]
   recommendations: string[]
+  qualityScore?: number
+}
+
+interface AnalysisHistoryEntry {
+  id: string
+  fileName: string
+  savedAt: string
+  region: string
+  totalBudget: number
+  itemCount: number
+  matchRate: number
+  overallRating: "below" | "average" | "above" | "critical"
+  qualityScore: number
+  result: AnalysisResult
+}
+
+const ANALYSIS_HISTORY_KEY = "moap-analysis-history"
+const MAX_HISTORY_ENTRIES = 10
+
+// Regional price adjustment coefficients
+const regionalCoefficients: Record<string, { coefficient: number; label: string }> = {
+  "Norte": { coefficient: 0.92, label: "-8%" },
+  "Centro": { coefficient: 0.95, label: "-5%" },
+  "Lisboa e Vale do Tejo": { coefficient: 1.0, label: "Base" },
+  "Alentejo": { coefficient: 0.90, label: "-10%" },
+  "Algarve": { coefficient: 1.05, label: "+5%" },
+  "Açores": { coefficient: 1.15, label: "+15%" },
+  "Madeira": { coefficient: 1.12, label: "+12%" },
 }
 
 const ratingConfig = {
@@ -177,6 +219,23 @@ export default function AnaliseContent() {
   const [paymentStep, setPaymentStep] = useState<"select" | "checkout" | "processing" | "success">("select")
   const [paymentForm, setPaymentForm] = useState({ name: "", card: "", expiry: "", cvv: "" })
   const [paymentError, setPaymentError] = useState("")
+  
+  // Analysis History
+  const [analysisHistory, setAnalysisHistory] = useState<AnalysisHistoryEntry[]>([])
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false)
+  
+  // Multi-select for bulk operations
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [showBulkActions, setShowBulkActions] = useState(false)
+  
+  // Charts visibility
+  const [showCharts, setShowCharts] = useState(true)
+  
+  // Smart suggestions for unmatched items
+  const [showSuggestions, setShowSuggestions] = useState<string | null>(null)
+  
+  // Quality score expanded explanation
+  const [showQualityDetails, setShowQualityDetails] = useState(false)
   
   // Pricing tiers for budget analysis
   const pricingTiers = [
@@ -537,7 +596,7 @@ export default function AnaliseContent() {
     // Check if section header
     const isSectionHeader = (line: string) => {
       if (/^\d+\.?\d*\s{2,}[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]+$/.test(line)) return true
-      if (/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{3,30}$/.test(line) && !line.includes(",")) return true
+      if (/^[A-ZÁÉ��ÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{3,30}$/.test(line) && !line.includes(",")) return true
       if (/^\d+$/.test(line)) return true
       return false
     }
@@ -726,6 +785,234 @@ export default function AnaliseContent() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  
+  // Load analysis history from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ANALYSIS_HISTORY_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored) as AnalysisHistoryEntry[]
+        setAnalysisHistory(parsed)
+      }
+    } catch {
+      // Invalid data, ignore
+    }
+  }, [])
+  
+  // Calculate quality score for an analysis
+  const calculateQualityScore = (result: AnalysisResult): number => {
+    const matchRateScore = result.stats.matchRate * 40 // 0-40 points
+    const confidenceScore = result.stats.avgConfidence * 30 // 0-30 points
+    const coverageScore = Math.min(result.items.length / 50, 1) * 15 // 0-15 points (max at 50 items)
+    const lowRiskScore = (1 - result.stats.riskItems / Math.max(result.items.length, 1)) * 15 // 0-15 points
+    return Math.round(matchRateScore + confidenceScore + coverageScore + lowRiskScore)
+  }
+  
+  // Save current analysis to history
+  const saveToHistory = () => {
+    if (!analysisResult) return
+    
+    const qualityScore = calculateQualityScore(analysisResult)
+    const entry: AnalysisHistoryEntry = {
+      id: `history-${Date.now()}`,
+      fileName: analysisResult.fileName,
+      savedAt: new Date().toISOString(),
+      region: analysisResult.region,
+      totalBudget: analysisResult.totalBudget,
+      itemCount: analysisResult.items.length,
+      matchRate: analysisResult.stats.matchRate,
+      overallRating: analysisResult.overallRating,
+      qualityScore,
+      result: { ...analysisResult, qualityScore }
+    }
+    
+    const updatedHistory = [entry, ...analysisHistory].slice(0, MAX_HISTORY_ENTRIES)
+    setAnalysisHistory(updatedHistory)
+    localStorage.setItem(ANALYSIS_HISTORY_KEY, JSON.stringify(updatedHistory))
+    toast.success("Analise guardada no historico!")
+  }
+  
+  // Restore analysis from history
+  const restoreFromHistory = (entry: AnalysisHistoryEntry) => {
+    setAnalysisResult(entry.result)
+    setShowHistoryPanel(false)
+    toast.success(`Analise "${entry.fileName}" restaurada!`)
+  }
+  
+  // Delete history entry
+  const deleteFromHistory = (id: string) => {
+    const updatedHistory = analysisHistory.filter(e => e.id !== id)
+    setAnalysisHistory(updatedHistory)
+    localStorage.setItem(ANALYSIS_HISTORY_KEY, JSON.stringify(updatedHistory))
+  }
+  
+  // Get smart suggestions for an unmatched item
+  const getSmartSuggestions = (item: BudgetItem): Array<{ name: string; confidence: number; category: string }> => {
+    if (item.matchConfidence > 0.5) return [] // Already has good match
+    
+    const normalizedName = normalizeText(item.originalName)
+    const suggestions: Array<{ name: string; confidence: number; category: string }> = []
+    
+    for (const material of materials.slice(0, 500)) { // Check first 500 materials
+      const normalizedMaterial = normalizeText(material.name)
+      const similarity = 1 - levenshteinDistance(normalizedName, normalizedMaterial) / Math.max(normalizedName.length, normalizedMaterial.length)
+      
+      if (similarity > 0.3 && similarity < 0.7) { // Partial matches that weren't auto-matched
+        suggestions.push({
+          name: material.name,
+          confidence: similarity,
+          category: material.category || "Geral"
+        })
+      }
+    }
+    
+    return suggestions.sort((a, b) => b.confidence - a.confidence).slice(0, 5)
+  }
+  
+  // Toggle item selection
+  const toggleItemSelection = (itemId: string) => {
+    const newSelected = new Set(selectedItems)
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId)
+    } else {
+      newSelected.add(itemId)
+    }
+    setSelectedItems(newSelected)
+    setShowBulkActions(newSelected.size > 0)
+  }
+  
+  // Select all items
+  const selectAllItems = () => {
+    if (!analysisResult) return
+    const allIds = new Set(analysisResult.items.map(i => i.id))
+    setSelectedItems(allIds)
+    setShowBulkActions(true)
+  }
+  
+  // Clear selection
+  const clearSelection = () => {
+    setSelectedItems(new Set())
+    setShowBulkActions(false)
+  }
+  
+  // Export analysis as formatted text for PDF
+  const generatePDFContent = () => {
+    if (!analysisResult) return ""
+    
+    const qualityScore = calculateQualityScore(analysisResult)
+    let content = `
+RELATORIO DE ANALISE DE ORCAMENTO
+================================
+Gerado por MOAP - ${new Date().toLocaleDateString("pt-PT")}
+
+RESUMO EXECUTIVO
+----------------
+Ficheiro: ${analysisResult.fileName}
+Regiao: ${analysisResult.region}
+Data da Analise: ${new Date(analysisResult.uploadDate).toLocaleDateString("pt-PT")}
+
+METRICAS PRINCIPAIS
+-------------------
+Total do Orcamento: ${analysisResult.totalBudget.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+Referencia de Mercado: ${analysisResult.totalReference.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+Variacao Global: ${analysisResult.overallVariance > 0 ? "+" : ""}${analysisResult.overallVariance.toFixed(1)}%
+Qualidade da Analise: ${qualityScore}/100
+
+ESTATISTICAS
+------------
+Total de Itens: ${analysisResult.stats.totalItems}
+Itens Correspondidos: ${analysisResult.stats.matchedItems} (${(analysisResult.stats.matchRate * 100).toFixed(0)}%)
+Confianca Media: ${(analysisResult.stats.avgConfidence * 100).toFixed(0)}%
+Poupanca Potencial: ${analysisResult.stats.potentialSavings.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+Itens de Risco: ${analysisResult.stats.riskItems}
+
+DISTRIBUICAO POR CLASSIFICACAO
+------------------------------
+Abaixo da Media: ${analysisResult.stats.belowAverage} itens
+Na Media: ${analysisResult.stats.average} itens
+Acima da Media: ${analysisResult.stats.aboveAverage} itens
+Muito Acima: ${analysisResult.stats.critical} itens
+Sem Referencia: ${analysisResult.stats.unknown} itens
+
+ITENS DETALHADOS
+----------------
+`
+    
+    for (const item of analysisResult.items) {
+      const rating = ratingConfig[item.rating]
+      content += `
+${item.originalName}
+  Correspondencia: ${item.matchedName || "Nao encontrado"}
+  Quantidade: ${item.quantity} ${item.unit}
+  Preco Orcamento: ${item.budgetPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+  Preco Referencia: ${item.referenceAvgPrice ? item.referenceAvgPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" }) : "N/A"}
+  Variacao: ${item.variance !== null ? `${item.variance > 0 ? "+" : ""}${item.variance.toFixed(1)}%` : "N/A"}
+  Classificacao: ${rating.label}
+  Confianca: ${(item.matchConfidence * 100).toFixed(0)}%
+`
+    }
+    
+    content += `
+RECOMENDACOES
+-------------
+${analysisResult.recommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}
+
+---
+Relatorio gerado automaticamente por MOAP
+www.moap.pt
+`
+    return content
+  }
+  
+  // Export to text file (simpler than PDF for now)
+  const exportAnalysis = () => {
+    if (!analysisResult) return
+    
+    const content = generatePDFContent()
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `analise-${analysisResult.fileName.replace(/\.[^/.]+$/, "")}-${new Date().toISOString().split("T")[0]}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success("Relatorio exportado!")
+  }
+  
+  // Export to CSV
+  const exportToCSV = () => {
+    if (!analysisResult) return
+    
+    const headers = ["Item Original", "Correspondencia", "Unidade", "Quantidade", "Preco Orcamento", "Preco Min Ref", "Preco Max Ref", "Preco Med Ref", "Variacao %", "Classificacao", "Categoria", "Confianca %"]
+    const rows = analysisResult.items.map(item => [
+      `"${item.originalName}"`,
+      `"${item.matchedName || ""}"`,
+      item.unit,
+      item.quantity,
+      item.budgetPrice,
+      item.referenceMinPrice || "",
+      item.referenceMaxPrice || "",
+      item.referenceAvgPrice || "",
+      item.variance !== null ? item.variance.toFixed(1) : "",
+      ratingConfig[item.rating].label,
+      item.category,
+      (item.matchConfidence * 100).toFixed(0)
+    ])
+    
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `analise-${analysisResult.fileName.replace(/\.[^/.]+$/, "")}-${new Date().toISOString().split("T")[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success("CSV exportado!")
+  }
 
   const analyzeFile = async (file: File, lineLimit: number | null = null) => {
     setIsAnalyzing(true)
