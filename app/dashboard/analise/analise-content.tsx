@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import {
   Upload,
   AlertTriangle,
@@ -42,7 +43,21 @@ import {
   CreditCard,
   Lock,
   AlertCircle,
+  History,
+  Trash2,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Target,
+  Zap,
+  Filter,
+  CheckSquare,
+  Square,
+  Lightbulb,
+  FileDown,
+  Printer,
 } from "lucide-react"
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { cn } from "@/lib/utils"
 import { useData } from "@/contexts/data-context"
 import { useAuth } from "@/contexts/auth-context"
@@ -91,6 +106,34 @@ interface AnalysisResult {
   }
   categoryBreakdown: { category: string; total: number; count: number; variance: number }[]
   recommendations: string[]
+  qualityScore?: number
+}
+
+interface AnalysisHistoryEntry {
+  id: string
+  fileName: string
+  savedAt: string
+  region: string
+  totalBudget: number
+  itemCount: number
+  matchRate: number
+  overallRating: "below" | "average" | "above" | "critical"
+  qualityScore: number
+  result: AnalysisResult
+}
+
+const ANALYSIS_HISTORY_KEY = "moap-analysis-history"
+const MAX_HISTORY_ENTRIES = 10
+
+// Regional price adjustment coefficients
+const regionalCoefficients: Record<string, { coefficient: number; label: string }> = {
+  "Norte": { coefficient: 0.92, label: "-8%" },
+  "Centro": { coefficient: 0.95, label: "-5%" },
+  "Lisboa e Vale do Tejo": { coefficient: 1.0, label: "Base" },
+  "Alentejo": { coefficient: 0.90, label: "-10%" },
+  "Algarve": { coefficient: 1.05, label: "+5%" },
+  "Açores": { coefficient: 1.15, label: "+15%" },
+  "Madeira": { coefficient: 1.12, label: "+12%" },
 }
 
 const ratingConfig = {
@@ -177,6 +220,23 @@ export default function AnaliseContent() {
   const [paymentStep, setPaymentStep] = useState<"select" | "checkout" | "processing" | "success">("select")
   const [paymentForm, setPaymentForm] = useState({ name: "", card: "", expiry: "", cvv: "" })
   const [paymentError, setPaymentError] = useState("")
+  
+  // Analysis History
+  const [analysisHistory, setAnalysisHistory] = useState<AnalysisHistoryEntry[]>([])
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false)
+  
+  // Multi-select for bulk operations
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [showBulkActions, setShowBulkActions] = useState(false)
+  
+  // Charts visibility
+  const [showCharts, setShowCharts] = useState(true)
+  
+  // Smart suggestions for unmatched items
+  const [showSuggestions, setShowSuggestions] = useState<string | null>(null)
+  
+  // Quality score expanded explanation
+  const [showQualityDetails, setShowQualityDetails] = useState(false)
   
   // Pricing tiers for budget analysis
   const pricingTiers = [
@@ -537,7 +597,7 @@ export default function AnaliseContent() {
     // Check if section header
     const isSectionHeader = (line: string) => {
       if (/^\d+\.?\d*\s{2,}[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]+$/.test(line)) return true
-      if (/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{3,30}$/.test(line) && !line.includes(",")) return true
+      if (/^[A-ZÁÉ��ÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{3,30}$/.test(line) && !line.includes(",")) return true
       if (/^\d+$/.test(line)) return true
       return false
     }
@@ -726,6 +786,234 @@ export default function AnaliseContent() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  
+  // Load analysis history from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ANALYSIS_HISTORY_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored) as AnalysisHistoryEntry[]
+        setAnalysisHistory(parsed)
+      }
+    } catch {
+      // Invalid data, ignore
+    }
+  }, [])
+  
+  // Calculate quality score for an analysis
+  const calculateQualityScore = (result: AnalysisResult): number => {
+    const matchRateScore = result.stats.matchRate * 40 // 0-40 points
+    const confidenceScore = result.stats.avgConfidence * 30 // 0-30 points
+    const coverageScore = Math.min(result.items.length / 50, 1) * 15 // 0-15 points (max at 50 items)
+    const lowRiskScore = (1 - result.stats.riskItems / Math.max(result.items.length, 1)) * 15 // 0-15 points
+    return Math.round(matchRateScore + confidenceScore + coverageScore + lowRiskScore)
+  }
+  
+  // Save current analysis to history
+  const saveToHistory = () => {
+    if (!analysisResult) return
+    
+    const qualityScore = calculateQualityScore(analysisResult)
+    const entry: AnalysisHistoryEntry = {
+      id: `history-${Date.now()}`,
+      fileName: analysisResult.fileName,
+      savedAt: new Date().toISOString(),
+      region: analysisResult.region,
+      totalBudget: analysisResult.totalBudget,
+      itemCount: analysisResult.items.length,
+      matchRate: analysisResult.stats.matchRate,
+      overallRating: analysisResult.overallRating,
+      qualityScore,
+      result: { ...analysisResult, qualityScore }
+    }
+    
+    const updatedHistory = [entry, ...analysisHistory].slice(0, MAX_HISTORY_ENTRIES)
+    setAnalysisHistory(updatedHistory)
+    localStorage.setItem(ANALYSIS_HISTORY_KEY, JSON.stringify(updatedHistory))
+    toast.success("Analise guardada no historico!")
+  }
+  
+  // Restore analysis from history
+  const restoreFromHistory = (entry: AnalysisHistoryEntry) => {
+    setAnalysisResult(entry.result)
+    setShowHistoryPanel(false)
+    toast.success(`Analise "${entry.fileName}" restaurada!`)
+  }
+  
+  // Delete history entry
+  const deleteFromHistory = (id: string) => {
+    const updatedHistory = analysisHistory.filter(e => e.id !== id)
+    setAnalysisHistory(updatedHistory)
+    localStorage.setItem(ANALYSIS_HISTORY_KEY, JSON.stringify(updatedHistory))
+  }
+  
+  // Get smart suggestions for an unmatched item
+  const getSmartSuggestions = (item: BudgetItem): Array<{ name: string; confidence: number; category: string }> => {
+    if (item.matchConfidence > 0.5) return [] // Already has good match
+    
+    const normalizedName = normalizeText(item.originalName)
+    const suggestions: Array<{ name: string; confidence: number; category: string }> = []
+    
+    for (const material of materials.slice(0, 500)) { // Check first 500 materials
+      const normalizedMaterial = normalizeText(material.name)
+      const similarity = 1 - levenshteinDistance(normalizedName, normalizedMaterial) / Math.max(normalizedName.length, normalizedMaterial.length)
+      
+      if (similarity > 0.3 && similarity < 0.7) { // Partial matches that weren't auto-matched
+        suggestions.push({
+          name: material.name,
+          confidence: similarity,
+          category: material.category || "Geral"
+        })
+      }
+    }
+    
+    return suggestions.sort((a, b) => b.confidence - a.confidence).slice(0, 5)
+  }
+  
+  // Toggle item selection
+  const toggleItemSelection = (itemId: string) => {
+    const newSelected = new Set(selectedItems)
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId)
+    } else {
+      newSelected.add(itemId)
+    }
+    setSelectedItems(newSelected)
+    setShowBulkActions(newSelected.size > 0)
+  }
+  
+  // Select all items
+  const selectAllItems = () => {
+    if (!analysisResult) return
+    const allIds = new Set(analysisResult.items.map(i => i.id))
+    setSelectedItems(allIds)
+    setShowBulkActions(true)
+  }
+  
+  // Clear selection
+  const clearSelection = () => {
+    setSelectedItems(new Set())
+    setShowBulkActions(false)
+  }
+  
+  // Export analysis as formatted text for PDF
+  const generatePDFContent = () => {
+    if (!analysisResult) return ""
+    
+    const qualityScore = calculateQualityScore(analysisResult)
+    let content = `
+RELATORIO DE ANALISE DE ORCAMENTO
+================================
+Gerado por MOAP - ${new Date().toLocaleDateString("pt-PT")}
+
+RESUMO EXECUTIVO
+----------------
+Ficheiro: ${analysisResult.fileName}
+Regiao: ${analysisResult.region}
+Data da Analise: ${new Date(analysisResult.uploadDate).toLocaleDateString("pt-PT")}
+
+METRICAS PRINCIPAIS
+-------------------
+Total do Orcamento: ${analysisResult.totalBudget.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+Referencia de Mercado: ${analysisResult.totalReference.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+Variacao Global: ${analysisResult.overallVariance > 0 ? "+" : ""}${analysisResult.overallVariance.toFixed(1)}%
+Qualidade da Analise: ${qualityScore}/100
+
+ESTATISTICAS
+------------
+Total de Itens: ${analysisResult.stats.totalItems}
+Itens Correspondidos: ${analysisResult.stats.matchedItems} (${(analysisResult.stats.matchRate * 100).toFixed(0)}%)
+Confianca Media: ${(analysisResult.stats.avgConfidence * 100).toFixed(0)}%
+Poupanca Potencial: ${analysisResult.stats.potentialSavings.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+Itens de Risco: ${analysisResult.stats.riskItems}
+
+DISTRIBUICAO POR CLASSIFICACAO
+------------------------------
+Abaixo da Media: ${analysisResult.stats.belowAverage} itens
+Na Media: ${analysisResult.stats.average} itens
+Acima da Media: ${analysisResult.stats.aboveAverage} itens
+Muito Acima: ${analysisResult.stats.critical} itens
+Sem Referencia: ${analysisResult.stats.unknown} itens
+
+ITENS DETALHADOS
+----------------
+`
+    
+    for (const item of analysisResult.items) {
+      const rating = ratingConfig[item.rating]
+      content += `
+${item.originalName}
+  Correspondencia: ${item.matchedName || "Nao encontrado"}
+  Quantidade: ${item.quantity} ${item.unit}
+  Preco Orcamento: ${item.budgetPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+  Preco Referencia: ${item.referenceAvgPrice ? item.referenceAvgPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" }) : "N/A"}
+  Variacao: ${item.variance !== null ? `${item.variance > 0 ? "+" : ""}${item.variance.toFixed(1)}%` : "N/A"}
+  Classificacao: ${rating.label}
+  Confianca: ${(item.matchConfidence * 100).toFixed(0)}%
+`
+    }
+    
+    content += `
+RECOMENDACOES
+-------------
+${analysisResult.recommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}
+
+---
+Relatorio gerado automaticamente por MOAP
+www.moap.pt
+`
+    return content
+  }
+  
+  // Export to text file (simpler than PDF for now)
+  const exportAnalysis = () => {
+    if (!analysisResult) return
+    
+    const content = generatePDFContent()
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `analise-${analysisResult.fileName.replace(/\.[^/.]+$/, "")}-${new Date().toISOString().split("T")[0]}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success("Relatorio exportado!")
+  }
+  
+  // Export to CSV
+  const exportToCSV = () => {
+    if (!analysisResult) return
+    
+    const headers = ["Item Original", "Correspondencia", "Unidade", "Quantidade", "Preco Orcamento", "Preco Min Ref", "Preco Max Ref", "Preco Med Ref", "Variacao %", "Classificacao", "Categoria", "Confianca %"]
+    const rows = analysisResult.items.map(item => [
+      `"${item.originalName}"`,
+      `"${item.matchedName || ""}"`,
+      item.unit,
+      item.quantity,
+      item.budgetPrice,
+      item.referenceMinPrice || "",
+      item.referenceMaxPrice || "",
+      item.referenceAvgPrice || "",
+      item.variance !== null ? item.variance.toFixed(1) : "",
+      ratingConfig[item.rating].label,
+      item.category,
+      (item.matchConfidence * 100).toFixed(0)
+    ])
+    
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `analise-${analysisResult.fileName.replace(/\.[^/.]+$/, "")}-${new Date().toISOString().split("T")[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success("CSV exportado!")
+  }
 
   const analyzeFile = async (file: File, lineLimit: number | null = null) => {
     setIsAnalyzing(true)
@@ -1915,6 +2203,98 @@ export default function AnaliseContent() {
             </Card>
           </div>
 
+          {/* Quality Score and Quick Actions */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Quality Score Card */}
+            <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Pontuação de Qualidade</p>
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-3xl font-bold text-primary">{calculateQualityScore(analysisResult)}</div>
+                      <span className="text-muted-foreground">/100</span>
+                    </div>
+                    <div className="w-32 h-1.5 bg-muted rounded-full mt-3 overflow-hidden">
+                      <div 
+                        className="h-full bg-primary transition-all"
+                        style={{ width: `${calculateQualityScore(analysisResult)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowQualityDetails(!showQualityDetails)}
+                    className="p-2 hover:bg-primary/10 rounded-lg transition-colors"
+                  >
+                    <HelpCircle className="h-5 w-5 text-primary" />
+                  </button>
+                </div>
+                {showQualityDetails && (
+                  <div className="mt-4 pt-4 border-t text-xs space-y-2 text-muted-foreground">
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground mb-2">Composição da Pontuação:</p>
+                      <p>🎯 Taxa de correspondência: {(analysisResult.stats.matchRate * 40).toFixed(0)}/40</p>
+                      <p>⭐ Confiança média: {(analysisResult.stats.avgConfidence * 30).toFixed(0)}/30</p>
+                      <p>📊 Cobertura: {Math.min((analysisResult.items.length / 50) * 15, 15).toFixed(0)}/15</p>
+                      <p>🛡️ Baixo risco: {((1 - analysisResult.stats.riskItems / Math.max(analysisResult.items.length, 1)) * 15).toFixed(0)}/15</p>
+                    </div>
+                    
+                    <div className="pt-2 border-t">
+                      <p className="font-medium text-foreground mb-1">Ajuste Regional ({analysisResult.region}):</p>
+                      <p>{regionalCoefficients[analysisResult.region]?.label || "Base (Sem ajuste)"}</p>
+                      <p className="text-xs text-muted-foreground">Valores podem variar {regionalCoefficients[analysisResult.region]?.label}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions Toolbar */}
+            <Card className="bg-card/50">
+              <CardContent className="pt-6">
+                <p className="text-sm font-medium text-muted-foreground mb-3">Ações Rápidas</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={() => setShowCharts(!showCharts)}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    Gráficos
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={saveToHistory}
+                  >
+                    <Save className="h-4 w-4" />
+                    Guardar
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={exportToCSV}
+                  >
+                    <Download className="h-4 w-4" />
+                    CSV
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={() => setShowHistoryPanel(!showHistoryPanel)}
+                  >
+                    <History className="h-4 w-4" />
+                    Histórico ({analysisHistory.length})
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Advanced Metrics Row */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card className="bg-card/50 border-l-4 border-l-primary">
@@ -2199,8 +2579,22 @@ export default function AnaliseContent() {
                       <table className="w-full">
                         <thead className="bg-muted/50">
                           <tr>
+                            <th className="px-4 py-3 text-center text-sm font-medium w-10">
+                              <button
+                                onClick={() => selectedItems.size === filteredItems.length ? clearSelection() : selectAllItems()}
+                                className="p-1 hover:bg-muted rounded transition-colors"
+                                title="Selecionar tudo"
+                              >
+                                {selectedItems.size === filteredItems.length && filteredItems.length > 0 ? (
+                                  <CheckSquare className="h-4 w-4" />
+                                ) : (
+                                  <Square className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </button>
+                            </th>
                             <th className="px-4 py-3 text-left text-sm font-medium">Item</th>
                             <th className="px-4 py-3 text-left text-sm font-medium">Correspondência</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium w-20">Confiança</th>
                             <th className="px-4 py-3 text-right text-sm font-medium">Qtd</th>
                             <th className="px-4 py-3 text-right text-sm font-medium">Preço Orç.</th>
                             <th className="px-4 py-3 text-right text-sm font-medium">Preço Ref.</th>
@@ -2213,88 +2607,162 @@ export default function AnaliseContent() {
                           {filteredItems.map((item) => {
                             const config = ratingConfig[item.rating as keyof typeof ratingConfig] || ratingConfig.unknown
                             const Icon = config.icon
+                            const isSelected = selectedItems.has(item.id)
+                            const suggestions = getSmartSuggestions(item)
                             return (
-                              <tr key={item.id} className="hover:bg-muted/30">
-                                <td className="px-4 py-3">
-                                  <div className="font-medium text-sm">{item.originalName}</div>
-                                  <div className="text-xs text-muted-foreground">{item.unit}</div>
-                                </td>
-                                <td className="px-4 py-3">
-                                  {item.matchedName ? (
-                                    <div>
-                                      <div className="text-sm">{item.matchedName}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {item.matchConfidence.toFixed(0)}% confiança
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm text-muted-foreground">Sem correspondência</span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-right text-sm">{item.quantity}</td>
-                                <td className="px-4 py-3 text-right text-sm font-medium">
-                                  {item.budgetPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
-                                </td>
-                                <td className="px-4 py-3 text-right text-sm">
-                                  {item.referenceAvgPrice ? (
-                                    <div>
-                                      <div>{item.referenceAvgPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {item.referenceMinPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} - {item.referenceMaxPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <span className="text-muted-foreground">N/A</span>
-                                  )}
-                                </td>
-                                <td className={cn("px-4 py-3 text-right text-sm font-medium", config.color)}>
-                                  {item.variance !== null && !isNaN(item.variance) ? (
-                                    <>
-                                      {item.variance > 0 ? "+" : ""}
-                                      {item.variance.toFixed(1)}%
-                                    </>
-                                  ) : (
-                                    "N/A"
-                                  )}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex justify-center">
-                                    <Badge className={cn(config.bg, config.color, "gap-1")}>
-                                      <Icon className="h-3 w-3" />
-                                      {config.shortLabel}
-                                    </Badge>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex justify-center gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => openEditDialog(item)}
-                                      disabled={isReanalyzing === item.id}
-                                      title="Editar item"
+                              <React.Fragment key={item.id}>
+                                <tr className={cn("hover:bg-muted/30", isSelected && "bg-primary/10")}>
+                                  <td className="px-4 py-3 text-center">
+                                    <button
+                                      onClick={() => toggleItemSelection(item.id)}
+                                      className="p-1 hover:bg-muted rounded transition-colors"
                                     >
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    {isAdmin && (
+                                      {isSelected ? (
+                                        <CheckSquare className="h-4 w-4 text-primary" />
+                                      ) : (
+                                        <Square className="h-4 w-4 text-muted-foreground" />
+                                      )}
+                                    </button>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="font-medium text-sm">{item.originalName}</div>
+                                    <div className="text-xs text-muted-foreground">{item.unit}</div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {item.matchedName ? (
+                                      <div>
+                                        <div className="text-sm">{item.matchedName}</div>
+                                        <div className="text-xs text-muted-foreground">{item.category}</div>
+                                      </div>
+                                    ) : suggestions.length > 0 ? (
+                                      <button
+                                        onClick={() => setShowSuggestions(showSuggestions === item.id ? null : item.id)}
+                                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                                      >
+                                        <Lightbulb className="h-3 w-3" />
+                                        {suggestions.length} sugestões
+                                      </button>
+                                    ) : (
+                                      <span className="text-sm text-muted-foreground">Sem correspondência</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                                        <div
+                                          className={cn(
+                                            "h-full transition-all",
+                                            item.matchConfidence >= 0.8 ? "bg-green-500" :
+                                            item.matchConfidence >= 0.6 ? "bg-yellow-500" :
+                                            item.matchConfidence >= 0.4 ? "bg-orange-500" :
+                                            "bg-red-500"
+                                          )}
+                                          style={{ width: `${item.matchConfidence * 100}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-xs font-medium w-7 text-right">{(item.matchConfidence * 100).toFixed(0)}%</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-sm">{item.quantity}</td>
+                                  <td className="px-4 py-3 text-right text-sm font-medium">
+                                    {item.budgetPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-sm">
+                                    {item.referenceAvgPrice ? (
+                                      <div>
+                                        <div>{item.referenceAvgPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                          {item.referenceMinPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} - {item.referenceMaxPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground">N/A</span>
+                                    )}
+                                  </td>
+                                  <td className={cn("px-4 py-3 text-right text-sm font-medium", config.color)}>
+                                    {item.variance !== null && !isNaN(item.variance) ? (
+                                      <>
+                                        {item.variance > 0 ? "+" : ""}
+                                        {item.variance.toFixed(1)}%
+                                      </>
+                                    ) : (
+                                      "N/A"
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex justify-center">
+                                      <Badge className={cn(config.bg, config.color, "gap-1")}>
+                                        <Icon className="h-3 w-3" />
+                                        {config.shortLabel}
+                                      </Badge>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex justify-center gap-1">
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => reanalyzeItem(item)}
+                                        onClick={() => openEditDialog(item)}
                                         disabled={isReanalyzing === item.id}
-                                        title="Re-analisar com IA"
-                                        className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
+                                        title="Editar item"
                                       >
-                                        {isReanalyzing === item.id ? (
-                                          <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                          <Sparkles className="h-4 w-4" />
-                                        )}
+                                        <Pencil className="h-4 w-4" />
                                       </Button>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
+                                      {isAdmin && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => reanalyzeItem(item)}
+                                          disabled={isReanalyzing === item.id}
+                                          title="Re-analisar com IA"
+                                          className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
+                                        >
+                                          {isReanalyzing === item.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Sparkles className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                                {/* Suggestions Row */}
+                                {showSuggestions === item.id && suggestions.length > 0 && (
+                                  <tr className="bg-primary/5 border-b-2 border-primary/20">
+                                    <td colSpan={10} className="px-4 py-3">
+                                      <div className="space-y-2">
+                                        <p className="text-sm font-medium flex items-center gap-2">
+                                          <Lightbulb className="h-4 w-4 text-primary" />
+                                          Sugestões de correspondência para "{item.originalName}"
+                                        </p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                          {suggestions.map((sugg, idx) => (
+                                            <button
+                                              key={idx}
+                                              onClick={() => {
+                                                // TODO: Update item with suggestion
+                                                setShowSuggestions(null)
+                                              }}
+                                              className="text-left p-2 rounded border border-primary/30 hover:bg-primary/10 transition-colors"
+                                            >
+                                              <div className="flex items-start justify-between gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                  <p className="text-sm font-medium truncate">{sugg.name}</p>
+                                                  <p className="text-xs text-muted-foreground">{sugg.category}</p>
+                                                </div>
+                                                <span className="text-xs font-semibold text-primary shrink-0">
+                                                  {(sugg.confidence * 100).toFixed(0)}%
+                                                </span>
+                                              </div>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
                             )
                           })}
                         </tbody>
@@ -2468,6 +2936,156 @@ export default function AnaliseContent() {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Analysis History Panel */}
+      <Sheet open={showHistoryPanel} onOpenChange={setShowHistoryPanel}>
+        <SheetContent side="right" className="w-full max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Histórico de Análises
+            </SheetTitle>
+            <SheetDescription>
+              {analysisHistory.length === 0 ? "Nenhuma análise guardada ainda" : `${analysisHistory.length} análise${analysisHistory.length !== 1 ? "s" : ""} guardada${analysisHistory.length !== 1 ? "s" : ""}`}
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="space-y-3 mt-6">
+            {analysisHistory.length === 0 ? (
+              <div className="text-center py-12">
+                <History className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
+                <p className="text-muted-foreground">Guarde análises para revisão futura</p>
+              </div>
+            ) : (
+              analysisHistory.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="p-4 rounded-lg border border-border/50 hover:border-primary/50 transition-colors cursor-pointer group"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium truncate group-hover:text-primary transition-colors">{entry.fileName}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(entry.savedAt).toLocaleDateString("pt-PT")} às {new Date(entry.savedAt).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 ml-2">
+                      <Badge variant="outline" className="text-xs">{entry.region}</Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
+                    <div className="bg-muted/50 rounded p-2">
+                      <p className="text-muted-foreground">Orçamento</p>
+                      <p className="font-semibold">{entry.totalBudget.toLocaleString("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                    </div>
+                    <div className="bg-muted/50 rounded p-2">
+                      <p className="text-muted-foreground">Correspondência</p>
+                      <p className="font-semibold">{(entry.matchRate * 100).toFixed(0)}%</p>
+                    </div>
+                    <div className="bg-muted/50 rounded p-2">
+                      <p className="text-muted-foreground">Qualidade</p>
+                      <p className="font-semibold">{entry.qualityScore}/100</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => restoreFromHistory(entry)}
+                    >
+                      Restaurar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="px-2"
+                      onClick={() => deleteFromHistory(entry.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Charts Modal */}
+      <Dialog open={showCharts} onOpenChange={setShowCharts}>
+        <DialogContent className="max-w-4xl max-h-screen overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Visualizações Gráficas
+            </DialogTitle>
+          </DialogHeader>
+          
+          {analysisResult && (
+            <div className="space-y-6">
+              {/* Pie Chart - Rating Distribution */}
+              <div className="bg-muted/30 rounded-lg p-6">
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <Pie className="h-4 w-4" />
+                  Distribuição por Classificação
+                </h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "Abaixo", value: analysisResult.stats.belowAverage, fill: "#22c55e" },
+                        { name: "Média", value: analysisResult.stats.average, fill: "#3b82f6" },
+                        { name: "Acima", value: analysisResult.stats.aboveAverage, fill: "#f59e0b" },
+                        { name: "Crítica", value: analysisResult.stats.critical, fill: "#ef4444" },
+                        { name: "S/ Ref.", value: analysisResult.stats.unknown, fill: "#9ca3af" },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, value }) => `${name}: ${value}`}
+                      outerRadius={80}
+                      dataKey="value"
+                    >
+                      <Cell fill="#22c55e" />
+                      <Cell fill="#3b82f6" />
+                      <Cell fill="#f59e0b" />
+                      <Cell fill="#ef4444" />
+                      <Cell fill="#9ca3af" />
+                    </Pie>
+                    <Tooltip formatter={(value) => [`${value} itens`, "Quantidade"]} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Bar Chart - Budget vs Reference */}
+              <div className="bg-muted/30 rounded-lg p-6">
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Orçamento vs Referência de Mercado
+                </h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={[
+                      { name: "Comparação", Orçamento: analysisResult.totalBudget, Referência: analysisResult.totalReference }
+                    ]}
+                  >
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip 
+                      formatter={(value) => value.toLocaleString("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    />
+                    <Legend />
+                    <Bar dataKey="Orçamento" fill="#3b82f6" />
+                    <Bar dataKey="Referência" fill="#f59e0b" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
