@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import {
   Upload,
   AlertTriangle,
@@ -2202,6 +2203,98 @@ www.moap.pt
             </Card>
           </div>
 
+          {/* Quality Score and Quick Actions */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Quality Score Card */}
+            <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Pontuação de Qualidade</p>
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-3xl font-bold text-primary">{calculateQualityScore(analysisResult)}</div>
+                      <span className="text-muted-foreground">/100</span>
+                    </div>
+                    <div className="w-32 h-1.5 bg-muted rounded-full mt-3 overflow-hidden">
+                      <div 
+                        className="h-full bg-primary transition-all"
+                        style={{ width: `${calculateQualityScore(analysisResult)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowQualityDetails(!showQualityDetails)}
+                    className="p-2 hover:bg-primary/10 rounded-lg transition-colors"
+                  >
+                    <HelpCircle className="h-5 w-5 text-primary" />
+                  </button>
+                </div>
+                {showQualityDetails && (
+                  <div className="mt-4 pt-4 border-t text-xs space-y-2 text-muted-foreground">
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground mb-2">Composição da Pontuação:</p>
+                      <p>🎯 Taxa de correspondência: {(analysisResult.stats.matchRate * 40).toFixed(0)}/40</p>
+                      <p>⭐ Confiança média: {(analysisResult.stats.avgConfidence * 30).toFixed(0)}/30</p>
+                      <p>📊 Cobertura: {Math.min((analysisResult.items.length / 50) * 15, 15).toFixed(0)}/15</p>
+                      <p>🛡️ Baixo risco: {((1 - analysisResult.stats.riskItems / Math.max(analysisResult.items.length, 1)) * 15).toFixed(0)}/15</p>
+                    </div>
+                    
+                    <div className="pt-2 border-t">
+                      <p className="font-medium text-foreground mb-1">Ajuste Regional ({analysisResult.region}):</p>
+                      <p>{regionalCoefficients[analysisResult.region]?.label || "Base (Sem ajuste)"}</p>
+                      <p className="text-xs text-muted-foreground">Valores podem variar {regionalCoefficients[analysisResult.region]?.label}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions Toolbar */}
+            <Card className="bg-card/50">
+              <CardContent className="pt-6">
+                <p className="text-sm font-medium text-muted-foreground mb-3">Ações Rápidas</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={() => setShowCharts(!showCharts)}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    Gráficos
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={saveToHistory}
+                  >
+                    <Save className="h-4 w-4" />
+                    Guardar
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={exportToCSV}
+                  >
+                    <Download className="h-4 w-4" />
+                    CSV
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={() => setShowHistoryPanel(!showHistoryPanel)}
+                  >
+                    <History className="h-4 w-4" />
+                    Histórico ({analysisHistory.length})
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Advanced Metrics Row */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card className="bg-card/50 border-l-4 border-l-primary">
@@ -2486,8 +2579,22 @@ www.moap.pt
                       <table className="w-full">
                         <thead className="bg-muted/50">
                           <tr>
+                            <th className="px-4 py-3 text-center text-sm font-medium w-10">
+                              <button
+                                onClick={() => selectedItems.size === filteredItems.length ? clearSelection() : selectAllItems()}
+                                className="p-1 hover:bg-muted rounded transition-colors"
+                                title="Selecionar tudo"
+                              >
+                                {selectedItems.size === filteredItems.length && filteredItems.length > 0 ? (
+                                  <CheckSquare className="h-4 w-4" />
+                                ) : (
+                                  <Square className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </button>
+                            </th>
                             <th className="px-4 py-3 text-left text-sm font-medium">Item</th>
                             <th className="px-4 py-3 text-left text-sm font-medium">Correspondência</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium w-20">Confiança</th>
                             <th className="px-4 py-3 text-right text-sm font-medium">Qtd</th>
                             <th className="px-4 py-3 text-right text-sm font-medium">Preço Orç.</th>
                             <th className="px-4 py-3 text-right text-sm font-medium">Preço Ref.</th>
@@ -2500,88 +2607,162 @@ www.moap.pt
                           {filteredItems.map((item) => {
                             const config = ratingConfig[item.rating as keyof typeof ratingConfig] || ratingConfig.unknown
                             const Icon = config.icon
+                            const isSelected = selectedItems.has(item.id)
+                            const suggestions = getSmartSuggestions(item)
                             return (
-                              <tr key={item.id} className="hover:bg-muted/30">
-                                <td className="px-4 py-3">
-                                  <div className="font-medium text-sm">{item.originalName}</div>
-                                  <div className="text-xs text-muted-foreground">{item.unit}</div>
-                                </td>
-                                <td className="px-4 py-3">
-                                  {item.matchedName ? (
-                                    <div>
-                                      <div className="text-sm">{item.matchedName}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {item.matchConfidence.toFixed(0)}% confiança
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm text-muted-foreground">Sem correspondência</span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-right text-sm">{item.quantity}</td>
-                                <td className="px-4 py-3 text-right text-sm font-medium">
-                                  {item.budgetPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
-                                </td>
-                                <td className="px-4 py-3 text-right text-sm">
-                                  {item.referenceAvgPrice ? (
-                                    <div>
-                                      <div>{item.referenceAvgPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {item.referenceMinPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} - {item.referenceMaxPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <span className="text-muted-foreground">N/A</span>
-                                  )}
-                                </td>
-                                <td className={cn("px-4 py-3 text-right text-sm font-medium", config.color)}>
-                                  {item.variance !== null && !isNaN(item.variance) ? (
-                                    <>
-                                      {item.variance > 0 ? "+" : ""}
-                                      {item.variance.toFixed(1)}%
-                                    </>
-                                  ) : (
-                                    "N/A"
-                                  )}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex justify-center">
-                                    <Badge className={cn(config.bg, config.color, "gap-1")}>
-                                      <Icon className="h-3 w-3" />
-                                      {config.shortLabel}
-                                    </Badge>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="flex justify-center gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => openEditDialog(item)}
-                                      disabled={isReanalyzing === item.id}
-                                      title="Editar item"
+                              <React.Fragment key={item.id}>
+                                <tr className={cn("hover:bg-muted/30", isSelected && "bg-primary/10")}>
+                                  <td className="px-4 py-3 text-center">
+                                    <button
+                                      onClick={() => toggleItemSelection(item.id)}
+                                      className="p-1 hover:bg-muted rounded transition-colors"
                                     >
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    {isAdmin && (
+                                      {isSelected ? (
+                                        <CheckSquare className="h-4 w-4 text-primary" />
+                                      ) : (
+                                        <Square className="h-4 w-4 text-muted-foreground" />
+                                      )}
+                                    </button>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="font-medium text-sm">{item.originalName}</div>
+                                    <div className="text-xs text-muted-foreground">{item.unit}</div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {item.matchedName ? (
+                                      <div>
+                                        <div className="text-sm">{item.matchedName}</div>
+                                        <div className="text-xs text-muted-foreground">{item.category}</div>
+                                      </div>
+                                    ) : suggestions.length > 0 ? (
+                                      <button
+                                        onClick={() => setShowSuggestions(showSuggestions === item.id ? null : item.id)}
+                                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                                      >
+                                        <Lightbulb className="h-3 w-3" />
+                                        {suggestions.length} sugestões
+                                      </button>
+                                    ) : (
+                                      <span className="text-sm text-muted-foreground">Sem correspondência</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                                        <div
+                                          className={cn(
+                                            "h-full transition-all",
+                                            item.matchConfidence >= 0.8 ? "bg-green-500" :
+                                            item.matchConfidence >= 0.6 ? "bg-yellow-500" :
+                                            item.matchConfidence >= 0.4 ? "bg-orange-500" :
+                                            "bg-red-500"
+                                          )}
+                                          style={{ width: `${item.matchConfidence * 100}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-xs font-medium w-7 text-right">{(item.matchConfidence * 100).toFixed(0)}%</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-sm">{item.quantity}</td>
+                                  <td className="px-4 py-3 text-right text-sm font-medium">
+                                    {item.budgetPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-sm">
+                                    {item.referenceAvgPrice ? (
+                                      <div>
+                                        <div>{item.referenceAvgPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                          {item.referenceMinPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} - {item.referenceMaxPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground">N/A</span>
+                                    )}
+                                  </td>
+                                  <td className={cn("px-4 py-3 text-right text-sm font-medium", config.color)}>
+                                    {item.variance !== null && !isNaN(item.variance) ? (
+                                      <>
+                                        {item.variance > 0 ? "+" : ""}
+                                        {item.variance.toFixed(1)}%
+                                      </>
+                                    ) : (
+                                      "N/A"
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex justify-center">
+                                      <Badge className={cn(config.bg, config.color, "gap-1")}>
+                                        <Icon className="h-3 w-3" />
+                                        {config.shortLabel}
+                                      </Badge>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex justify-center gap-1">
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => reanalyzeItem(item)}
+                                        onClick={() => openEditDialog(item)}
                                         disabled={isReanalyzing === item.id}
-                                        title="Re-analisar com IA"
-                                        className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
+                                        title="Editar item"
                                       >
-                                        {isReanalyzing === item.id ? (
-                                          <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                          <Sparkles className="h-4 w-4" />
-                                        )}
+                                        <Pencil className="h-4 w-4" />
                                       </Button>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
+                                      {isAdmin && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => reanalyzeItem(item)}
+                                          disabled={isReanalyzing === item.id}
+                                          title="Re-analisar com IA"
+                                          className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
+                                        >
+                                          {isReanalyzing === item.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Sparkles className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                                {/* Suggestions Row */}
+                                {showSuggestions === item.id && suggestions.length > 0 && (
+                                  <tr className="bg-primary/5 border-b-2 border-primary/20">
+                                    <td colSpan={10} className="px-4 py-3">
+                                      <div className="space-y-2">
+                                        <p className="text-sm font-medium flex items-center gap-2">
+                                          <Lightbulb className="h-4 w-4 text-primary" />
+                                          Sugestões de correspondência para "{item.originalName}"
+                                        </p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                          {suggestions.map((sugg, idx) => (
+                                            <button
+                                              key={idx}
+                                              onClick={() => {
+                                                // TODO: Update item with suggestion
+                                                setShowSuggestions(null)
+                                              }}
+                                              className="text-left p-2 rounded border border-primary/30 hover:bg-primary/10 transition-colors"
+                                            >
+                                              <div className="flex items-start justify-between gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                  <p className="text-sm font-medium truncate">{sugg.name}</p>
+                                                  <p className="text-xs text-muted-foreground">{sugg.category}</p>
+                                                </div>
+                                                <span className="text-xs font-semibold text-primary shrink-0">
+                                                  {(sugg.confidence * 100).toFixed(0)}%
+                                                </span>
+                                              </div>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
                             )
                           })}
                         </tbody>
@@ -2755,6 +2936,156 @@ www.moap.pt
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Analysis History Panel */}
+      <Sheet open={showHistoryPanel} onOpenChange={setShowHistoryPanel}>
+        <SheetContent side="right" className="w-full max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Histórico de Análises
+            </SheetTitle>
+            <SheetDescription>
+              {analysisHistory.length === 0 ? "Nenhuma análise guardada ainda" : `${analysisHistory.length} análise${analysisHistory.length !== 1 ? "s" : ""} guardada${analysisHistory.length !== 1 ? "s" : ""}`}
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="space-y-3 mt-6">
+            {analysisHistory.length === 0 ? (
+              <div className="text-center py-12">
+                <History className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
+                <p className="text-muted-foreground">Guarde análises para revisão futura</p>
+              </div>
+            ) : (
+              analysisHistory.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="p-4 rounded-lg border border-border/50 hover:border-primary/50 transition-colors cursor-pointer group"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium truncate group-hover:text-primary transition-colors">{entry.fileName}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(entry.savedAt).toLocaleDateString("pt-PT")} às {new Date(entry.savedAt).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 ml-2">
+                      <Badge variant="outline" className="text-xs">{entry.region}</Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
+                    <div className="bg-muted/50 rounded p-2">
+                      <p className="text-muted-foreground">Orçamento</p>
+                      <p className="font-semibold">{entry.totalBudget.toLocaleString("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                    </div>
+                    <div className="bg-muted/50 rounded p-2">
+                      <p className="text-muted-foreground">Correspondência</p>
+                      <p className="font-semibold">{(entry.matchRate * 100).toFixed(0)}%</p>
+                    </div>
+                    <div className="bg-muted/50 rounded p-2">
+                      <p className="text-muted-foreground">Qualidade</p>
+                      <p className="font-semibold">{entry.qualityScore}/100</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => restoreFromHistory(entry)}
+                    >
+                      Restaurar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="px-2"
+                      onClick={() => deleteFromHistory(entry.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Charts Modal */}
+      <Dialog open={showCharts} onOpenChange={setShowCharts}>
+        <DialogContent className="max-w-4xl max-h-screen overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Visualizações Gráficas
+            </DialogTitle>
+          </DialogHeader>
+          
+          {analysisResult && (
+            <div className="space-y-6">
+              {/* Pie Chart - Rating Distribution */}
+              <div className="bg-muted/30 rounded-lg p-6">
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <Pie className="h-4 w-4" />
+                  Distribuição por Classificação
+                </h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "Abaixo", value: analysisResult.stats.belowAverage, fill: "#22c55e" },
+                        { name: "Média", value: analysisResult.stats.average, fill: "#3b82f6" },
+                        { name: "Acima", value: analysisResult.stats.aboveAverage, fill: "#f59e0b" },
+                        { name: "Crítica", value: analysisResult.stats.critical, fill: "#ef4444" },
+                        { name: "S/ Ref.", value: analysisResult.stats.unknown, fill: "#9ca3af" },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, value }) => `${name}: ${value}`}
+                      outerRadius={80}
+                      dataKey="value"
+                    >
+                      <Cell fill="#22c55e" />
+                      <Cell fill="#3b82f6" />
+                      <Cell fill="#f59e0b" />
+                      <Cell fill="#ef4444" />
+                      <Cell fill="#9ca3af" />
+                    </Pie>
+                    <Tooltip formatter={(value) => [`${value} itens`, "Quantidade"]} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Bar Chart - Budget vs Reference */}
+              <div className="bg-muted/30 rounded-lg p-6">
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Orçamento vs Referência de Mercado
+                </h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={[
+                      { name: "Comparação", Orçamento: analysisResult.totalBudget, Referência: analysisResult.totalReference }
+                    ]}
+                  >
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip 
+                      formatter={(value) => value.toLocaleString("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    />
+                    <Legend />
+                    <Bar dataKey="Orçamento" fill="#3b82f6" />
+                    <Bar dataKey="Referência" fill="#f59e0b" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
