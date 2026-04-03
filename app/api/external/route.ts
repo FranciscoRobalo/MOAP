@@ -14,6 +14,11 @@ interface APIRequest {
 // Verify API key
 async function verifyApiKey(key: string, supabase: any): Promise<{ valid: boolean; ownerId?: string }> {
   try {
+    if (!supabase) {
+      console.warn("Supabase not available for API key verification")
+      return { valid: false }
+    }
+
     // Hash the provided key to compare with stored hash
     const keyHash = crypto.createHash("sha256").update(key).digest("hex")
 
@@ -54,7 +59,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing API key" }, { status: 401 })
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
+
+    if (!supabase) {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
+    }
 
     // Verify API key
     const { valid, ownerId } = await verifyApiKey(apiKey, supabase)

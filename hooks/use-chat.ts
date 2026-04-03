@@ -48,7 +48,7 @@ export function useChat(userId: string | null) {
 
   // Fetch conversations for current user
   const fetchConversations = useCallback(async () => {
-    if (!userId) return
+    if (!userId || !supabase) return
     setIsLoading(true)
 
     try {
