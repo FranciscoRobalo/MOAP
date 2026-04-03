@@ -5639,7 +5639,7 @@ const initialMaterials: Material[] = [
   // ISOLAMENTOS (preços do CSV)
   {
     id: "csv-029",
-    name: "Isolamento térmico cortiça negra 6cm",
+    name: "Isolamento t��rmico cortiça negra 6cm",
     unit: "m²",
     price: 12.39,
     priceMax: 16.05,
@@ -6330,224 +6330,21 @@ const initialMaterials: Material[] = [
   },
 ]
 
-const initialObras: Obra[] = [
-  {
-    id: "obra-001",
-    title: "Remodelacao Apartamento T3 - Porto",
-    client: "Maria Silva",
-    location: "Porto, Portugal",
-    category: "Residencial",
-    budget: 45000,
-    startDate: "2025-02-01",
-    endDate: "2025-05-15",
-    status: "approved",
-    description: "Remodelacao completa de apartamento T3 incluindo cozinha, casas de banho e pavimentos.",
-    area: "120m2",
-    type: "Remodelacao",
-    progress: 35,
-    createdAt: "2025-01-15T10:00:00Z",
-    updatedAt: "2025-03-01T14:30:00Z",
-  },
-  {
-    id: "obra-002",
-    title: "Construcao Moradia V4 - Braga",
-    client: "Joao Santos",
-    location: "Braga, Portugal",
-    category: "Residencial",
-    budget: 280000,
-    startDate: "2025-03-01",
-    endDate: "2026-02-28",
-    status: "in-analysis",
-    description: "Construcao de moradia unifamiliar V4 com garagem e jardim.",
-    area: "350m2",
-    type: "Construcao Nova",
-    progress: 0,
-    createdAt: "2025-02-20T09:00:00Z",
-    updatedAt: "2025-03-15T11:00:00Z",
-  },
-  {
-    id: "obra-003",
-    title: "Reabilitacao Edificio Historico - Lisboa",
-    client: "Camara Municipal de Lisboa",
-    location: "Lisboa, Portugal",
-    category: "Comercial",
-    budget: 520000,
-    startDate: "2025-04-01",
-    endDate: "2026-06-30",
-    status: "pending",
-    description: "Reabilitacao de edificio historico para uso comercial e habitacional.",
-    area: "800m2",
-    type: "Reabilitacao",
-    progress: 0,
-    createdAt: "2025-03-01T08:00:00Z",
-    updatedAt: "2025-03-20T16:45:00Z",
-  },
-]
+const initialObras: Obra[] = []
 
-const initialBudgets: Budget[] = [
-  {
-    id: "budget-001",
-    name: "Orcamento Remodelacao T3 Porto",
-    obraId: "obra-001",
-    obraName: "Remodelacao Apartamento T3 - Porto",
-    createdDate: "2025-01-20",
-    status: "aprovado",
-    items: [
-      { id: "item-001", materialId: "mat-001", materialName: "Consumiveis para apartamento", unit: "pc.", quantity: 1, unitPrice: 1695, category: "Consumiveis" },
-      { id: "item-002", materialId: "mat-002", materialName: "Revestimento ceramico", unit: "m2", quantity: 85, unitPrice: 41, category: "Revestimentos" },
-      { id: "item-003", materialId: "work-001", materialName: "Levantamento de pavimento", unit: "m2", quantity: 120, unitPrice: 14, category: "Demolicoes" },
-    ],
-    totalValue: 5822,
-    analysisVariance: -3.2,
-  },
-  {
-    id: "budget-002",
-    name: "Orcamento Moradia V4 Braga - Fase 1",
-    obraId: "obra-002",
-    obraName: "Construcao Moradia V4 - Braga",
-    createdDate: "2025-02-25",
-    status: "pendente",
-    items: [
-      { id: "item-004", materialId: "mat-016", materialName: "Madeiras para estrutura", unit: "m3", quantity: 15, unitPrice: 407, category: "Estrutura" },
-      { id: "item-005", materialId: "work-030", materialName: "Betonagem de fundacoes", unit: "m3", quantity: 45, unitPrice: 125, category: "Estrutura" },
-    ],
-    totalValue: 11730,
-    analysisVariance: 5.8,
-  },
-]
+const initialBudgets: Budget[] = []
 
-const initialVisitas: Visita[] = [
-  {
-    id: "visita-001",
-    obraId: "obra-001",
-    obraName: "Remodelacao Apartamento T3 - Porto",
-    date: "2025-04-10",
-    time: "10:00",
-    type: "Inspecao",
-    contactName: "Maria Silva",
-    contactPhone: "+351 912 345 678",
-    notes: "Verificar progresso dos trabalhos de canalização.",
-    status: "agendada",
-  },
-  {
-    id: "visita-002",
-    obraId: "obra-002",
-    obraName: "Construcao Moradia V4 - Braga",
-    date: "2025-04-15",
-    time: "14:30",
-    type: "Medicao",
-    contactName: "Joao Santos",
-    contactPhone: "+351 923 456 789",
-    notes: "Primeira visita para levantamento do terreno.",
-    status: "agendada",
-  },
-]
+const initialVisitas: Visita[] = []
 
-const initialConcursos: Concurso[] = [
-  {
-    id: "concurso-001",
-    title: "Reabilitacao Escola Primaria",
-    entity: "Camara Municipal de Aveiro",
-    region: "Aveiro",
-    category: "Educacao",
-    type: "Concurso Publico",
-    budget: 180000,
-    deadline: "2025-05-01",
-    description: "Reabilitacao e modernizacao de escola primaria com 12 salas de aula.",
-    status: "aberto",
-    invitedUsers: [],
-  },
-]
+const initialConcursos: Concurso[] = []
 
-const initialUsers: User[] = [
-  {
-    id: "1",
-    name: "Administrador",
-    email: "admin@moap.pt",
-    role: "Admin",
-    company: "MOAP",
-    avatar: "/admin-avatar-professional.jpg",
-    online: true,
-    joinDate: "2023-01-01",
-  },
-  {
-    id: "2",
-    name: "Cliente Demo",
-    email: "cliente@moap.pt",
-    role: "Cliente",
-    company: "Empresa Demo",
-    avatar: "",
-    online: false,
-    joinDate: "2024-06-15",
-  },
-  {
-    id: "3",
-    name: "Tecnico MOAP",
-    email: "tecnico@moap.pt",
-    role: "Tecnico",
-    company: "MOAP",
-    avatar: "",
-    online: true,
-    joinDate: "2024-01-10",
-  },
-]
+const initialUsers: User[] = []
 
-const initialConversations: Conversation[] = [
-  {
-    id: "conv-001",
-    participantId: "3",
-    participantName: "Tecnico MOAP",
-    participantAvatar: "",
-    participantRole: "Tecnico",
-    lastMessage: "A analise do orcamento esta pronta.",
-    lastMessageTime: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    unread: 1,
-    online: true,
-  },
-  {
-    id: "conv-002",
-    participantId: "2",
-    participantName: "Cliente Demo",
-    participantAvatar: "",
-    participantRole: "Cliente",
-    lastMessage: "Obrigado pela aprovacao!",
-    lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    unread: 0,
-    online: false,
-  },
-]
+const initialConversations: Conversation[] = []
 
 const initialMessages: Message[] = []
 
-const initialNotifications: Notification[] = [
-  {
-    id: "notif-001",
-    type: "budget",
-    title: "Orcamento aprovado",
-    description: "O orcamento para Remodelacao T3 Porto foi aprovado.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-    read: false,
-    link: "/dashboard/registos",
-  },
-  {
-    id: "notif-002",
-    type: "visit",
-    title: "Visita agendada",
-    description: "Nova visita agendada para 10 de Abril as 10:00.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-    read: false,
-    link: "/dashboard/visitas",
-  },
-  {
-    id: "notif-003",
-    type: "obra",
-    title: "Obra em analise",
-    description: "A obra Construcao Moradia V4 esta em analise.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    read: true,
-    link: "/dashboard/obras",
-  },
-]
+const initialNotifications: Notification[] = []
 
 const initialInvitations: Invite[] = []
 

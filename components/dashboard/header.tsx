@@ -43,12 +43,16 @@ export function DashboardHeader() {
           <ThemeToggle />
           <LanguageSwitcher variant="compact" />
           <NotificationsDropdown />
-          <div className="h-8 w-8 rounded-full bg-muted overflow-hidden">
-            <img
-              src={user?.avatar || "/placeholder.svg?height=32&width=32&query=user"}
-              alt={user?.name}
-              className="h-full w-full object-cover"
-            />
+          <div className="h-8 w-8 rounded-full bg-primary/20 overflow-hidden flex items-center justify-center text-primary font-semibold text-xs">
+            {user?.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt={user?.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span>{user?.name?.charAt(0).toUpperCase()}</span>
+            )}
           </div>
         </div>
       </div>

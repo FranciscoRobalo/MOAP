@@ -46,70 +46,6 @@ interface PendingRegistration {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Mock users for development and testing
-const MOCK_USERS: Record<string, { password: string; user: User }> = {
-  // Email-based logins
-  "admin@moap.pt": {
-    password: "admin",
-    user: {
-      id: "1",
-      email: "admin@moap.pt",
-      name: "Administrador",
-      role: "admin",
-      company: "MOAP",
-    },
-  },
-  "tecnico@moap.pt": {
-    password: "tecnico",
-    user: {
-      id: "3",
-      email: "tecnico@moap.pt",
-      name: "Técnico MOAP",
-      role: "tecnico",
-      company: "MOAP",
-    },
-  },
-  "cliente@moap.pt": {
-    password: "cliente",
-    user: {
-      id: "2",
-      email: "cliente@moap.pt",
-      name: "Cliente Demo",
-      role: "cliente",
-    },
-  },
-  // Legacy username-based logins for backward compatibility
-  "admin": {
-    password: "admin",
-    user: {
-      id: "1",
-      email: "admin@moap.pt",
-      name: "Administrador",
-      role: "admin",
-      company: "MOAP",
-    },
-  },
-  "tecnico": {
-    password: "tecnico",
-    user: {
-      id: "3",
-      email: "tecnico@moap.pt",
-      name: "Técnico MOAP",
-      role: "tecnico",
-      company: "MOAP",
-    },
-  },
-  "public": {
-    password: "public",
-    user: {
-      id: "2",
-      email: "cliente@moap.pt",
-      name: "Cliente Demo",
-      role: "cliente",
-    },
-  },
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -120,12 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        if (!supabase) {
-          console.log("Supabase not available, using fallback mode")
-          setIsLoading(false)
-          return
-        }
-
         // Check for existing Supabase session
         const {
           data: { session },
@@ -161,10 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth()
 
     // Set up auth state listener
-    if (supabase) {
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session?.user) {
           const { data: profile } = await supabase
             .from("profiles")
@@ -188,69 +117,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
 
-      return () => {
-        subscription?.unsubscribe()
-      }
+    return () => {
+      subscription?.unsubscribe()
     }
   }, [supabase])
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Try Supabase auth first if available
-      if (supabase) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-        if (!error && data.session?.user) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", data.session.user.id)
-            .single()
-
-          if (profile) {
-            setUser({
-              id: profile.id,
-              email: profile.email,
-              name: profile.name,
-              role: profile.role as UserRole,
-              company: profile.company,
-              phone: profile.phone,
-              avatar_url: profile.avatar_url,
-            })
-          }
-
-          return { success: true }
-        }
+      if (error) {
+        console.error("Login error:", error.message)
+        return { success: false, error: error.message }
       }
 
-      // Fall back to mock users for development
-      const mockUser = MOCK_USERS[email.toLowerCase()]
-      if (mockUser && mockUser.password === password) {
-        setUser(mockUser.user)
+      if (data.session?.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", data.session.user.id)
+          .single()
+
+        if (profile) {
+          setUser({
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            role: profile.role as UserRole,
+            company: profile.company,
+            phone: profile.phone,
+            avatar_url: profile.avatar_url,
+          })
+        }
+
         return { success: true }
       }
 
-      return { success: false, error: "Invalid email or password" }
+      return { success: false, error: "Login failed" }
     } catch (error) {
       console.error("Login error:", error)
-      // Still allow mock user fallback on error
-      const mockUser = MOCK_USERS[email.toLowerCase()]
-      if (mockUser && mockUser.password === password) {
-        setUser(mockUser.user)
-        return { success: true }
-      }
       return { success: false, error: "An error occurred during login" }
     }
   }
 
   const logout = async () => {
     try {
-      if (supabase) {
-        await supabase.auth.signOut()
-      }
+      await supabase.auth.signOut()
       setUser(null)
     } catch (error) {
       console.error("Logout error:", error)
@@ -260,30 +175,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (data: RegisterData): Promise<{ success: boolean; message: string }> => {
     try {
-      // Try Supabase signup if available
-      if (supabase) {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: data.email,
-          password: data.password,
-          options: {
-            data: {
-              name: data.name,
-              role: data.role,
-              company: data.company,
-              phone: data.phone,
-            },
+      const { error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
+            `${window.location.origin}/dashboard`,
+          data: {
+            name: data.name,
+            role: data.role,
+            company: data.company,
+            phone: data.phone,
           },
-        })
+        },
+      })
 
-        if (authError) {
-          if (authError.message.includes("already registered")) {
-            return { success: false, message: "emailExists" }
-          }
-          return { success: false, message: "registrationFailed" }
+      if (authError) {
+        if (authError.message.includes("already registered")) {
+          return { success: false, message: "emailExists" }
         }
+        return { success: false, message: "registrationFailed" }
       }
 
-      // Create pending registration
+      // Create pending registration record
       const registration: PendingRegistration = {
         id: `reg_${Date.now()}`,
         data,
@@ -307,13 +221,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const registration = pendingRegistrations.find((r) => r.id === id)
       if (!registration) return
 
-      // Update profile role in database if Supabase is available
-      if (supabase) {
-        await supabase
-          .from("profiles")
-          .update({ role: registration.data.role })
-          .eq("email", registration.data.email)
-      }
+      // Update profile role in database
+      await supabase
+        .from("profiles")
+        .update({ role: registration.data.role })
+        .eq("email", registration.data.email)
 
       const newPending = pendingRegistrations.map((r) =>
         r.id === id ? { ...r, status: "approved" as const } : r
@@ -339,8 +251,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = async () => {
     try {
-      if (!supabase) return
-
       const {
         data: { session },
       } = await supabase.auth.getSession()
