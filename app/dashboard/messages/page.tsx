@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function MessagesPage() {
   const { user } = useAuth()
-  const { conversations, messages, activeConversation, setActiveConversation, sendMessage, fetchConversations, isLoading, error } = useChat(user?.id || null)
+  const { conversations, messages, activeConversation, setActiveConversation, sendMessage, fetchConversations, isLoading, error, useMockData } = useChat(user?.id || null)
   const [newMessage, setNewMessage] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [isSending, setIsSending] = useState(false)
@@ -58,9 +58,16 @@ export default function MessagesPage() {
 
   return (
     <div className="h-[calc(100vh-8rem)]">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Mensagens</h1>
-        <p className="text-muted-foreground">Comunique com outros utilizadores em tempo real.</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Mensagens</h1>
+          <p className="text-muted-foreground">Comunique com outros utilizadores em tempo real.</p>
+        </div>
+        {useMockData && (
+          <span className="text-xs bg-amber-500/20 text-amber-600 px-2 py-1 rounded-full">
+            Modo Demo
+          </span>
+        )}
       </div>
 
       <Card className="h-[calc(100%-4rem)] bg-card/50 overflow-hidden flex">

@@ -148,8 +148,8 @@ function LoginPageContent() {
                 <Label htmlFor="email">{t("email")}</Label>
                 <Input
                   id="email"
-                  type="email"
-                  placeholder={t("email")}
+                  type="text"
+                  placeholder="admin / admin@moap.pt"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -206,6 +206,24 @@ function LoginPageContent() {
                 )}
               </Button>
             </form>
+
+            <div className="mt-4 p-3 rounded-lg bg-muted/50 border border-border/50">
+              <p className="text-xs text-muted-foreground text-center mb-2">Credenciais de teste:</p>
+              <div className="grid grid-cols-3 gap-2 text-xs text-center">
+                <div>
+                  <span className="font-medium text-foreground">admin</span>
+                  <span className="text-muted-foreground block">admin</span>
+                </div>
+                <div>
+                  <span className="font-medium text-foreground">tecnico</span>
+                  <span className="text-muted-foreground block">tecnico</span>
+                </div>
+                <div>
+                  <span className="font-medium text-foreground">public</span>
+                  <span className="text-muted-foreground block">public</span>
+                </div>
+              </div>
+            </div>
 
             <div className="mt-6 text-center space-y-2">
               <p className="text-sm text-muted-foreground">
