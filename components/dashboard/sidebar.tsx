@@ -38,19 +38,19 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
-  { nameKey: "overview", href: "/dashboard", icon: LayoutGrid, roles: ["admin", "public", "tecnico"] },
-  { nameKey: "budgetAnalysis", href: "/dashboard/analise", icon: BarChart3, roles: ["admin", "public", "tecnico"] },
+  { nameKey: "overview", href: "/dashboard", icon: LayoutGrid, roles: ["admin", "cliente", "tecnico"] },
+  { nameKey: "budgetAnalysis", href: "/dashboard/analise", icon: BarChart3, roles: ["admin", "cliente", "tecnico"] },
   { nameKey: "analytics", href: "/dashboard/analytics", icon: TrendingUp, roles: ["admin"] },
   { nameKey: "materialPrices", href: "/dashboard/prices", icon: DollarSign, roles: ["admin"] },
   { nameKey: "budgetApproval", href: "/dashboard/registos", icon: UserPlus, roles: ["admin"] },
-  { nameKey: "messages", href: "/dashboard/messages", icon: MessageSquare, roles: ["admin", "public", "tecnico"] },
+  { nameKey: "messages", href: "/dashboard/messages", icon: MessageSquare, roles: ["admin", "cliente", "tecnico"] },
   { nameKey: "clients", href: "/dashboard/users?type=cliente", icon: Users, roles: ["admin"] },
   { nameKey: "builders", href: "/dashboard/users?type=construtor", icon: Users, roles: ["admin"] },
   { nameKey: "contractors", href: "/dashboard/users?type=empreiteiro", icon: Users, roles: ["admin"] },
-  { nameKey: "help", href: "/dashboard/ajuda", icon: HelpCircle, roles: ["admin", "public", "tecnico"] },
-  { nameKey: "notifications", href: "/dashboard/notificacoes", icon: Bell, roles: ["admin", "public", "tecnico"] },
-  { nameKey: "settings", href: "/dashboard/definicoes", icon: Settings, roles: ["admin", "public", "tecnico"] },
-  { nameKey: "LAT", href: "https://limarestas.vercel.app", icon: ExternalLink, roles: ["admin", "public", "tecnico"], external: true },
+  { nameKey: "help", href: "/dashboard/ajuda", icon: HelpCircle, roles: ["admin", "cliente", "tecnico"] },
+  { nameKey: "notifications", href: "/dashboard/notificacoes", icon: Bell, roles: ["admin", "cliente", "tecnico"] },
+  { nameKey: "settings", href: "/dashboard/definicoes", icon: Settings, roles: ["admin", "cliente", "tecnico"] },
+  { nameKey: "LAT", href: "https://limarestas.vercel.app", icon: ExternalLink, roles: ["admin", "cliente", "tecnico"], external: true },
 ]
 
 export function DashboardSidebar() {
@@ -164,12 +164,16 @@ export function DashboardSidebar() {
           {/* User section */}
           <div className="border-t border-sidebar-border p-4">
             <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-full bg-sidebar-accent overflow-hidden">
-                <img
-                  src={user?.avatar || "/placeholder.svg?height=40&width=40&query=avatar"}
-                  alt={user?.name}
-                  className="h-full w-full object-cover"
-                />
+              <div className="h-10 w-10 rounded-full bg-sidebar-accent overflow-hidden flex items-center justify-center text-sidebar-primary font-semibold text-sm">
+                {user?.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user?.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span>{user?.name?.charAt(0).toUpperCase()}</span>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</p>

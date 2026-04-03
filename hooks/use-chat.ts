@@ -19,8 +19,8 @@ export interface ChatMessage {
 
 export interface ChatConversation {
   id: string
-  participant1_id: string
-  participant2_id: string
+  participant_1: string
+  participant_2: string
   participant1: {
     id: string
     name: string
@@ -32,8 +32,7 @@ export interface ChatConversation {
     avatar_url?: string
   }
   last_message: string
-  last_message_time: string
-  messages_count: number
+  last_message_at: string
   unread_count: number
 }
 
@@ -50,25 +49,34 @@ export function useChat(userId: string | null) {
   const fetchConversations = useCallback(async () => {
     if (!userId || !supabase) return
     setIsLoading(true)
+    setError(null)
 
     try {
       const { data, error: fetchError } = await supabase
         .from("conversations")
-        .select("*, participant1:profiles!conversations_participant1_id_fkey(id, name, avatar_url), participant2:profiles!conversations_participant2_id_fkey(id, name, avatar_url)")
-        .or(`participant1_id.eq.${userId},participant2_id.eq.${userId}`)
-        .order("last_message_time", { ascending: false })
+        .select(`
+          *,
+          participant1:profiles!conversations_participant_1_fkey(id, name, avatar_url),
+          participant2:profiles!conversations_participant_2_fkey(id, name, avatar_url)
+        `)
+        .or(`participant_1.eq.${userId},participant_2.eq.${userId}`)
+        .order("last_message_at", { ascending: false })
 
       if (fetchError) throw fetchError
 
-      if (data) {
-        setConversations(
-          data.map((conv) => ({
-            ...conv,
-            messages_count: 0,
-            unread_count: 0,
-          }))
-        )
-      }
+      // Transform data to match our interface
+      const transformedConversations: ChatConversation[] = (data || []).map((conv: any) => ({
+        id: conv.id,
+        participant_1: conv.participant_1,
+        participant_2: conv.participant_2,
+        participant1: conv.participant1 || { id: conv.participant_1, name: "User", avatar_url: null },
+        participant2: conv.participant2 || { id: conv.participant_2, name: "User", avatar_url: null },
+        last_message: "",
+        last_message_at: conv.last_message_at,
+        unread_count: 0,
+      }))
+
+      setConversations(transformedConversations)
     } catch (err) {
       console.error("Error fetching conversations:", err)
       setError("Failed to load conversations")
@@ -77,218 +85,243 @@ export function useChat(userId: string | null) {
     }
   }, [userId, supabase])
 
-  // Fetch messages for active conversation
-  const fetchMessages = useCallback(
-    async (conversationId: string) => {
-      setIsLoading(true)
+  // Fetch messages for a conversation
+  const fetchMessages = useCallback(async (conversationId: string) => {
+    if (!supabase) return
+    setIsLoading(true)
+    setError(null)
 
-      try {
-        const { data, error: fetchError } = await supabase
-          .from("messages")
-          .select("*, sender:profiles(name, avatar_url)")
-          .eq("conversation_id", conversationId)
-          .order("created_at", { ascending: true })
+    try {
+      const { data, error: fetchError } = await supabase
+        .from("messages")
+        .select(`
+          *,
+          sender:profiles!messages_sender_id_fkey(name, avatar_url)
+        `)
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true })
 
-        if (fetchError) throw fetchError
+      if (fetchError) throw fetchError
 
-        if (data) {
-          setMessages(
-            data.map((msg) => ({
-              id: msg.id,
-              conversation_id: msg.conversation_id,
-              sender_id: msg.sender_id,
-              sender: msg.sender,
-              content: msg.content,
-              read: msg.read,
-              created_at: msg.created_at,
-            }))
-          )
-        }
-      } catch (err) {
-        console.error("Error fetching messages:", err)
-        setError("Failed to load messages")
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [supabase]
-  )
+      const transformedMessages: ChatMessage[] = (data || []).map((msg: any) => ({
+        id: msg.id,
+        conversation_id: msg.conversation_id,
+        sender_id: msg.sender_id,
+        sender: msg.sender || { name: "User", avatar_url: null },
+        content: msg.content,
+        read: msg.read,
+        created_at: msg.created_at,
+      }))
 
-  // Send message
-  const sendMessage = useCallback(
-    async (conversationId: string, content: string) => {
-      if (!userId || !content.trim()) return
+      setMessages(transformedMessages)
 
-      try {
-        const { data: message, error: insertError } = await supabase
-          .from("messages")
-          .insert({
-            conversation_id: conversationId,
-            sender_id: userId,
-            content: content.trim(),
-            read: false,
-          })
-          .select()
-          .single()
-
-        if (insertError) throw insertError
-
-        if (message) {
-          // Update conversation last message
-          await supabase
-            .from("conversations")
-            .update({
-              last_message: content.trim(),
-              last_message_time: new Date().toISOString(),
-            })
-            .eq("id", conversationId)
-        }
-
-        return message
-      } catch (err) {
-        console.error("Error sending message:", err)
-        setError("Failed to send message")
-      }
-    },
-    [userId, supabase]
-  )
-
-  // Create or get conversation
-  const getOrCreateConversation = useCallback(
-    async (otherUserId: string) => {
-      if (!userId) return null
-
-      try {
-        // Check if conversation already exists
-        const { data: existing } = await supabase
-          .from("conversations")
-          .select("id")
-          .or(`and(participant1_id.eq.${userId},participant2_id.eq.${otherUserId}),and(participant1_id.eq.${otherUserId},participant2_id.eq.${userId})`)
-          .single()
-
-        if (existing) {
-          return existing.id
-        }
-
-        // Create new conversation
-        const { data: newConv, error: createError } = await supabase
-          .from("conversations")
-          .insert({
-            participant1_id: userId,
-            participant2_id: otherUserId,
-          })
-          .select()
-          .single()
-
-        if (createError) throw createError
-
-        return newConv?.id
-      } catch (err) {
-        console.error("Error getting/creating conversation:", err)
-        return null
-      }
-    },
-    [userId, supabase]
-  )
-
-  // Mark messages as read
-  const markAsRead = useCallback(
-    async (conversationId: string) => {
-      try {
+      // Mark messages as read
+      if (userId) {
         await supabase
           .from("messages")
           .update({ read: true })
           .eq("conversation_id", conversationId)
-          .eq("read", false)
-      } catch (err) {
-        console.error("Error marking messages as read:", err)
+          .neq("sender_id", userId)
       }
-    },
-    [supabase]
-  )
+    } catch (err) {
+      console.error("Error fetching messages:", err)
+      setError("Failed to load messages")
+    } finally {
+      setIsLoading(false)
+    }
+  }, [supabase, userId])
 
-  // Subscribe to real-time message updates
+  // Send a message
+  const sendMessage = useCallback(async (conversationId: string, content: string) => {
+    if (!userId || !supabase || !content.trim()) return false
+
+    try {
+      const { data: newMessage, error: sendError } = await supabase
+        .from("messages")
+        .insert({
+          conversation_id: conversationId,
+          sender_id: userId,
+          content: content.trim(),
+        })
+        .select(`
+          *,
+          sender:profiles!messages_sender_id_fkey(name, avatar_url)
+        `)
+        .single()
+
+      if (sendError) throw sendError
+
+      // Update conversation's last message time
+      await supabase
+        .from("conversations")
+        .update({
+          last_message_at: new Date().toISOString(),
+        })
+        .eq("id", conversationId)
+
+      // Add message to local state immediately
+      if (newMessage) {
+        const transformedMessage: ChatMessage = {
+          id: newMessage.id,
+          conversation_id: newMessage.conversation_id,
+          sender_id: newMessage.sender_id,
+          sender: newMessage.sender || { name: "User", avatar_url: null },
+          content: newMessage.content,
+          read: newMessage.read,
+          created_at: newMessage.created_at,
+        }
+        setMessages(prev => [...prev, transformedMessage])
+      }
+
+      return true
+    } catch (err) {
+      console.error("Error sending message:", err)
+      setError("Failed to send message")
+      return false
+    }
+  }, [userId, supabase])
+
+  // Create a new conversation
+  const createConversation = useCallback(async (otherUserId: string) => {
+    if (!userId || !supabase) return null
+
+    try {
+      // Check if conversation already exists
+      const { data: existing } = await supabase
+        .from("conversations")
+        .select("id")
+        .or(`and(participant_1.eq.${userId},participant_2.eq.${otherUserId}),and(participant_1.eq.${otherUserId},participant_2.eq.${userId})`)
+        .single()
+
+      if (existing) {
+        setActiveConversation(existing.id)
+        await fetchMessages(existing.id)
+        return existing.id
+      }
+
+      // Create new conversation
+      const { data: newConv, error: createError } = await supabase
+        .from("conversations")
+        .insert({
+          participant_1: userId,
+          participant_2: otherUserId,
+        })
+        .select()
+        .single()
+
+      if (createError) throw createError
+
+      await fetchConversations()
+      setActiveConversation(newConv.id)
+      return newConv.id
+    } catch (err) {
+      console.error("Error creating conversation:", err)
+      setError("Failed to create conversation")
+      return null
+    }
+  }, [userId, supabase, fetchConversations, fetchMessages])
+
+  // Set up real-time subscription
   useEffect(() => {
-    if (!activeConversation) return
+    if (!userId || !supabase) return
 
-    // Fetch initial messages
-    fetchMessages(activeConversation)
+    // Clean up previous subscription
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current)
+    }
 
-    // Subscribe to message changes
-    channelRef.current = supabase
-      .channel(`conversation:${activeConversation}`)
+    // Subscribe to new messages
+    const channel = supabase
+      .channel(`messages:${userId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "messages",
-          filter: `conversation_id=eq.${activeConversation}`,
         },
-        (payload) => {
-          const newMessage: ChatMessage = {
-            id: payload.new.id,
-            conversation_id: payload.new.conversation_id,
-            sender_id: payload.new.sender_id,
-            sender: { name: "", avatar_url: "" },
-            content: payload.new.content,
-            read: payload.new.read,
-            created_at: payload.new.created_at,
-          }
+        async (payload) => {
+          const newMessage = payload.new as any
 
-          setMessages((prev) => [...prev, newMessage])
+          // Check if message is for a conversation we're part of
+          const relevantConv = conversations.find(c => c.id === newMessage.conversation_id)
+          if (relevantConv) {
+            // If we're viewing this conversation, add the message
+            if (activeConversation === newMessage.conversation_id) {
+              // Fetch the sender info
+              const { data: sender } = await supabase
+                .from("profiles")
+                .select("name, avatar_url")
+                .eq("id", newMessage.sender_id)
+                .single()
 
-          // Mark as read if it's from another user
-          if (payload.new.sender_id !== userId) {
-            markAsRead(activeConversation)
+              const transformedMessage: ChatMessage = {
+                id: newMessage.id,
+                conversation_id: newMessage.conversation_id,
+                sender_id: newMessage.sender_id,
+                sender: sender || { name: "User", avatar_url: null },
+                content: newMessage.content,
+                read: newMessage.read,
+                created_at: newMessage.created_at,
+              }
+
+              setMessages(prev => {
+                // Avoid duplicates
+                if (prev.some(m => m.id === transformedMessage.id)) return prev
+                return [...prev, transformedMessage]
+              })
+            }
+
+            // Update conversations list
+            await fetchConversations()
           }
         }
       )
       .subscribe()
+
+    channelRef.current = channel
 
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
       }
     }
-  }, [activeConversation, userId, supabase, fetchMessages, markAsRead])
+  }, [userId, supabase, conversations, activeConversation, fetchConversations])
 
-  // Subscribe to conversation updates
+  // Initial fetch
   useEffect(() => {
-    if (!userId) return
-
-    const channel = supabase
-      .channel(`user:${userId}:conversations`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "conversations",
-          filter: `participant1_id=eq.${userId} OR participant2_id=eq.${userId}`,
-        },
-        () => {
-          fetchConversations()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
+    if (userId) {
+      fetchConversations()
     }
-  }, [userId, supabase, fetchConversations])
+  }, [userId, fetchConversations])
+
+  // Fetch messages when active conversation changes
+  useEffect(() => {
+    if (activeConversation) {
+      fetchMessages(activeConversation)
+    } else {
+      setMessages([])
+    }
+  }, [activeConversation, fetchMessages])
+
+  // Get the other participant in a conversation
+  const getOtherParticipant = useCallback((conversation: ChatConversation) => {
+    if (!userId) return conversation.participant1
+    return conversation.participant_1 === userId
+      ? conversation.participant2
+      : conversation.participant1
+  }, [userId])
 
   return {
     conversations,
     messages,
     activeConversation,
     setActiveConversation,
+    sendMessage,
+    createConversation,
+    fetchConversations,
+    getOtherParticipant,
     isLoading,
     error,
-    fetchConversations,
-    fetchMessages,
-    sendMessage,
-    getOrCreateConversation,
-    markAsRead,
   }
 }

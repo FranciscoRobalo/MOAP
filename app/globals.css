@@ -3,85 +3,90 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Updated theme for MOAP - professional dark construction tech aesthetic */
-/* Using HSL for better Safari compatibility */
+/* MOAP Premium Design System - Dark theme with teal accents */
+/* Inspired by modern SaaS dashboards like Vercel */
 :root {
-  --background: hsl(230 15% 10%);
+  --background: hsl(0 0% 4%);
   --foreground: hsl(0 0% 98%);
-  --card: hsl(230 15% 14%);
+  --card: hsl(0 0% 7%);
   --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(230 15% 14%);
+  --popover: hsl(0 0% 7%);
   --popover-foreground: hsl(0 0% 98%);
-  --primary: hsl(230 80% 60%);
-  --primary-foreground: hsl(0 0% 98%);
-  --secondary: hsl(230 10% 20%);
+  --primary: hsl(166 76% 47%);
+  --primary-foreground: hsl(0 0% 4%);
+  --secondary: hsl(0 0% 12%);
   --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(230 10% 20%);
-  --muted-foreground: hsl(0 0% 60%);
-  --accent: hsl(230 80% 60%);
-  --accent-foreground: hsl(0 0% 98%);
-  --destructive: hsl(0 70% 50%);
+  --muted: hsl(0 0% 12%);
+  --muted-foreground: hsl(0 0% 55%);
+  --accent: hsl(166 76% 47%);
+  --accent-foreground: hsl(0 0% 4%);
+  --destructive: hsl(0 72% 51%);
   --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(230 10% 25%);
-  --input: hsl(230 10% 20%);
-  --ring: hsl(230 80% 60%);
-  --chart-1: hsl(145 50% 55%);
-  --chart-2: hsl(55 60% 55%);
-  --chart-3: hsl(35 70% 55%);
-  --chart-4: hsl(0 70% 50%);
-  --chart-5: hsl(0 0% 40%);
-  --radius: 0.75rem;
-  --sidebar: hsl(230 15% 12%);
+  --border: hsl(0 0% 15%);
+  --input: hsl(0 0% 12%);
+  --ring: hsl(166 76% 47%);
+  --chart-1: hsl(166 76% 47%);
+  --chart-2: hsl(45 93% 58%);
+  --chart-3: hsl(262 83% 58%);
+  --chart-4: hsl(0 72% 51%);
+  --chart-5: hsl(200 70% 50%);
+  --radius: 0.625rem;
+  --sidebar: hsl(0 0% 5%);
   --sidebar-foreground: hsl(0 0% 98%);
-  --sidebar-primary: hsl(230 80% 60%);
-  --sidebar-primary-foreground: hsl(0 0% 98%);
-  --sidebar-accent: hsl(230 10% 20%);
+  --sidebar-primary: hsl(166 76% 47%);
+  --sidebar-primary-foreground: hsl(0 0% 4%);
+  --sidebar-accent: hsl(0 0% 12%);
   --sidebar-accent-foreground: hsl(0 0% 98%);
-  --sidebar-border: hsl(230 10% 25%);
-  --sidebar-ring: hsl(230 80% 60%);
+  --sidebar-border: hsl(0 0% 15%);
+  --sidebar-ring: hsl(166 76% 47%);
+  
+  /* Status colors */
+  --success: hsl(142 71% 45%);
+  --warning: hsl(45 93% 47%);
+  --info: hsl(200 70% 50%);
 
   /* Custom colors for price indicators */
-  --price-below: hsl(145 50% 55%);
-  --price-average: hsl(55 60% 55%);
-  --price-above: hsl(35 70% 55%);
-  --price-high: hsl(0 70% 50%);
-  --price-critical: hsl(0 70% 50%);
-  --price-unknown: hsl(230 10% 40%);
+  --price-below: hsl(142 71% 45%);
+  --price-average: hsl(45 93% 47%);
+  --price-above: hsl(25 95% 53%);
+  --price-high: hsl(0 72% 51%);
+  --price-critical: hsl(0 84% 60%);
+  --price-unknown: hsl(0 0% 40%);
 }
 
 .dark {
-  --background: hsl(230 15% 10%);
+  --background: hsl(0 0% 4%);
   --foreground: hsl(0 0% 98%);
-  --card: hsl(230 15% 14%);
+  --card: hsl(0 0% 7%);
   --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(230 15% 14%);
+  --popover: hsl(0 0% 7%);
   --popover-foreground: hsl(0 0% 98%);
-  --primary: hsl(230 80% 60%);
-  --primary-foreground: hsl(0 0% 98%);
-  --secondary: hsl(230 10% 20%);
+  --primary: hsl(166 76% 47%);
+  --primary-foreground: hsl(0 0% 4%);
+  --secondary: hsl(0 0% 12%);
   --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(230 10% 20%);
-  --muted-foreground: hsl(0 0% 60%);
-  --accent: hsl(230 80% 60%);
-  --accent-foreground: hsl(0 0% 98%);
-  --destructive: hsl(0 70% 50%);
+  --muted: hsl(0 0% 12%);
+  --muted-foreground: hsl(0 0% 55%);
+  --accent: hsl(166 76% 47%);
+  --accent-foreground: hsl(0 0% 4%);
+  --destructive: hsl(0 72% 51%);
   --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(230 10% 25%);
-  --input: hsl(230 10% 20%);
-  --ring: hsl(230 80% 60%);
-  --chart-1: hsl(145 50% 55%);
-  --chart-2: hsl(55 60% 55%);
-  --chart-3: hsl(35 70% 55%);
-  --chart-4: hsl(0 70% 50%);
-  --chart-5: hsl(0 0% 40%);
-  --sidebar: hsl(230 15% 12%);
+  --border: hsl(0 0% 15%);
+  --input: hsl(0 0% 12%);
+  --ring: hsl(166 76% 47%);
+  --chart-1: hsl(166 76% 47%);
+  --chart-2: hsl(45 93% 58%);
+  --chart-3: hsl(262 83% 58%);
+  --chart-4: hsl(0 72% 51%);
+  --chart-5: hsl(200 70% 50%);
+  --sidebar: hsl(0 0% 5%);
   --sidebar-foreground: hsl(0 0% 98%);
-  --sidebar-primary: hsl(230 80% 60%);
-  --sidebar-primary-foreground: hsl(0 0% 98%);
-  --sidebar-accent: hsl(230 10% 20%);
+  --sidebar-primary: hsl(166 76% 47%);
+  --sidebar-primary-foreground: hsl(0 0% 4%);
+  --sidebar-accent: hsl(0 0% 12%);
   --sidebar-accent-foreground: hsl(0 0% 98%);
-  --sidebar-border: hsl(230 10% 25%);
-  --sidebar-ring: hsl(230 80% 60%);
+  --sidebar-border: hsl(0 0% 15%);
+  --sidebar-ring: hsl(166 76% 47%);
 }
 
 /* Light theme */

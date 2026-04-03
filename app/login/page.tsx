@@ -149,7 +149,7 @@ function LoginPageContent() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder={t("email")}
+                  placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

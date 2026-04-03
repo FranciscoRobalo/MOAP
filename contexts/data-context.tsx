@@ -5639,7 +5639,7 @@ const initialMaterials: Material[] = [
   // ISOLAMENTOS (preços do CSV)
   {
     id: "csv-029",
-    name: "Isolamento térmico cortiça negra 6cm",
+    name: "Isolamento t��rmico cortiça negra 6cm",
     unit: "m²",
     price: 12.39,
     priceMax: 16.05,
@@ -6338,18 +6338,7 @@ const initialVisitas: Visita[] = []
 
 const initialConcursos: Concurso[] = []
 
-const initialUsers: User[] = [
-  {
-    id: "1",
-    name: "Administrador",
-    email: "admin@moap.pt",
-    role: "Admin",
-    company: "MOAP",
-    avatar: "/admin-avatar-professional.jpg",
-    online: true,
-    joinDate: "2023-01-01",
-  },
-]
+const initialUsers: User[] = []
 
 const initialConversations: Conversation[] = []
 
