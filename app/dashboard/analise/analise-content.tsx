@@ -238,6 +238,20 @@ export default function AnaliseContent() {
   // Quality score expanded explanation
   const [showQualityDetails, setShowQualityDetails] = useState(false)
   
+  // Sorting
+  const [sortField, setSortField] = useState<"name" | "price" | "variance" | "confidence">("name")
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  
+  // Toggle sort function
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(d => d === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortDirection("asc")
+    }
+  }
+  
   // Pricing tiers for budget analysis
   const pricingTiers = [
     { maxLines: 8, price: 0, label: "Grátis" },
@@ -2034,7 +2048,7 @@ www.moap.pt
     }
   }
 
-  const filteredItems =
+  const filteredItems = (
     analysisResult?.items.filter((item) => {
       const matchesSearch =
         item.originalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -2043,6 +2057,21 @@ www.moap.pt
       const matchesTab = activeTab === "all" || item.type === activeTab
       return matchesSearch && matchesRating && matchesTab
     }) || []
+  ).sort((a, b) => {
+    const dir = sortDirection === "asc" ? 1 : -1
+    switch (sortField) {
+      case "name":
+        return dir * a.originalName.localeCompare(b.originalName)
+      case "price":
+        return dir * (a.budgetPrice - b.budgetPrice)
+      case "variance":
+        return dir * ((a.variance ?? 0) - (b.variance ?? 0))
+      case "confidence":
+        return dir * (a.matchConfidence - b.matchConfidence)
+      default:
+        return 0
+    }
+  })
 
   return (
     <div className="space-y-6">
@@ -2170,6 +2199,47 @@ www.moap.pt
       {/* Results Section */}
       {analysisResult && (
         <div className="space-y-6" data-tutorial="analise-results">
+          {/* Alert Banner for High Risk Items */}
+          {analysisResult.stats.critical > 0 && (
+            <div className="rounded-lg border border-price-critical/30 bg-price-critical/10 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-price-critical shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-price-critical">Atenção: {analysisResult.stats.critical} itens com preço muito acima da média</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Estes itens estão mais de 30% acima do preço de referência e podem representar um risco para o orçamento.
+                    Reveja cuidadosamente ou solicite esclarecimentos ao fornecedor.
+                  </p>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="mt-3 border-price-critical/30 text-price-critical hover:bg-price-critical/10"
+                    onClick={() => setFilterRating("critical")}
+                  >
+                    Ver Itens de Alto Risco
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Potential Savings Banner */}
+          {analysisResult.stats.potentialSavings > 0 && (
+            <div className="rounded-lg border border-price-below/30 bg-price-below/10 p-4">
+              <div className="flex items-start gap-3">
+                <TrendingDown className="h-5 w-5 text-price-below shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-price-below">
+                    Poupança Potencial: {analysisResult.stats.potentialSavings.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Se negociar os itens acima da média para valores de referência, poderá economizar este valor.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Summary Cards - Enhanced */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card className="bg-card/50">
@@ -2470,7 +2540,7 @@ www.moap.pt
                   <CardTitle>Itens Analisados</CardTitle>
                   <CardDescription>{analysisResult.fileName}</CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button variant="outline" onClick={() => setAnalysisResult(null)}>
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Nova Análise
@@ -2481,6 +2551,10 @@ www.moap.pt
                       Importar para Base de Dados
                     </Button>
                   )}
+                  <Button variant="outline" onClick={() => window.print()}>
+                    <Printer className="mr-2 h-4 w-4" />
+                    Imprimir
+                  </Button>
                   <Button onClick={exportResults}>
                     <Download className="mr-2 h-4 w-4" />
                     Exportar PDF
@@ -2536,29 +2610,79 @@ www.moap.pt
               )}
 
               {/* Filters */}
-              <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Pesquisar itens..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 bg-input/50"
-                  />
+              <div className="flex flex-col gap-3 mb-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Pesquisar itens..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9 bg-input/50"
+                    />
+                  </div>
+                  <Select value={filterRating} onValueChange={setFilterRating}>
+                    <SelectTrigger className="w-[180px] bg-input/50">
+                      <SelectValue placeholder="Filtrar por..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas Classificações</SelectItem>
+                      {Object.entries(ratingConfig).map(([key, config]) => (
+                        <SelectItem key={key} value={key}>
+                          {config.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <Select value={filterRating} onValueChange={setFilterRating}>
-                  <SelectTrigger className="w-[180px] bg-input/50">
-                    <SelectValue placeholder="Filtrar por..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas Classificações</SelectItem>
-                    {Object.entries(ratingConfig).map(([key, config]) => (
-                      <SelectItem key={key} value={key}>
-                        {config.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                
+                {/* Quick Filters */}
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    size="sm" 
+                    variant={filterRating === "critical" ? "default" : "outline"}
+                    className="gap-1.5 text-xs"
+                    onClick={() => setFilterRating(filterRating === "critical" ? "all" : "critical")}
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Alto Risco ({analysisResult.stats.critical})
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant={filterRating === "unknown" ? "default" : "outline"}
+                    className="gap-1.5 text-xs"
+                    onClick={() => setFilterRating(filterRating === "unknown" ? "all" : "unknown")}
+                  >
+                    <HelpCircle className="h-3.5 w-3.5" />
+                    Sem Referência ({analysisResult.stats.unknown})
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant={filterRating === "above" ? "default" : "outline"}
+                    className="gap-1.5 text-xs"
+                    onClick={() => setFilterRating(filterRating === "above" ? "all" : "above")}
+                  >
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    Acima Média ({analysisResult.stats.aboveAverage})
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant={filterRating === "below" ? "default" : "outline"}
+                    className="gap-1.5 text-xs"
+                    onClick={() => setFilterRating(filterRating === "below" ? "all" : "below")}
+                  >
+                    <TrendingDown className="h-3.5 w-3.5" />
+                    Abaixo Média ({analysisResult.stats.belowAverage})
+                  </Button>
+                  {selectedItems.size > 0 && (
+                    <div className="ml-auto flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{selectedItems.size} selecionado(s)</span>
+                      <Button size="sm" variant="ghost" className="text-xs h-7" onClick={clearSelection}>
+                        Limpar
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Tabs */}
@@ -2592,13 +2716,33 @@ www.moap.pt
                                 )}
                               </button>
                             </th>
-                            <th className="px-4 py-3 text-left text-sm font-medium">Item</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium">
+                              <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-primary transition-colors">
+                                Item
+                                {sortField === "name" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                              </button>
+                            </th>
                             <th className="px-4 py-3 text-left text-sm font-medium">Correspondência</th>
-                            <th className="px-4 py-3 text-center text-sm font-medium w-20">Confiança</th>
+                            <th className="px-4 py-3 text-center text-sm font-medium w-20">
+                              <button onClick={() => handleSort("confidence")} className="flex items-center gap-1 hover:text-primary transition-colors mx-auto">
+                                Confiança
+                                {sortField === "confidence" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                              </button>
+                            </th>
                             <th className="px-4 py-3 text-right text-sm font-medium">Qtd</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium">Preço Orç.</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">
+                              <button onClick={() => handleSort("price")} className="flex items-center gap-1 hover:text-primary transition-colors ml-auto">
+                                Preço Orç.
+                                {sortField === "price" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                              </button>
+                            </th>
                             <th className="px-4 py-3 text-right text-sm font-medium">Preço Ref.</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium">Variação</th>
+                            <th className="px-4 py-3 text-right text-sm font-medium">
+                              <button onClick={() => handleSort("variance")} className="flex items-center gap-1 hover:text-primary transition-colors ml-auto">
+                                Variação
+                                {sortField === "variance" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                              </button>
+                            </th>
                             <th className="px-4 py-3 text-center text-sm font-medium">Classif.</th>
                             <th className="px-4 py-3 text-center text-sm font-medium">Ações</th>
                           </tr>
@@ -3030,7 +3174,7 @@ www.moap.pt
               {/* Pie Chart - Rating Distribution */}
               <div className="bg-muted/30 rounded-lg p-6">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
-                  <Pie className="h-4 w-4" />
+                  <BarChart3 className="h-4 w-4" />
                   Distribuição por Classificação
                 </h3>
                 <ResponsiveContainer width="100%" height={300}>
