@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,12 @@ import {
   Lightbulb,
   FileDown,
   Printer,
+  Settings,
+  Palette,
+  Eye,
+  EyeOff,
+  LayoutGrid,
+  List,
 } from "lucide-react"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { cn } from "@/lib/utils"
@@ -230,13 +237,22 @@ export default function AnaliseContent() {
   const [showBulkActions, setShowBulkActions] = useState(false)
   
   // Charts visibility
-  const [showCharts, setShowCharts] = useState(true)
+  const [showCharts, setShowCharts] = useState(false)
   
   // Smart suggestions for unmatched items
   const [showSuggestions, setShowSuggestions] = useState<string | null>(null)
   
   // Quality score expanded explanation
   const [showQualityDetails, setShowQualityDetails] = useState(false)
+  
+  // UI Customization settings
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false)
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table")
+  const [showPriceRange, setShowPriceRange] = useState(true)
+  const [showConfidenceBars, setShowConfidenceBars] = useState(true)
+  const [compactMode, setCompactMode] = useState(false)
+  const [highlightRisks, setHighlightRisks] = useState(true)
+  const [autoExpandSuggestions, setAutoExpandSuggestions] = useState(false)
   
   // Sorting
   const [sortField, setSortField] = useState<"name" | "price" | "variance" | "confidence">("name")
@@ -2322,13 +2338,24 @@ www.moap.pt
             {/* Quick Actions Toolbar */}
             <Card className="bg-card/50">
               <CardContent className="pt-6">
-                <p className="text-sm font-medium text-muted-foreground mb-3">Ações Rápidas</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium text-muted-foreground">Ações Rápidas</p>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-7 w-7 p-0"
+                    onClick={() => setShowSettingsPanel(true)}
+                    title="Personalizar vista"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Button 
                     size="sm" 
                     variant="outline" 
                     className="gap-2"
-                    onClick={() => setShowCharts(!showCharts)}
+                    onClick={() => setShowCharts(true)}
                   >
                     <BarChart3 className="h-4 w-4" />
                     Gráficos
@@ -2634,6 +2661,24 @@ www.moap.pt
                       ))}
                     </SelectContent>
                   </Select>
+                  <div className="flex border rounded-md overflow-hidden">
+                    <Button 
+                      size="sm" 
+                      variant={viewMode === "table" ? "default" : "ghost"}
+                      className="rounded-none px-3"
+                      onClick={() => setViewMode("table")}
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant={viewMode === "cards" ? "default" : "ghost"}
+                      className="rounded-none px-3"
+                      onClick={() => setViewMode("cards")}
+                    >
+                      <LayoutGrid className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 
                 {/* Quick Filters */}
@@ -2698,6 +2743,7 @@ www.moap.pt
                 </TabsList>
 
                 <TabsContent value={activeTab}>
+                  {viewMode === "table" ? (
                   <div className="rounded-lg border border-border/50 overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full">
@@ -2755,7 +2801,12 @@ www.moap.pt
                             const suggestions = getSmartSuggestions(item)
                             return (
                               <React.Fragment key={item.id}>
-                                <tr className={cn("hover:bg-muted/30", isSelected && "bg-primary/10")}>
+                                <tr className={cn(
+                                "hover:bg-muted/30 transition-colors", 
+                                isSelected && "bg-primary/10",
+                                highlightRisks && item.rating === "critical" && "bg-price-critical/5 border-l-2 border-price-critical",
+                                compactMode ? "text-xs" : ""
+                              )}>
                                   <td className="px-4 py-3 text-center">
                                     <button
                                       onClick={() => toggleItemSelection(item.id)}
@@ -2790,20 +2841,22 @@ www.moap.pt
                                       <span className="text-sm text-muted-foreground">Sem correspondência</span>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3 text-center">
+                                  <td className={cn("px-4 text-center", compactMode ? "py-2" : "py-3")}>
                                     <div className="flex items-center justify-center gap-1">
-                                      <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
-                                        <div
-                                          className={cn(
-                                            "h-full transition-all",
-                                            item.matchConfidence >= 0.8 ? "bg-green-500" :
-                                            item.matchConfidence >= 0.6 ? "bg-yellow-500" :
-                                            item.matchConfidence >= 0.4 ? "bg-orange-500" :
-                                            "bg-red-500"
-                                          )}
-                                          style={{ width: `${item.matchConfidence * 100}%` }}
-                                        />
-                                      </div>
+                                      {showConfidenceBars && (
+                                        <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                                          <div
+                                            className={cn(
+                                              "h-full transition-all",
+                                              item.matchConfidence >= 0.8 ? "bg-green-500" :
+                                              item.matchConfidence >= 0.6 ? "bg-yellow-500" :
+                                              item.matchConfidence >= 0.4 ? "bg-orange-500" :
+                                              "bg-red-500"
+                                            )}
+                                            style={{ width: `${item.matchConfidence * 100}%` }}
+                                          />
+                                        </div>
+                                      )}
                                       <span className="text-xs font-medium w-7 text-right">{(item.matchConfidence * 100).toFixed(0)}%</span>
                                     </div>
                                   </td>
@@ -2811,13 +2864,15 @@ www.moap.pt
                                   <td className="px-4 py-3 text-right text-sm font-medium">
                                     {item.budgetPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
                                   </td>
-                                  <td className="px-4 py-3 text-right text-sm">
+                                  <td className={cn("px-4 text-right text-sm", compactMode ? "py-2" : "py-3")}>
                                     {item.referenceAvgPrice ? (
                                       <div>
                                         <div>{item.referenceAvgPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
-                                        <div className="text-xs text-muted-foreground">
-                                          {item.referenceMinPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} - {item.referenceMaxPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
-                                        </div>
+                                        {showPriceRange && (
+                                          <div className="text-xs text-muted-foreground">
+                                            {item.referenceMinPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} - {item.referenceMaxPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                                          </div>
+                                        )}
                                       </div>
                                     ) : (
                                       <span className="text-muted-foreground">N/A</span>
@@ -2872,7 +2927,7 @@ www.moap.pt
                                   </td>
                                 </tr>
                                 {/* Suggestions Row */}
-                                {showSuggestions === item.id && suggestions.length > 0 && (
+                                {((showSuggestions === item.id) || (autoExpandSuggestions && item.matchConfidence < 0.5 && suggestions.length > 0)) && suggestions.length > 0 && (
                                   <tr className="bg-primary/5 border-b-2 border-primary/20">
                                     <td colSpan={10} className="px-4 py-3">
                                       <div className="space-y-2">
@@ -2918,6 +2973,116 @@ www.moap.pt
                       </div>
                     )}
                   </div>
+                  ) : (
+                  /* Cards View */
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredItems.map((item) => {
+                      const config = ratingConfig[item.rating as keyof typeof ratingConfig]
+                      const Icon = config.icon
+                      const isSelected = selectedItems.has(item.id)
+                      
+                      return (
+                        <Card 
+                          key={item.id} 
+                          className={cn(
+                            "relative overflow-hidden transition-all hover:shadow-md",
+                            isSelected && "ring-2 ring-primary",
+                            highlightRisks && item.rating === "critical" && "ring-2 ring-price-critical"
+                          )}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-sm truncate">{item.originalName}</h4>
+                                {item.matchedName && (
+                                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                    Correspondência: {item.matchedName}
+                                  </p>
+                                )}
+                              </div>
+                              <Badge className={cn(config.bg, config.color, "gap-1 ml-2 shrink-0")}>
+                                <Icon className="h-3 w-3" />
+                                {config.shortLabel}
+                              </Badge>
+                            </div>
+                            
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Preço Orç.</span>
+                                <span className="font-medium">{item.budgetPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</span>
+                              </div>
+                              {item.referenceAvgPrice && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Preço Ref.</span>
+                                  <span>{item.referenceAvgPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Variação</span>
+                                <span className={cn("font-medium", config.color)}>
+                                  {item.variance !== null && !isNaN(item.variance) ? (
+                                    <>{item.variance > 0 ? "+" : ""}{item.variance.toFixed(1)}%</>
+                                  ) : "N/A"}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">Confiança</span>
+                                <div className="flex items-center gap-2">
+                                  {showConfidenceBars && (
+                                    <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                                      <div
+                                        className={cn(
+                                          "h-full transition-all",
+                                          item.matchConfidence >= 0.8 ? "bg-green-500" :
+                                          item.matchConfidence >= 0.6 ? "bg-yellow-500" :
+                                          item.matchConfidence >= 0.4 ? "bg-orange-500" :
+                                          "bg-red-500"
+                                        )}
+                                        style={{ width: `${item.matchConfidence * 100}%` }}
+                                      />
+                                    </div>
+                                  )}
+                                  <span className="text-xs font-medium">{(item.matchConfidence * 100).toFixed(0)}%</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex gap-1 mt-4 pt-3 border-t">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => openEditDialog(item)}
+                              >
+                                <Pencil className="h-3.5 w-3.5 mr-1" />
+                                Editar
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => reanalyzeItem(item)}
+                                disabled={isReanalyzing === item.id}
+                              >
+                                {isReanalyzing === item.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                                )}
+                                Reanalisar
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                    {filteredItems.length === 0 && (
+                      <div className="col-span-full text-center py-8 text-muted-foreground">
+                        Nenhum item encontrado com os filtros selecionados.
+                      </div>
+                    )}
+                  </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </CardContent>
@@ -3082,6 +3247,132 @@ www.moap.pt
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Settings Panel */}
+      <Sheet open={showSettingsPanel} onOpenChange={setShowSettingsPanel}>
+        <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Personalizar Vista
+            </SheetTitle>
+            <SheetDescription>
+              Configure a aparência e comportamento da análise
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="space-y-6 mt-6">
+            {/* View Mode */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Modo de Visualização</Label>
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  variant={viewMode === "table" ? "default" : "outline"}
+                  className="flex-1 gap-2"
+                  onClick={() => setViewMode("table")}
+                >
+                  <List className="h-4 w-4" />
+                  Tabela
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant={viewMode === "cards" ? "default" : "outline"}
+                  className="flex-1 gap-2"
+                  onClick={() => setViewMode("cards")}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  Cartões
+                </Button>
+              </div>
+            </div>
+            
+            {/* Display Options */}
+            <div className="space-y-4">
+              <Label className="text-sm font-medium">Opções de Exibição</Label>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="price-range" className="text-sm">Intervalo de Preços</Label>
+                  <p className="text-xs text-muted-foreground">Mostrar min/max de referência</p>
+                </div>
+                <Switch
+                  id="price-range"
+                  checked={showPriceRange}
+                  onCheckedChange={setShowPriceRange}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="confidence-bars" className="text-sm">Barras de Confiança</Label>
+                  <p className="text-xs text-muted-foreground">Indicador visual de confiança</p>
+                </div>
+                <Switch
+                  id="confidence-bars"
+                  checked={showConfidenceBars}
+                  onCheckedChange={setShowConfidenceBars}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="compact-mode" className="text-sm">Modo Compacto</Label>
+                  <p className="text-xs text-muted-foreground">Reduzir espaçamento</p>
+                </div>
+                <Switch
+                  id="compact-mode"
+                  checked={compactMode}
+                  onCheckedChange={setCompactMode}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="highlight-risks" className="text-sm">Destacar Riscos</Label>
+                  <p className="text-xs text-muted-foreground">Realçar itens críticos</p>
+                </div>
+                <Switch
+                  id="highlight-risks"
+                  checked={highlightRisks}
+                  onCheckedChange={setHighlightRisks}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="auto-expand" className="text-sm">Auto-Expandir Sugestões</Label>
+                  <p className="text-xs text-muted-foreground">Mostrar sugestões automaticamente</p>
+                </div>
+                <Switch
+                  id="auto-expand"
+                  checked={autoExpandSuggestions}
+                  onCheckedChange={setAutoExpandSuggestions}
+                />
+              </div>
+            </div>
+            
+            {/* Reset */}
+            <div className="pt-4 border-t">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full"
+                onClick={() => {
+                  setViewMode("table")
+                  setShowPriceRange(true)
+                  setShowConfidenceBars(true)
+                  setCompactMode(false)
+                  setHighlightRisks(true)
+                  setAutoExpandSuggestions(false)
+                }}
+              >
+                Repor Predefinições
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Analysis History Panel */}
       <Sheet open={showHistoryPanel} onOpenChange={setShowHistoryPanel}>

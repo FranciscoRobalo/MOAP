@@ -55,7 +55,7 @@ function LoginPageSkeleton() {
 }
 
 function LoginPageContent() {
-  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
@@ -77,12 +77,12 @@ function LoginPageContent() {
     setError("")
     setIsLoading(true)
 
-    const success = await login(username, password)
+    const result = await login(email, password)
 
-    if (success) {
+    if (result.success) {
       router.push(redirectTo)
     } else {
-      setError(t("invalidCredentials"))
+      setError(result.error || t("invalidCredentials"))
     }
 
     setIsLoading(false)
@@ -145,13 +145,13 @@ function LoginPageContent() {
                   isVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
                 }`}
               >
-                <Label htmlFor="username">{t("username")}</Label>
+                <Label htmlFor="email">{t("email")}</Label>
                 <Input
-                  id="username"
-                  type="text"
-                  placeholder={t("username")}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder={t("email")}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   className="bg-input/50 transition-all duration-300 focus:scale-[1.01]"
                 />

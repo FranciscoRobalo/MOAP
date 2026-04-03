@@ -1,36 +1,36 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createClient } from "@/lib/supabase/client"
 
-export type UserRole = "admin" | "public" | "tecnico"
+export type UserRole = "admin" | "cliente" | "tecnico"
 
 interface User {
   id: string
-  username: string
-  name: string
   email: string
-  avatar?: string
+  name: string
   role: UserRole
   company?: string
   phone?: string
+  avatar_url?: string
   createdAt?: string
 }
 
 interface AuthContextType {
   user: User | null
   isLoading: boolean
-  login: (username: string, password: string) => Promise<boolean>
-  logout: () => void
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  logout: () => Promise<void>
   register: (data: RegisterData) => Promise<{ success: boolean; message: string }>
   pendingRegistrations: PendingRegistration[]
-  approveRegistration: (id: string) => void
-  rejectRegistration: (id: string) => void
+  approveRegistration: (id: string) => Promise<void>
+  rejectRegistration: (id: string) => Promise<void>
+  refreshUser: () => Promise<void>
 }
 
 interface RegisterData {
   name: string
   email: string
-  username: string
   password: string
   company?: string
   phone?: string
@@ -46,38 +46,35 @@ interface PendingRegistration {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-let USERS: Record<string, { password: string; user: User }> = {
-  admin: {
+// Mock users for development and testing
+const MOCK_USERS: Record<string, { password: string; user: User }> = {
+  "admin@moap.pt": {
     password: "admin",
     user: {
       id: "1",
-      username: "admin",
-      name: "Administrador",
       email: "admin@moap.pt",
-      avatar: "/admin-avatar-professional.jpg",
+      name: "Administrador",
       role: "admin",
+      company: "MOAP",
     },
   },
-  public: {
-    password: "public",
-    user: {
-      id: "2",
-      username: "public",
-      name: "Utilizador Público",
-      email: "publico@moap.pt",
-      avatar: "/user-public.jpg",
-      role: "public",
-    },
-  },
-  tecnico: {
+  "tecnico@moap.pt": {
     password: "tecnico",
     user: {
       id: "3",
-      username: "tecnico",
-      name: "Técnico MOAP",
       email: "tecnico@moap.pt",
-      avatar: "/diverse-technician-team.png",
+      name: "Técnico MOAP",
       role: "tecnico",
+      company: "MOAP",
+    },
+  },
+  "cliente@moap.pt": {
+    password: "cliente",
+    user: {
+      id: "2",
+      email: "cliente@moap.pt",
+      name: "Cliente Demo",
+      role: "cliente",
     },
   },
 }
@@ -86,128 +83,250 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [pendingRegistrations, setPendingRegistrations] = useState<PendingRegistration[]>([])
+  const supabase = createClient()
 
+  // Initialize auth state on mount
   useEffect(() => {
-    // Check for existing session
-    const storedUser = localStorage.getItem("moap_user")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
+    const initializeAuth = async () => {
+      try {
+        // Check for existing Supabase session
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (session?.user) {
+          // Fetch user profile from database
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single()
+
+          if (profile) {
+            setUser({
+              id: profile.id,
+              email: profile.email,
+              name: profile.name,
+              role: profile.role as UserRole,
+              company: profile.company,
+              phone: profile.phone,
+              avatar_url: profile.avatar_url,
+            })
+          }
+        }
+      } catch (error) {
+        console.error("Error initializing auth:", error)
+      } finally {
+        setIsLoading(false)
+      }
     }
 
-    // Load registered users from localStorage
-    const storedUsers = localStorage.getItem("moap_registered_users")
-    if (storedUsers) {
-      const registeredUsers = JSON.parse(storedUsers)
-      USERS = { ...USERS, ...registeredUsers }
-    }
+    initializeAuth()
 
-    // Load pending registrations
-    const storedPending = localStorage.getItem("moap_pending_registrations")
-    if (storedPending) {
-      setPendingRegistrations(JSON.parse(storedPending))
-    }
+    // Set up auth state listener
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single()
 
-    setIsLoading(false)
-  }, [])
+        if (profile) {
+          setUser({
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            role: profile.role as UserRole,
+            company: profile.company,
+            phone: profile.phone,
+            avatar_url: profile.avatar_url,
+          })
+        }
+      } else {
+        setUser(null)
+      }
+    })
 
-  const login = async (username: string, password: string): Promise<boolean> => {
-    const userEntry = USERS[username.toLowerCase()]
-    if (userEntry && userEntry.password === password) {
-      setUser(userEntry.user)
-      localStorage.setItem("moap_user", JSON.stringify(userEntry.user))
-      return true
+    return () => {
+      subscription?.unsubscribe()
     }
-    return false
+  }, [supabase])
+
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // Try Supabase auth first
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        // Fall back to mock users for development
+        const mockUser = MOCK_USERS[email.toLowerCase()]
+        if (mockUser && mockUser.password === password) {
+          setUser(mockUser.user)
+          return { success: true }
+        }
+        return { success: false, error: "Invalid email or password" }
+      }
+
+      if (data.session?.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", data.session.user.id)
+          .single()
+
+        if (profile) {
+          setUser({
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            role: profile.role as UserRole,
+            company: profile.company,
+            phone: profile.phone,
+            avatar_url: profile.avatar_url,
+          })
+        }
+
+        return { success: true }
+      }
+
+      return { success: false, error: "Login failed" }
+    } catch (error) {
+      console.error("Login error:", error)
+      return { success: false, error: "An error occurred during login" }
+    }
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem("moap_user")
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut()
+      setUser(null)
+    } catch (error) {
+      console.error("Logout error:", error)
+    }
   }
 
   const register = async (data: RegisterData): Promise<{ success: boolean; message: string }> => {
-    // Check if username already exists
-    if (USERS[data.username.toLowerCase()]) {
-      return { success: false, message: "usernameExists" }
+    try {
+      // Sign up with Supabase
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            name: data.name,
+            role: data.role,
+            company: data.company,
+            phone: data.phone,
+          },
+        },
+      })
+
+      if (authError) {
+        if (authError.message.includes("already registered")) {
+          return { success: false, message: "emailExists" }
+        }
+        return { success: false, message: "registrationFailed" }
+      }
+
+      if (authData.user) {
+        // Create pending registration for admin approval
+        const registration: PendingRegistration = {
+          id: `reg_${Date.now()}`,
+          data,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+        }
+
+        const newPending = [...pendingRegistrations, registration]
+        setPendingRegistrations(newPending)
+        localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
+
+        return { success: true, message: "registrationPending" }
+      }
+
+      return { success: false, message: "registrationFailed" }
+    } catch (error) {
+      console.error("Registration error:", error)
+      return { success: false, message: "registrationFailed" }
     }
-
-    // Check if email already exists
-    const emailExists = Object.values(USERS).some((u) => u.user.email.toLowerCase() === data.email.toLowerCase())
-    if (emailExists) {
-      return { success: false, message: "emailExists" }
-    }
-
-    // Create pending registration
-    const registration: PendingRegistration = {
-      id: `reg_${Date.now()}`,
-      data,
-      status: "pending",
-      createdAt: new Date().toISOString(),
-    }
-
-    const newPending = [...pendingRegistrations, registration]
-    setPendingRegistrations(newPending)
-    localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
-
-    // Simulate sending email to webmaster@moap.com
-    console.log(`[MOAP] New registration request sent to webmaster@moap.com:`, {
-      name: data.name,
-      email: data.email,
-      username: data.username,
-      company: data.company,
-      role: data.role,
-    })
-
-    return { success: true, message: "registrationPending" }
   }
 
-  const approveRegistration = (id: string) => {
-    const registration = pendingRegistrations.find((r) => r.id === id)
-    if (!registration) return
+  const approveRegistration = async (id: string) => {
+    try {
+      const registration = pendingRegistrations.find((r) => r.id === id)
+      if (!registration) return
 
-    // Create new user
-    const newUser: User = {
-      id: `user_${Date.now()}`,
-      username: registration.data.username,
-      name: registration.data.name,
-      email: registration.data.email,
-      role: registration.data.role,
-      company: registration.data.company,
-      phone: registration.data.phone,
-      createdAt: new Date().toISOString(),
+      // Update profile role in database
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: registration.data.role })
+        .eq("email", registration.data.email)
+
+      if (!error) {
+        const newPending = pendingRegistrations.map((r) =>
+          r.id === id ? { ...r, status: "approved" as const } : r
+        )
+        setPendingRegistrations(newPending)
+        localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
+      }
+    } catch (error) {
+      console.error("Approval error:", error)
     }
-
-    // Add to USERS
-    USERS[registration.data.username.toLowerCase()] = {
-      password: registration.data.password,
-      user: newUser,
-    }
-
-    // Save registered users to localStorage
-    const registeredUsers = JSON.parse(localStorage.getItem("moap_registered_users") || "{}")
-    registeredUsers[registration.data.username.toLowerCase()] = {
-      password: registration.data.password,
-      user: newUser,
-    }
-    localStorage.setItem("moap_registered_users", JSON.stringify(registeredUsers))
-
-    // Update pending registrations
-    const newPending = pendingRegistrations.map((r) => (r.id === id ? { ...r, status: "approved" as const } : r))
-    setPendingRegistrations(newPending)
-    localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
-
-    console.log(`[MOAP] Registration approved, confirmation email sent to ${registration.data.email}`)
   }
 
-  const rejectRegistration = (id: string) => {
-    const registration = pendingRegistrations.find((r) => r.id === id)
-    if (!registration) return
+  const rejectRegistration = async (id: string) => {
+    try {
+      const registration = pendingRegistrations.find((r) => r.id === id)
+      if (!registration) return
 
-    const newPending = pendingRegistrations.map((r) => (r.id === id ? { ...r, status: "rejected" as const } : r))
-    setPendingRegistrations(newPending)
-    localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
+      // Delete auth user
+      // Note: Supabase doesn't expose direct user deletion from client
+      // This should be handled by an admin function or edge function
 
-    console.log(`[MOAP] Registration rejected, notification email sent to ${registration.data.email}`)
+      const newPending = pendingRegistrations.map((r) =>
+        r.id === id ? { ...r, status: "rejected" as const } : r
+      )
+      setPendingRegistrations(newPending)
+      localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
+    } catch (error) {
+      console.error("Rejection error:", error)
+    }
+  }
+
+  const refreshUser = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single()
+
+        if (profile) {
+          setUser({
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            role: profile.role as UserRole,
+            company: profile.company,
+            phone: profile.phone,
+            avatar_url: profile.avatar_url,
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Refresh user error:", error)
+    }
   }
 
   return (
@@ -221,6 +340,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         pendingRegistrations,
         approveRegistration,
         rejectRegistration,
+        refreshUser,
       }}
     >
       {children}
