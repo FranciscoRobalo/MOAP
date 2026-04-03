@@ -48,6 +48,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Mock users for development and testing
 const MOCK_USERS: Record<string, { password: string; user: User }> = {
+  // Email-based logins
   "admin@moap.pt": {
     password: "admin",
     user: {
@@ -70,6 +71,36 @@ const MOCK_USERS: Record<string, { password: string; user: User }> = {
   },
   "cliente@moap.pt": {
     password: "cliente",
+    user: {
+      id: "2",
+      email: "cliente@moap.pt",
+      name: "Cliente Demo",
+      role: "cliente",
+    },
+  },
+  // Legacy username-based logins for backward compatibility
+  "admin": {
+    password: "admin",
+    user: {
+      id: "1",
+      email: "admin@moap.pt",
+      name: "Administrador",
+      role: "admin",
+      company: "MOAP",
+    },
+  },
+  "tecnico": {
+    password: "tecnico",
+    user: {
+      id: "3",
+      email: "tecnico@moap.pt",
+      name: "Técnico MOAP",
+      role: "tecnico",
+      company: "MOAP",
+    },
+  },
+  "public": {
+    password: "public",
     user: {
       id: "2",
       email: "cliente@moap.pt",
