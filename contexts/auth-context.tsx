@@ -185,10 +185,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase])
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const normalizedEmail = email.toLowerCase().trim()
+    
+    // Check development fallback users FIRST for immediate login
+    const devUser = DEV_USERS[normalizedEmail]
+    if (devUser && devUser.password === password) {
+      setUser(devUser.user)
+      return { success: true }
+    }
+
+    // Then try Supabase authentication
     try {
-      // First try Supabase authentication
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       })
 
@@ -214,24 +223,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: true }
       }
 
-      // If Supabase fails, try development fallback users
-      const devUser = DEV_USERS[email.toLowerCase()]
-      if (devUser && devUser.password === password) {
-        setUser(devUser.user)
-        return { success: true }
-      }
-
-      return { success: false, error: "Invalid login credentials" }
+      return { success: false, error: error?.message || "Invalid login credentials" }
     } catch (error) {
       console.error("Login error:", error)
-      
-      // On error, still try development fallback
-      const devUser = DEV_USERS[email.toLowerCase()]
-      if (devUser && devUser.password === password) {
-        setUser(devUser.user)
-        return { success: true }
-      }
-      
       return { success: false, error: "An error occurred during login" }
     }
   }
