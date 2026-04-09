@@ -45,19 +45,16 @@ export async function updateSession(request: NextRequest) {
   const hasDevUserCookie = request.cookies.has('moap_dev_user')
   const isAuthenticated = user || hasDevUserCookie
 
-  // Protect dashboard routes
+  // Protect dashboard routes - redirect to login if not authenticated
   if (request.nextUrl.pathname.startsWith('/dashboard') && !isAuthenticated) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Redirect logged-in users away from login page
-  if (request.nextUrl.pathname === '/login' && isAuthenticated) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
-  }
+  // Allow users to access login page even if authenticated (they might want to switch accounts)
+  // Only redirect if they explicitly came from a protected route redirect
+  // Do NOT auto-redirect from login to dashboard
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.
   // If you're creating a new response object with NextResponse.next() make sure to:
