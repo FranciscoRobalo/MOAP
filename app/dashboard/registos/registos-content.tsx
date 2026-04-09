@@ -195,21 +195,21 @@ export default function RegistosContent() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Aprovações</h1>
-          <p className="text-muted-foreground">Gerir orçamentos e registos de utilizadores pendentes de aprovação.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Aprovações</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Gerir orçamentos e registos de utilizadores pendentes de aprovação.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {pendingBudgets.length > 0 && (
-            <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-sm">
-              <Calculator className="h-3.5 w-3.5" />
+            <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-xs sm:text-sm">
+              <Calculator className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               {pendingBudgets.length} orçamento{pendingBudgets.length !== 1 ? "s" : ""} pendente{pendingBudgets.length !== 1 ? "s" : ""}
             </Badge>
           )}
           {pendingRegCount > 0 && (
-            <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-sm">
-              <User className="h-3.5 w-3.5" />
+            <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-xs sm:text-sm">
+              <User className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               {pendingRegCount} registo{pendingRegCount !== 1 ? "s" : ""} pendente{pendingRegCount !== 1 ? "s" : ""}
             </Badge>
           )}
@@ -218,19 +218,19 @@ export default function RegistosContent() {
 
       {/* Main Tabs: Budgets vs Users */}
       <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
-          <TabsTrigger value="budgets" className="gap-2">
-            <Calculator className="h-4 w-4" />
-            Aprovacao de Orcamentos
+        <TabsList className="grid w-full grid-cols-2 max-w-md h-auto">
+          <TabsTrigger value="budgets" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-2 sm:px-4">
+            <Calculator className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+            <span className="truncate">Aprovacao de Orcamentos</span>
             {pendingBudgets.length > 0 && (
-              <Badge className="ml-1 bg-yellow-500 text-white animate-pulse">{pendingBudgets.length}</Badge>
+              <Badge className="ml-1 bg-yellow-500 text-white animate-pulse text-[10px] sm:text-xs">{pendingBudgets.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="users" className="gap-2">
-            <User className="h-4 w-4" />
-            Registos de Utilizadores
+          <TabsTrigger value="users" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-2 sm:px-4">
+            <User className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+            <span className="truncate">Registos de Utilizadores</span>
             {pendingRegCount > 0 && (
-              <Badge className="ml-1 bg-yellow-500 text-white animate-pulse">{pendingRegCount}</Badge>
+              <Badge className="ml-1 bg-yellow-500 text-white animate-pulse text-[10px] sm:text-xs">{pendingRegCount}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -282,11 +282,11 @@ export default function RegistosContent() {
                 </div>
               ) : (
                 <Tabs defaultValue="pendente" className="space-y-4">
-                  <TabsList>
-                    <TabsTrigger value="pendente">Pendentes ({pendingBudgets.length})</TabsTrigger>
-                    <TabsTrigger value="aprovado">Aprovados ({approvedBudgets.length})</TabsTrigger>
-                    <TabsTrigger value="rejeitado">Rejeitados ({rejectedBudgets.length})</TabsTrigger>
-                    <TabsTrigger value="todos">Todos ({budgets.length})</TabsTrigger>
+                  <TabsList className="flex-wrap h-auto gap-1">
+                    <TabsTrigger value="pendente" className="text-xs sm:text-sm">Pendentes ({pendingBudgets.length})</TabsTrigger>
+                    <TabsTrigger value="aprovado" className="text-xs sm:text-sm">Aprovados ({approvedBudgets.length})</TabsTrigger>
+                    <TabsTrigger value="rejeitado" className="text-xs sm:text-sm">Rejeitados ({rejectedBudgets.length})</TabsTrigger>
+                    <TabsTrigger value="todos" className="text-xs sm:text-sm">Todos ({budgets.length})</TabsTrigger>
                   </TabsList>
 
                   {["pendente", "aprovado", "rejeitado", "todos"].map((tabValue) => (
@@ -302,22 +302,22 @@ export default function RegistosContent() {
                           return (
                             <Card key={budget.id} className="overflow-hidden hover-lift">
                               <CardHeader 
-                                className="cursor-pointer py-3"
+                                className="cursor-pointer py-3 px-3 sm:px-6"
                                 onClick={() => setExpandedBudget(isExpanded ? null : budget.id)}
                               >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <FileText className="h-5 w-5 text-primary" />
-                                    <div>
-                                      <CardTitle className="text-base">{budget.name}</CardTitle>
-                                      <CardDescription className="text-xs">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                                    <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
+                                    <div className="min-w-0">
+                                      <CardTitle className="text-sm sm:text-base truncate">{budget.name}</CardTitle>
+                                      <CardDescription className="text-xs truncate">
                                         {budget.obraName} • {budget.createdDate} • {budget.items.length} itens
                                       </CardDescription>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-3">
-                                    <div className="text-right">
-                                      <p className="font-semibold text-lg">€{totalValue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}</p>
+                                  <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
+                                    <div className="text-left sm:text-right">
+                                      <p className="font-semibold text-base sm:text-lg">€{totalValue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}</p>
                                       {budget.analysisVariance !== undefined && (
                                         <p className={`text-xs ${
                                           budget.analysisVariance > 10 ? "text-red-500" : 
@@ -328,54 +328,58 @@ export default function RegistosContent() {
                                         </p>
                                       )}
                                     </div>
-                                    {getBudgetStatusBadge(budget.status)}
-                                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                    <div className="flex items-center gap-2">
+                                      {getBudgetStatusBadge(budget.status)}
+                                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                    </div>
                                   </div>
                                 </div>
                               </CardHeader>
                               
                               {isExpanded && (
-                                <CardContent className="border-t bg-muted/30 space-y-4">
+                                <CardContent className="border-t bg-muted/30 space-y-4 px-3 sm:px-6">
                                   {/* Action Buttons for Pending Budgets */}
                                   {budget.status === "pendente" && (
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                    <div className="grid grid-cols-2 gap-2">
                                       <Button
-                                        className="bg-green-500 hover:bg-green-600"
+                                        className="bg-green-500 hover:bg-green-600 text-xs sm:text-sm"
                                         onClick={() => {
                                           setSelectedBudget(budget.id)
                                           setBudgetActionType("approve")
                                         }}
                                       >
-                                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                                        <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                                         Aprovar
                                       </Button>
                                       <Button
                                         variant="destructive"
+                                        className="text-xs sm:text-sm"
                                         onClick={() => {
                                           setSelectedBudget(budget.id)
                                           setBudgetActionType("reject")
                                         }}
                                       >
-                                        <XCircle className="h-4 w-4 mr-2" />
+                                        <XCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                                         Rejeitar
                                       </Button>
                                       <Button
                                         variant="outline"
-                                        className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border-blue-500/30"
+                                        className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border-blue-500/30 text-xs sm:text-sm"
                                         onClick={() => handleImportToDatabase(budget)}
                                       >
-                                        <Database className="h-4 w-4 mr-2" />
+                                        <Database className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                                         Importar BD
                                       </Button>
                                       <Button
                                         variant="outline"
+                                        className="text-xs sm:text-sm"
                                         disabled={isReanalyzing === budget.id}
                                         onClick={() => handleAIReanalyze(budget.id)}
                                       >
                                         {isReanalyzing === budget.id ? (
-                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                          <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
                                         ) : (
-                                          <Sparkles className="h-4 w-4 mr-2" />
+                                          <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                                         )}
                                         Analisar IA
                                       </Button>
@@ -383,17 +387,17 @@ export default function RegistosContent() {
                                   )}
 
                                   {/* Budget Items Table with Admin Margin */}
-                                  <div className="rounded-lg border overflow-hidden">
-                                    <Table>
+                                  <div className="rounded-lg border overflow-x-auto">
+                                    <Table className="min-w-[800px]">
                                       <TableHeader>
                                         <TableRow>
-                                          <TableHead>Material/Serviço</TableHead>
-                                          <TableHead className="text-right">Qtd.</TableHead>
-                                          <TableHead className="text-right">Un.</TableHead>
-                                          <TableHead className="text-right">Preço Unit.</TableHead>
-                                          <TableHead className="text-right text-primary">Margem %</TableHead>
-                                          <TableHead className="text-right text-primary">Total c/ Margem</TableHead>
-                                          <TableHead className="text-right">Total Cliente</TableHead>
+                                          <TableHead className="min-w-[250px]">Material/Serviço</TableHead>
+                                          <TableHead className="text-right w-16">Qtd.</TableHead>
+                                          <TableHead className="text-right w-12">Un.</TableHead>
+                                          <TableHead className="text-right w-24">Preço Unit.</TableHead>
+                                          <TableHead className="text-right text-primary w-20">Margem %</TableHead>
+                                          <TableHead className="text-right text-primary w-28">Total c/ Margem</TableHead>
+                                          <TableHead className="text-right w-28">Total Cliente</TableHead>
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
@@ -405,10 +409,10 @@ export default function RegistosContent() {
                                           
                                           return (
                                             <TableRow key={idx}>
-                                              <TableCell className="font-medium">{item.materialName}</TableCell>
-                                              <TableCell className="text-right">{item.quantity}</TableCell>
-                                              <TableCell className="text-right">{item.unit}</TableCell>
-                                              <TableCell className="text-right">€{item.unitPrice.toFixed(2)}</TableCell>
+                                              <TableCell className="font-medium max-w-[250px] truncate" title={item.materialName}>{item.materialName}</TableCell>
+                                              <TableCell className="text-right text-xs sm:text-sm">{item.quantity}</TableCell>
+                                              <TableCell className="text-right text-xs sm:text-sm">{item.unit}</TableCell>
+                                              <TableCell className="text-right text-xs sm:text-sm">€{item.unitPrice.toFixed(2)}</TableCell>
                                               <TableCell className="text-right">
                                                 <Input
                                                   type="number"
@@ -450,15 +454,15 @@ export default function RegistosContent() {
                                   </div>
                                   
                                   {/* Margin Summary for Admin */}
-                                  <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/20">
-                                    <div className="flex items-center justify-between">
+                                  <div className="mt-4 p-3 sm:p-4 rounded-lg bg-primary/5 border border-primary/20">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                       <div className="flex items-center gap-2">
-                                        <Euro className="h-4 w-4 text-primary" />
-                                        <span className="font-medium">Resumo de Margens (Visivel apenas para Admin)</span>
+                                        <Euro className="h-4 w-4 text-primary flex-shrink-0" />
+                                        <span className="font-medium text-xs sm:text-sm">Resumo de Margens (Visivel apenas para Admin)</span>
                                       </div>
                                       <div className="text-right">
-                                        <p className="text-sm text-muted-foreground">Total Cliente: €{totalValue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}</p>
-                                        <p className="text-lg font-bold text-primary">
+                                        <p className="text-xs sm:text-sm text-muted-foreground">Total Cliente: €{totalValue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}</p>
+                                        <p className="text-base sm:text-lg font-bold text-primary">
                                           Total c/ Margens: €{budget.items.reduce((sum, item) => {
                                             const base = item.quantity * item.unitPrice
                                             const margin = item.adminMarginPercent || 0
