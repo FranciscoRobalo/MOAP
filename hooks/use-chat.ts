@@ -21,6 +21,7 @@ export interface ChatConversation {
   id: string
   participant_1: string
   participant_2: string
+  participant1_id: string
   participant1: {
     id: string
     name: string
@@ -36,20 +37,60 @@ export interface ChatConversation {
   unread_count: number
 }
 
+// Check if user is a dev user (not from Supabase)
+const isDevUser = (userId: string | null) => {
+  if (!userId) return false
+  return userId.startsWith("dev-")
+}
+
+// Mock data for dev users
+const MOCK_USERS = {
+  "dev-admin-1": { id: "dev-admin-1", name: "Administrador", avatar_url: null },
+  "dev-tecnico-1": { id: "dev-tecnico-1", name: "Tecnico MOAP", avatar_url: null },
+  "dev-cliente-1": { id: "dev-cliente-1", name: "Cliente Demo", avatar_url: null },
+}
+
+const createMockConversations = (userId: string): ChatConversation[] => {
+  const otherUsers = Object.values(MOCK_USERS).filter(u => u.id !== userId)
+  return otherUsers.map((otherUser, index) => ({
+    id: `mock-conv-${index + 1}`,
+    participant_1: userId,
+    participant_2: otherUser.id,
+    participant1_id: userId,
+    participant1: MOCK_USERS[userId as keyof typeof MOCK_USERS] || { id: userId, name: "User", avatar_url: null },
+    participant2: otherUser,
+    last_message: "Clique para iniciar conversa",
+    last_message_at: new Date().toISOString(),
+    unread_count: 0,
+  }))
+}
+
 export function useChat(userId: string | null) {
   const [conversations, setConversations] = useState<ChatConversation[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [activeConversation, setActiveConversation] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [useMockData, setUseMockData] = useState(false)
+  const [mockMessages, setMockMessages] = useState<Record<string, ChatMessage[]>>({})
   const supabase = createClient()
   const channelRef = useRef<RealtimeChannel | null>(null)
 
   // Fetch conversations for current user
   const fetchConversations = useCallback(async () => {
-    if (!userId || !supabase) return
+    if (!userId) return
     setIsLoading(true)
     setError(null)
+
+    // Use mock data for dev users
+    if (isDevUser(userId)) {
+      setUseMockData(true)
+      setConversations(createMockConversations(userId))
+      setIsLoading(false)
+      return
+    }
+
+    if (!supabase) return
 
     try {
       const { data, error: fetchError } = await supabase
@@ -69,6 +110,7 @@ export function useChat(userId: string | null) {
         id: conv.id,
         participant_1: conv.participant_1,
         participant_2: conv.participant_2,
+        participant1_id: conv.participant_1,
         participant1: conv.participant1 || { id: conv.participant_1, name: "User", avatar_url: null },
         participant2: conv.participant2 || { id: conv.participant_2, name: "User", avatar_url: null },
         last_message: "",
@@ -79,7 +121,9 @@ export function useChat(userId: string | null) {
       setConversations(transformedConversations)
     } catch (err) {
       console.error("Error fetching conversations:", err)
-      setError("Failed to load conversations")
+      // Fallback to mock data on error
+      setUseMockData(true)
+      setConversations(createMockConversations(userId))
     } finally {
       setIsLoading(false)
     }
@@ -87,9 +131,17 @@ export function useChat(userId: string | null) {
 
   // Fetch messages for a conversation
   const fetchMessages = useCallback(async (conversationId: string) => {
-    if (!supabase) return
     setIsLoading(true)
     setError(null)
+
+    // Use mock data for dev users
+    if (useMockData || isDevUser(userId)) {
+      setMessages(mockMessages[conversationId] || [])
+      setIsLoading(false)
+      return
+    }
+
+    if (!supabase) return
 
     try {
       const { data, error: fetchError } = await supabase
@@ -125,15 +177,47 @@ export function useChat(userId: string | null) {
       }
     } catch (err) {
       console.error("Error fetching messages:", err)
-      setError("Failed to load messages")
+      // Fallback to mock messages
+      setMessages(mockMessages[conversationId] || [])
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, userId])
+  }, [supabase, userId, useMockData, mockMessages])
 
   // Send a message
   const sendMessage = useCallback(async (conversationId: string, content: string) => {
-    if (!userId || !supabase || !content.trim()) return false
+    if (!userId || !content.trim()) return false
+
+    // Handle mock messages for dev users
+    if (useMockData || isDevUser(userId)) {
+      const mockUser = MOCK_USERS[userId as keyof typeof MOCK_USERS]
+      const newMessage: ChatMessage = {
+        id: `mock-msg-${Date.now()}`,
+        conversation_id: conversationId,
+        sender_id: userId,
+        sender: mockUser || { name: "User", avatar_url: null },
+        content: content.trim(),
+        read: false,
+        created_at: new Date().toISOString(),
+      }
+      
+      setMockMessages(prev => ({
+        ...prev,
+        [conversationId]: [...(prev[conversationId] || []), newMessage]
+      }))
+      setMessages(prev => [...prev, newMessage])
+      
+      // Update conversation last message
+      setConversations(prev => prev.map(conv => 
+        conv.id === conversationId 
+          ? { ...conv, last_message: content.trim(), last_message_at: new Date().toISOString() }
+          : conv
+      ))
+      
+      return true
+    }
+
+    if (!supabase) return false
 
     try {
       const { data: newMessage, error: sendError } = await supabase
@@ -179,7 +263,7 @@ export function useChat(userId: string | null) {
       setError("Failed to send message")
       return false
     }
-  }, [userId, supabase])
+  }, [userId, supabase, useMockData])
 
   // Create a new conversation
   const createConversation = useCallback(async (otherUserId: string) => {

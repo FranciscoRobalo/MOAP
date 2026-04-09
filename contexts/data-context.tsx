@@ -9,6 +9,7 @@ export interface Material {
   unit: string
   price: number
   priceMax?: number // Added max price for price ranges
+  adminMargin?: number // Percentage margin added by admin (hidden from clients)
   category: string
   type: "material" | "work"
   region?: string
@@ -23,6 +24,9 @@ export interface BudgetItem {
   quantity: number
   unitPrice: number
   category: string
+  adminMarginPercent?: number // Admin margin percentage (hidden from clients)
+  adminMarginValue?: number // Admin margin value (hidden from clients)
+  finalPriceWithMargin?: number // Price with margin (shown to admin only)
 }
 
 export interface Budget {
@@ -30,11 +34,17 @@ export interface Budget {
   name: string
   obraId: string
   obraName: string
+  userId?: string // Owner of the budget
   createdDate: string
   status: "rascunho" | "pendente" | "aprovado" | "rejeitado" | "finalizado" | "enviado"
   items: BudgetItem[]
   totalValue?: number
   analysisVariance?: number
+  // Admin approval fields
+  approvedBy?: string
+  approvedAt?: string
+  adminNotes?: string
+  visibleToClient?: boolean // Only show to client after admin approval
 }
 
 // Updated Obra interface
