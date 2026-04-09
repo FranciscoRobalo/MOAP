@@ -193,8 +193,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const devUser = DEV_USERS[normalizedEmail]
     console.log("[v0] DEV_USERS lookup result:", devUser ? "found" : "not found")
     if (devUser && devUser.password === password) {
-      console.log("[v0] Dev user matched! Setting user...")
+      console.log("[v0] Dev user matched! Setting user and cookie...")
       setUser(devUser.user)
+      // Set cookie so middleware allows access to dashboard
+      document.cookie = `moap_dev_user=${devUser.user.id}; path=/; max-age=${60 * 60 * 24 * 7}` // 7 days
       return { success: true }
     }
 
@@ -237,9 +239,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       await supabase.auth.signOut()
+      // Clear dev user cookie
+      document.cookie = 'moap_dev_user=; path=/; max-age=0'
       setUser(null)
     } catch (error) {
       console.error("Logout error:", error)
+      document.cookie = 'moap_dev_user=; path=/; max-age=0'
       setUser(null)
     }
   }

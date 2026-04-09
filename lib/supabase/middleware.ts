@@ -41,15 +41,19 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Check for dev user cookie (set by client-side auth for dev users)
+  const hasDevUserCookie = request.cookies.has('moap_dev_user')
+  const isAuthenticated = user || hasDevUserCookie
+
   // Protect dashboard routes
-  if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
+  if (request.nextUrl.pathname.startsWith('/dashboard') && !isAuthenticated) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
   // Redirect logged-in users away from login page
-  if (request.nextUrl.pathname === '/login' && user) {
+  if (request.nextUrl.pathname === '/login' && isAuthenticated) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
