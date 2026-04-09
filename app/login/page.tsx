@@ -61,16 +61,21 @@ function LoginPageContent() {
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
-  const { login } = useAuth()
+  const { login, user, logout } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useLanguage()
   const redirectTo = searchParams.get("redirect") || "/dashboard"
   const hasPendingFile = searchParams.get("pending_file") === "1"
+  const forceLogin = searchParams.get("force") === "1"
 
   useEffect(() => {
     setIsVisible(true)
-  }, [])
+    // If force login is requested, clear any existing session
+    if (forceLogin) {
+      document.cookie = 'moap_dev_user=; path=/; max-age=0'
+    }
+  }, [forceLogin])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
