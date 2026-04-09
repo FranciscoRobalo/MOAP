@@ -7,6 +7,7 @@ import { DataProvider } from "@/contexts/data-context"
 import { TutorialProvider } from "@/contexts/tutorial-context"
 import { LanguageProvider } from "@/contexts/language-context"
 import { ThemeProvider } from "@/contexts/theme-context"
+import { CookieConsent } from "@/components/cookie-consent"
 import "./globals.css"
 
 const _inter = Inter({ subsets: ["latin"] })
@@ -36,6 +37,7 @@ export default function RootLayout({
             </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>
+        <CookieConsent />
         <Analytics />
       </body>
     </html>
