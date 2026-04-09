@@ -185,11 +185,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase])
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    console.log("[v0] Auth context login called with:", email)
     const normalizedEmail = email.toLowerCase().trim()
+    console.log("[v0] Normalized email:", normalizedEmail)
     
     // Check development fallback users FIRST for immediate login
     const devUser = DEV_USERS[normalizedEmail]
+    console.log("[v0] DEV_USERS lookup result:", devUser ? "found" : "not found")
     if (devUser && devUser.password === password) {
+      console.log("[v0] Dev user matched! Setting user...")
       setUser(devUser.user)
       return { success: true }
     }

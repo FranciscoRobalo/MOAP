@@ -74,15 +74,25 @@ function LoginPageContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("[v0] Login attempt with:", email, password)
     setError("")
     setIsLoading(true)
 
-    const result = await login(email, password)
+    try {
+      console.log("[v0] Calling login function...")
+      const result = await login(email, password)
+      console.log("[v0] Login result:", result)
 
-    if (result.success) {
-      router.push(redirectTo)
-    } else {
-      setError(result.error || t("invalidCredentials"))
+      if (result.success) {
+        console.log("[v0] Login successful, redirecting to:", redirectTo)
+        router.push(redirectTo)
+      } else {
+        console.log("[v0] Login failed:", result.error)
+        setError(result.error || t("invalidCredentials"))
+      }
+    } catch (err) {
+      console.error("[v0] Login exception:", err)
+      setError("An unexpected error occurred")
     }
 
     setIsLoading(false)
