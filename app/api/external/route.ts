@@ -5,10 +5,27 @@ import crypto from "crypto"
 // Types
 interface APIRequest {
   method: "GET" | "POST" | "PUT" | "DELETE"
-  table: "budgets" | "budget_items" | "obras" | "materials"
+  action?: "submit_budget" | "get_approved_budgets" | "sync_materials" | "register_user"
+  table?: "budgets" | "budget_items" | "obras" | "materials" | "profiles"
   id?: string
   data?: Record<string, unknown>
   filters?: Record<string, unknown>
+}
+
+interface BudgetSubmission {
+  name: string
+  obraId?: string
+  obraName: string
+  items: {
+    materialId: string
+    materialName: string
+    unit: string
+    quantity: number
+    unitPrice: number
+    category: string
+  }[]
+  clientEmail?: string
+  clientName?: string
 }
 
 // Verify API key
@@ -77,6 +94,27 @@ export async function POST(req: NextRequest) {
     // Validate request
     if (!body.table || !body.method) {
       return NextResponse.json({ error: "Missing required fields: table, method" }, { status: 400 })
+    }
+
+    // Handle special actions first
+    if (body.action) {
+      switch (body.action) {
+        case "submit_budget":
+          return await handleSubmitBudget(supabase, body.data as unknown as BudgetSubmission, ownerId)
+        case "get_approved_budgets":
+          return await handleGetApprovedBudgets(supabase, ownerId)
+        case "sync_materials":
+          return await handleSyncMaterials(supabase)
+        case "register_user":
+          return await handleRegisterUser(supabase, body.data as Record<string, unknown>)
+        default:
+          return NextResponse.json({ error: "Invalid action" }, { status: 400 })
+      }
+    }
+
+    // Validate table for CRUD operations
+    if (!body.table || !body.method) {
+      return NextResponse.json({ error: "Missing required fields: table, method (or use action for special operations)" }, { status: 400 })
     }
 
     // Route based on method and table
@@ -212,7 +250,7 @@ async function handleDelete(supabase: any, request: APIRequest, ownerId: string)
     // Verify ownership before deleting
     let ownershipCheck = supabase.from(request.table)
 
-    if (["budgets", "budget_items"].includes(request.table)) {
+    if (["budgets", "budget_items"].includes(request.table!)) {
       ownershipCheck = ownershipCheck.select("id").eq("id", request.id).eq("uploaded_by", ownerId)
     } else if (request.table === "obras") {
       ownershipCheck = ownershipCheck.select("id").eq("id", request.id)
@@ -234,5 +272,212 @@ async function handleDelete(supabase: any, request: APIRequest, ownerId: string)
   } catch (error) {
     console.error("DELETE error:", error)
     return NextResponse.json({ error: "DELETE request failed" }, { status: 500 })
+  }
+}
+
+// ============================================
+// SPECIAL ACTION HANDLERS
+// ============================================
+
+// Submit a budget for admin approval (status starts as "pendente")
+async function handleSubmitBudget(supabase: any, budgetData: BudgetSubmission, ownerId: string) {
+  try {
+    if (!budgetData || !budgetData.items || budgetData.items.length === 0) {
+      return NextResponse.json({ error: "Invalid budget data - must include items" }, { status: 400 })
+    }
+
+    // Calculate total value (without admin margins - those are added by admin later)
+    const totalValue = budgetData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+
+    // Create the budget with status "pendente" - admin must approve before client sees it
+    const { data: budget, error: budgetError } = await supabase
+      .from("budgets")
+      .insert({
+        name: budgetData.name,
+        obra_id: budgetData.obraId || null,
+        obra_name: budgetData.obraName,
+        user_id: ownerId,
+        status: "pendente", // Requires admin approval
+        total_value: totalValue,
+        visible_to_client: false, // Hidden until approved
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (budgetError) {
+      console.error("Budget creation error:", budgetError)
+      return NextResponse.json({ error: budgetError.message }, { status: 400 })
+    }
+
+    // Insert budget items
+    const budgetItems = budgetData.items.map(item => ({
+      budget_id: budget.id,
+      material_id: item.materialId,
+      material_name: item.materialName,
+      unit: item.unit,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      category: item.category,
+      admin_margin_percent: 0, // Admin will set this
+      admin_margin_value: 0,
+    }))
+
+    const { error: itemsError } = await supabase
+      .from("budget_items")
+      .insert(budgetItems)
+
+    if (itemsError) {
+      console.error("Budget items error:", itemsError)
+      // Rollback budget
+      await supabase.from("budgets").delete().eq("id", budget.id)
+      return NextResponse.json({ error: itemsError.message }, { status: 400 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Budget submitted for admin approval",
+      data: {
+        budgetId: budget.id,
+        status: "pendente",
+        totalValue,
+        itemCount: budgetData.items.length,
+      }
+    }, { status: 201 })
+  } catch (error) {
+    console.error("Submit budget error:", error)
+    return NextResponse.json({ error: "Failed to submit budget" }, { status: 500 })
+  }
+}
+
+// Get only approved budgets visible to the client
+async function handleGetApprovedBudgets(supabase: any, ownerId: string) {
+  try {
+    const { data: budgets, error } = await supabase
+      .from("budgets")
+      .select(`
+        id,
+        name,
+        obra_name,
+        status,
+        total_value,
+        created_at,
+        approved_at,
+        budget_items (
+          id,
+          material_name,
+          unit,
+          quantity,
+          unit_price,
+          category
+        )
+      `)
+      .eq("user_id", ownerId)
+      .eq("visible_to_client", true)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    // Return budgets WITHOUT admin margin information (that's private)
+    const sanitizedBudgets = budgets?.map(budget => ({
+      ...budget,
+      budget_items: budget.budget_items?.map((item: any) => ({
+        id: item.id,
+        material_name: item.material_name,
+        unit: item.unit,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        category: item.category,
+        total: item.quantity * item.unit_price,
+      }))
+    }))
+
+    return NextResponse.json({
+      success: true,
+      data: sanitizedBudgets,
+      count: sanitizedBudgets?.length || 0,
+    })
+  } catch (error) {
+    console.error("Get approved budgets error:", error)
+    return NextResponse.json({ error: "Failed to fetch budgets" }, { status: 500 })
+  }
+}
+
+// Sync materials database - returns all material prices
+async function handleSyncMaterials(supabase: any) {
+  try {
+    const { data: materials, error } = await supabase
+      .from("materials")
+      .select("id, name, unit, price, price_max, category, type, region, last_updated")
+      .order("category")
+      .order("name")
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: materials,
+      count: materials?.length || 0,
+      lastSync: new Date().toISOString(),
+    })
+  } catch (error) {
+    console.error("Sync materials error:", error)
+    return NextResponse.json({ error: "Failed to sync materials" }, { status: 500 })
+  }
+}
+
+// Register a new user (pending admin approval)
+async function handleRegisterUser(supabase: any, userData: Record<string, unknown>) {
+  try {
+    if (!userData.email || !userData.name) {
+      return NextResponse.json({ error: "Email and name are required" }, { status: 400 })
+    }
+
+    // Check if email already exists
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", userData.email)
+      .single()
+
+    if (existing) {
+      return NextResponse.json({ error: "Email already registered" }, { status: 409 })
+    }
+
+    // Create pending registration (not a full user yet - admin must approve)
+    const { data: registration, error } = await supabase
+      .from("pending_registrations")
+      .insert({
+        email: userData.email,
+        name: userData.name,
+        company: userData.company || null,
+        phone: userData.phone || null,
+        role: userData.role || "cliente",
+        status: "pending",
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Registration error:", error)
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Registration submitted for admin approval",
+      data: {
+        registrationId: registration.id,
+        status: "pending",
+      }
+    }, { status: 201 })
+  } catch (error) {
+    console.error("Register user error:", error)
+    return NextResponse.json({ error: "Failed to register user" }, { status: 500 })
   }
 }
