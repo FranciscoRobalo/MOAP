@@ -91,14 +91,18 @@ export default function RegistosContent() {
   const handleBudgetAction = () => {
     if (!selectedBudget || !budgetActionType) return
 
+    const isApproved = budgetActionType === "approve"
     updateBudget(selectedBudget, { 
-      status: budgetActionType === "approve" ? "aprovado" : "rejeitado" 
+      status: isApproved ? "aprovado" : "rejeitado",
+      visibleToClient: isApproved, // Only make visible to client when approved
+      approvedBy: user?.id,
+      approvedAt: new Date().toISOString(),
     })
     
     toast.success(
-      budgetActionType === "approve" 
-        ? "Orçamento aprovado com sucesso!" 
-        : "Orçamento rejeitado"
+      isApproved 
+        ? "Orcamento aprovado e visivel para o cliente!" 
+        : "Orcamento rejeitado"
     )
 
     setSelectedBudget(null)
@@ -378,7 +382,7 @@ export default function RegistosContent() {
                                     </div>
                                   )}
 
-                                  {/* Budget Items Table */}
+                                  {/* Budget Items Table with Admin Margin */}
                                   <div className="rounded-lg border overflow-hidden">
                                     <Table>
                                       <TableHeader>
@@ -387,30 +391,82 @@ export default function RegistosContent() {
                                           <TableHead className="text-right">Qtd.</TableHead>
                                           <TableHead className="text-right">Un.</TableHead>
                                           <TableHead className="text-right">Preço Unit.</TableHead>
-                                          <TableHead className="text-right">Total</TableHead>
+                                          <TableHead className="text-right text-primary">Margem %</TableHead>
+                                          <TableHead className="text-right text-primary">Total c/ Margem</TableHead>
+                                          <TableHead className="text-right">Total Cliente</TableHead>
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
-                                        {budget.items.slice(0, 10).map((item, idx) => (
-                                          <TableRow key={idx}>
-                                            <TableCell className="font-medium">{item.materialName}</TableCell>
-                                            <TableCell className="text-right">{item.quantity}</TableCell>
-                                            <TableCell className="text-right">{item.unit}</TableCell>
-                                            <TableCell className="text-right">€{item.unitPrice.toFixed(2)}</TableCell>
-                                            <TableCell className="text-right font-medium">
-                                              €{(item.quantity * item.unitPrice).toFixed(2)}
-                                            </TableCell>
-                                          </TableRow>
-                                        ))}
+                                        {budget.items.slice(0, 10).map((item, idx) => {
+                                          const margin = item.adminMarginPercent || 0
+                                          const baseTotal = item.quantity * item.unitPrice
+                                          const marginValue = baseTotal * (margin / 100)
+                                          const totalWithMargin = baseTotal + marginValue
+                                          
+                                          return (
+                                            <TableRow key={idx}>
+                                              <TableCell className="font-medium">{item.materialName}</TableCell>
+                                              <TableCell className="text-right">{item.quantity}</TableCell>
+                                              <TableCell className="text-right">{item.unit}</TableCell>
+                                              <TableCell className="text-right">€{item.unitPrice.toFixed(2)}</TableCell>
+                                              <TableCell className="text-right">
+                                                <Input
+                                                  type="number"
+                                                  min="0"
+                                                  max="100"
+                                                  step="0.5"
+                                                  defaultValue={margin}
+                                                  onChange={(e) => {
+                                                    const newMargin = parseFloat(e.target.value) || 0
+                                                    // Update the item margin in the budget
+                                                    const updatedItems = budget.items.map((i, index) => 
+                                                      index === idx 
+                                                        ? { ...i, adminMarginPercent: newMargin, adminMarginValue: baseTotal * (newMargin / 100) }
+                                                        : i
+                                                    )
+                                                    updateBudget(budget.id, { items: updatedItems })
+                                                  }}
+                                                  className="w-16 h-7 text-right text-xs bg-primary/10 border-primary/30"
+                                                />
+                                              </TableCell>
+                                              <TableCell className="text-right font-medium text-primary">
+                                                €{totalWithMargin.toFixed(2)}
+                                              </TableCell>
+                                              <TableCell className="text-right font-medium">
+                                                €{baseTotal.toFixed(2)}
+                                              </TableCell>
+                                            </TableRow>
+                                          )
+                                        })}
                                         {budget.items.length > 10 && (
                                           <TableRow>
-                                            <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                            <TableCell colSpan={7} className="text-center text-muted-foreground">
                                               ... e mais {budget.items.length - 10} itens
                                             </TableCell>
                                           </TableRow>
                                         )}
                                       </TableBody>
                                     </Table>
+                                  </div>
+                                  
+                                  {/* Margin Summary for Admin */}
+                                  <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/20">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <Euro className="h-4 w-4 text-primary" />
+                                        <span className="font-medium">Resumo de Margens (Visivel apenas para Admin)</span>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-sm text-muted-foreground">Total Cliente: €{totalValue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}</p>
+                                        <p className="text-lg font-bold text-primary">
+                                          Total c/ Margens: €{budget.items.reduce((sum, item) => {
+                                            const base = item.quantity * item.unitPrice
+                                            const margin = item.adminMarginPercent || 0
+                                            return sum + base + (base * margin / 100)
+                                          }, 0).toLocaleString("pt-PT", { minimumFractionDigits: 2 })}
+                                        </p>
+                                      </div>
+                                    </div>
                                   </div>
                                 </CardContent>
                               )}
