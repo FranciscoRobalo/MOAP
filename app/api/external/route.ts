@@ -28,9 +28,18 @@ interface BudgetSubmission {
   clientName?: string
 }
 
+// Development API key for testing (use this for the other website)
+const DEV_API_KEY = "moap_dev_key_2026_secure_connection"
+const DEV_OWNER_ID = "dev-admin-1"
+
 // Verify API key
 async function verifyApiKey(key: string, supabase: any): Promise<{ valid: boolean; ownerId?: string }> {
   try {
+    // Check development key first (always works)
+    if (key === DEV_API_KEY) {
+      return { valid: true, ownerId: DEV_OWNER_ID }
+    }
+
     if (!supabase) {
       console.warn("Supabase not available for API key verification")
       return { valid: false }
@@ -62,6 +71,10 @@ async function verifyApiKey(key: string, supabase: any): Promise<{ valid: boolea
     return { valid: true, ownerId: apiKey.owner_id }
   } catch (error) {
     console.error("API key verification error:", error)
+    // Fallback to dev key check on error
+    if (key === DEV_API_KEY) {
+      return { valid: true, ownerId: DEV_OWNER_ID }
+    }
     return { valid: false }
   }
 }
@@ -91,12 +104,7 @@ export async function POST(req: NextRequest) {
     // Parse request body
     const body: APIRequest = await req.json()
 
-    // Validate request
-    if (!body.table || !body.method) {
-      return NextResponse.json({ error: "Missing required fields: table, method" }, { status: 400 })
-    }
-
-    // Handle special actions first
+    // Handle special actions first (these don't require table/method)
     if (body.action) {
       switch (body.action) {
         case "submit_budget":
