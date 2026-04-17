@@ -106,6 +106,24 @@ const DEV_USERS: Record<string, { password: string; user: User }> = {
       role: "cliente",
     },
   },
+  "public": {
+    password: "public",
+    user: {
+      id: "dev-public-1",
+      email: "public@moap.pt",
+      name: "Utilizador Publico",
+      role: "cliente",
+    },
+  },
+  "public@moap.pt": {
+    password: "public",
+    user: {
+      id: "dev-public-1",
+      email: "public@moap.pt",
+      name: "Utilizador Publico",
+      role: "cliente",
+    },
+  },
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
