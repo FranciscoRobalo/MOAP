@@ -1165,14 +1165,21 @@ www.moap.pt
             category: m.category
           }))
           
+          // Add timeout for API call (5 seconds max)
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 5000)
+          
           const matchResponse = await fetch("/api/match-items", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
               items: itemsNeedingGPT.map(i => ({ name: i.name, unit: i.unit, quantity: i.quantity, price: i.price })),
               materials: materialRefs 
-            })
+            }),
+            signal: controller.signal
           })
+          
+          clearTimeout(timeoutId)
           
           if (matchResponse.ok) {
             const matchData = await matchResponse.json()
@@ -1180,8 +1187,9 @@ www.moap.pt
               gptMatches = matchData.matches
             }
           }
-        } catch {
-          // Continue without GPT matching
+        } catch (err) {
+          // Continue without GPT matching (timeout or error)
+          console.log("[v0] GPT matching skipped or timed out, continuing with local matches")
         }
         
         setAnalyzeProgress(8)
@@ -1195,11 +1203,18 @@ www.moap.pt
         if (itemsStillNeedingPrices.length > 0) {
           setAnalyzeStatus(`A consultar preços de mercado para ${itemsStillNeedingPrices.length} itens...`)
           try {
+            // Add timeout for price lookup API (5 seconds max)
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 5000)
+            
             const response = await fetch("/api/lookup-prices", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ items: itemsStillNeedingPrices })
+              body: JSON.stringify({ items: itemsStillNeedingPrices }),
+              signal: controller.signal
             })
+            
+            clearTimeout(timeoutId)
             
             if (response.ok) {
               const data = await response.json()
@@ -1207,8 +1222,9 @@ www.moap.pt
                 gptPrices = data.prices
               }
             }
-          } catch {
-            // Continue without GPT prices
+          } catch (err) {
+            // Continue without GPT prices (timeout or error)
+            console.log("[v0] Price lookup skipped or timed out, continuing with local estimates")
           }
         }
       }
@@ -1526,6 +1542,12 @@ www.moap.pt
       })
     } catch (error) {
       console.error("Error analyzing file:", error)
+      setIsAnalyzing(false)
+      setAnalyzeProgress(0)
+      setAnalyzeStatus("")
+      toast.error("Erro na análise", {
+        description: "Ocorreu um erro ao analisar o ficheiro. Tente novamente ou com outro ficheiro.",
+      })
     } finally {
       setIsAnalyzing(false)
       setAnalyzeStatus("")
