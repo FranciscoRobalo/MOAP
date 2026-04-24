@@ -11,7 +11,7 @@ export default function DefinicoesLoading() {
 
       <Skeleton className="h-10 w-full max-w-md" />
 
-      <Card className="bg-card/50">
+      <Card className="border-border/60 bg-card/30">
         <CardHeader>
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-4 w-64" />

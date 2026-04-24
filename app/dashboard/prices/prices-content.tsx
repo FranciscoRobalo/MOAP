@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Pencil, Trash2, Save, X, RefreshCw, TrendingUp, TrendingDown, CheckCircle2, Search, Sparkles, Loader2, Check } from "lucide-react"
 import { useData, type Material } from "@/contexts/data-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -289,56 +290,58 @@ export default function PricesContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Preços de Materiais e Trabalhos</h1>
-          <p className="text-muted-foreground">
-            Gerir preços de referência para análise de orçamentos.
-            <span className="ml-2 text-xs">
-              ({materialsCount} materiais, {worksCount} trabalhos)
-            </span>
-          </p>
-        </div>
-        <div className="flex gap-2 flex-wrap justify-end">
-          <Button onClick={() => setShowSuggestDialog(true)} variant="outline" className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
-            <Sparkles className="mr-2 h-4 w-4" />
-            Pesquisar com IA
-          </Button>
-          <Button onClick={syncPricesWithMarket} disabled={isSyncing} variant="outline">
-            <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-            {isSyncing ? "A Sincronizar..." : "Sincronizar Preços IA"}
-          </Button>
-          <Button 
-            onClick={() => {
-              setActiveTab("materials")
-              setNewMaterial({ ...newMaterial, type: "material" })
-              setIsAdding(true)
-            }} 
-            disabled={isAdding}
-            variant="outline"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar Material
-          </Button>
-          <Button 
-            onClick={() => {
-              setActiveTab("works")
-              setNewMaterial({ ...newMaterial, type: "work" })
-              setIsAdding(true)
-            }} 
-            disabled={isAdding}
-            className="bg-price-below hover:bg-price-below/90"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar Serviço/Trabalho
-          </Button>
-        </div>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Base de dados / Preços"
+        title="Preços de Materiais e Trabalhos"
+        description={`Gerir preços de referência para análise de orçamentos. (${materialsCount} materiais, ${worksCount} trabalhos)`}
+        actions={
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              onClick={() => setShowSuggestDialog(true)}
+              variant="outline"
+              className="rounded-full gap-2 border-amber/30 bg-amber/10 text-amber hover:bg-amber/20"
+            >
+              <Sparkles className="h-4 w-4" />
+              Pesquisar com IA
+            </Button>
+            <Button onClick={syncPricesWithMarket} disabled={isSyncing} variant="outline" className="rounded-full gap-2">
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+              {isSyncing ? "A Sincronizar..." : "Sincronizar Preços IA"}
+            </Button>
+            <Button
+              onClick={() => {
+                setActiveTab("materials")
+                setNewMaterial({ ...newMaterial, type: "material" })
+                setIsAdding(true)
+              }}
+              disabled={isAdding}
+              variant="outline"
+              className="rounded-full gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar Material
+            </Button>
+            <Button
+              onClick={() => {
+                setActiveTab("works")
+                setNewMaterial({ ...newMaterial, type: "work" })
+                setIsAdding(true)
+              }}
+              disabled={isAdding}
+              className="rounded-full gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar Serviço/Trabalho
+            </Button>
+          </div>
+        }
+      />
 
       {isSyncing && (
-        <Card className="bg-primary/5 border-primary/20">
+        <Card className="bp-bracket relative overflow-hidden border-primary/40 bg-primary/5">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Live · IA</p>
+            <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
               <RefreshCw className="h-5 w-5 animate-spin" />
               Sincronização em Progresso
             </CardTitle>
@@ -354,12 +357,19 @@ export default function PricesContent() {
       )}
 
       {showSyncResults && (
-        <Card className={priceChanges.length > 0 ? "bg-green-500/5 border-green-500/20" : "bg-muted/50"}>
+        <Card
+          className={
+            priceChanges.length > 0
+              ? "bp-bracket relative overflow-hidden border-price-below/40 bg-price-below/5"
+              : "bp-bracket relative overflow-hidden border-border/60 bg-card/30"
+          }
+        >
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Resultado</p>
+                <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+                  <CheckCircle2 className="h-5 w-5 text-price-below" />
                   Sincronização Concluída
                 </CardTitle>
                 <CardDescription>
@@ -377,7 +387,7 @@ export default function PricesContent() {
             <CardContent>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {priceChanges.map((change) => (
-                  <div key={change.id} className="flex items-center justify-between p-3 rounded-lg bg-card/50">
+                  <div key={change.id} className="flex items-center justify-between p-3 rounded-md border border-border/60 bg-background/40">
                     <div className="flex-1">
                       <p className="font-medium text-sm line-clamp-1">{change.name}</p>
                       <div className="flex items-center gap-2 mt-1">
@@ -419,13 +429,13 @@ export default function PricesContent() {
                 placeholder="Pesquisar..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-input/50"
+                className="pl-9 border-border/60 bg-background/60"
               />
             </div>
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium whitespace-nowrap">Categoria:</label>
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-48 bg-input/50">
+                <SelectTrigger className="w-48 border-border/60 bg-background/60">
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
@@ -441,9 +451,12 @@ export default function PricesContent() {
           </div>
 
           {isAdding && (
-            <Card className="bg-card/50 border-primary/50">
+            <Card className="bp-bracket relative overflow-hidden border-primary/40 bg-primary/5">
               <CardHeader>
-                <CardTitle className="text-lg">Novo {activeTab === "materials" ? "Material" : "Trabalho"}</CardTitle>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Novo Registo</p>
+                <CardTitle className="font-display text-xl font-medium tracking-tight">
+                  Adicionar {activeTab === "materials" ? "Material" : "Trabalho"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
@@ -452,14 +465,14 @@ export default function PricesContent() {
                       placeholder={activeTab === "materials" ? "Nome do material" : "Nome do trabalho"}
                       value={newMaterial.name}
                       onChange={(e) => setNewMaterial((prev) => ({ ...prev, name: e.target.value }))}
-                      className="bg-input/50"
+                      className="border-border/60 bg-background/60"
                     />
                   </div>
                   <Input
                     placeholder="Unidade (kg, m², un)"
                     value={newMaterial.unit}
                     onChange={(e) => setNewMaterial((prev) => ({ ...prev, unit: e.target.value }))}
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                   />
                   <Input
                     type="number"
@@ -471,7 +484,7 @@ export default function PricesContent() {
                         price: Number.parseFloat(e.target.value) || 0,
                       }))
                     }
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                   />
                   <Input
                     type="number"
@@ -483,13 +496,13 @@ export default function PricesContent() {
                         priceMax: Number.parseFloat(e.target.value) || 0,
                       }))
                     }
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                   />
                   <Select
                     value={newMaterial.category}
                     onValueChange={(value) => setNewMaterial((prev) => ({ ...prev, category: value }))}
                   >
-                    <SelectTrigger className="bg-input/50">
+                    <SelectTrigger className="border-border/60 bg-background/60">
                       <SelectValue placeholder="Categoria" />
                     </SelectTrigger>
                     <SelectContent>
@@ -515,9 +528,14 @@ export default function PricesContent() {
             </Card>
           )}
 
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle>Lista de {activeTab === "materials" ? "Materiais" : "Trabalhos"}</CardTitle>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Registo · {activeTab === "materials" ? "Materiais" : "Trabalhos"}
+              </p>
+              <CardTitle className="font-display text-xl font-medium tracking-tight">
+                Lista de {activeTab === "materials" ? "Materiais" : "Trabalhos"}
+              </CardTitle>
               <CardDescription>
                 {filteredItems.length} {activeTab === "materials" ? "materiais" : "trabalhos"} encontrados
               </CardDescription>
@@ -551,7 +569,7 @@ export default function PricesContent() {
                                     name: e.target.value,
                                   }))
                                 }
-                                className="h-8 bg-input/50"
+                                className="h-8 border-border/60 bg-background/60"
                               />
                             </td>
                             <td className="py-3">
@@ -563,7 +581,7 @@ export default function PricesContent() {
                                     unit: e.target.value,
                                   }))
                                 }
-                                className="h-8 w-20 bg-input/50"
+                                className="h-8 w-20 border-border/60 bg-background/60"
                               />
                             </td>
                             <td className="py-3">
@@ -577,7 +595,7 @@ export default function PricesContent() {
                                       price: Number.parseFloat(e.target.value) || 0,
                                     }))
                                   }
-                                  className="h-8 w-20 bg-input/50"
+                                  className="h-8 w-20 border-border/60 bg-background/60"
                                 />
                                 <span className="text-muted-foreground">-</span>
                                 <Input
@@ -589,7 +607,7 @@ export default function PricesContent() {
                                       priceMax: Number.parseFloat(e.target.value) || 0,
                                     }))
                                   }
-                                  className="h-8 w-20 bg-input/50"
+                                  className="h-8 w-20 border-border/60 bg-background/60"
                                 />
                               </div>
                             </td>
@@ -603,7 +621,7 @@ export default function PricesContent() {
                                   }))
                                 }
                               >
-                                <SelectTrigger className="h-8 bg-input/50">
+                                <SelectTrigger className="h-8 border-border/60 bg-background/60">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -681,7 +699,7 @@ export default function PricesContent() {
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-yellow-500" />
+              <Sparkles className="h-5 w-5 text-amber" />
               Pesquisar {activeTab === "materials" ? "Materiais" : "Trabalhos"} com IA
             </DialogTitle>
             <DialogDescription>
@@ -815,9 +833,10 @@ export default function PricesContent() {
             )}
 
             {suggestionError && !isLoadingSuggestions && (
-              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-center">
-                <p className="text-red-500 font-medium">{suggestionError}</p>
-                <p className="text-sm text-muted-foreground mt-1">
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-center">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-destructive">Erro</p>
+                <p className="mt-1 font-medium text-destructive">{suggestionError}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
                   Verifique se a chave API do OpenAI está configurada nas variáveis de ambiente.
                 </p>
               </div>

@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Mail, Send, UserPlus, Clock, CheckCircle, XCircle, Copy, Trash2, Users } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
+import { DashboardStatCard } from "@/components/dashboard/stat-card"
 
 interface Invitation {
   id: string
@@ -137,75 +139,27 @@ export default function ConvidarPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Convidar para a Plataforma</h1>
-        <p className="text-muted-foreground">
-          Convide colegas, parceiros e fornecedores para se juntarem à plataforma MOAP.
-        </p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Pessoas / Convites"
+        title="Convidar para a Plataforma"
+        description="Convide colegas, parceiros e fornecedores para se juntarem à plataforma MOAP."
+      />
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-primary/10">
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Convites</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-price-average/10">
-                <Clock className="h-5 w-5 text-price-average" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Pendentes</p>
-                <p className="text-2xl font-bold">{stats.pendente}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-price-below/10">
-                <CheckCircle className="h-5 w-5 text-price-below" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Aceites</p>
-                <p className="text-2xl font-bold">{stats.aceite}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-muted">
-                <XCircle className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Expirados</p>
-                <p className="text-2xl font-bold">{stats.expirado}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <DashboardStatCard eyebrow="Total Convites" value={stats.total} icon={Users} tone="primary" />
+        <DashboardStatCard eyebrow="Pendentes" value={stats.pendente} icon={Clock} tone="amber" />
+        <DashboardStatCard eyebrow="Aceites" value={stats.aceite} icon={CheckCircle} />
+        <DashboardStatCard eyebrow="Expirados" value={stats.expirado} icon={XCircle} tone="muted" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Invite Form */}
-        <Card className="bg-card/50">
+        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5" />
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Envio · convites</p>
+            <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+              <UserPlus className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               Enviar Convites
             </CardTitle>
             <CardDescription>Convide pessoas por email ou partilhe o link de convite</CardDescription>
@@ -228,7 +182,7 @@ export default function ConvidarPage() {
                         placeholder="email@exemplo.pt"
                         value={singleEmail}
                         onChange={(e) => setSingleEmail(e.target.value)}
-                        className="bg-input/50"
+                        className="border-border/60 bg-background/60"
                         required
                       />
                     </div>
@@ -238,7 +192,7 @@ export default function ConvidarPage() {
                         placeholder="Nome da pessoa"
                         value={singleName}
                         onChange={(e) => setSingleName(e.target.value)}
-                        className="bg-input/50"
+                        className="border-border/60 bg-background/60"
                       />
                     </div>
                   </div>
@@ -248,7 +202,7 @@ export default function ConvidarPage() {
                       placeholder="Adicione uma mensagem pessoal ao convite..."
                       value={personalMessage}
                       onChange={(e) => setPersonalMessage(e.target.value)}
-                      className="bg-input/50"
+                      className="border-border/60 bg-background/60"
                       rows={3}
                     />
                   </div>
@@ -267,7 +221,7 @@ export default function ConvidarPage() {
                       placeholder="Insira os emails separados por vírgula, ponto-e-vírgula ou nova linha:&#10;&#10;email1@exemplo.pt&#10;email2@exemplo.pt&#10;email3@exemplo.pt"
                       value={emailList}
                       onChange={(e) => setEmailList(e.target.value)}
-                      className="bg-input/50 min-h-[120px] font-mono text-sm"
+                      className="border-border/60 bg-background/60 min-h-[120px] font-mono text-sm"
                     />
                     <p className="text-xs text-muted-foreground">
                       {emailList
@@ -283,7 +237,7 @@ export default function ConvidarPage() {
                       placeholder="Mensagem para todos os convites..."
                       value={personalMessage}
                       onChange={(e) => setPersonalMessage(e.target.value)}
-                      className="bg-input/50"
+                      className="border-border/60 bg-background/60"
                       rows={2}
                     />
                   </div>
@@ -303,7 +257,7 @@ export default function ConvidarPage() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <Input value={inviteLink} readOnly className="bg-input/50 font-mono text-sm" />
+                    <Input value={inviteLink} readOnly className="border-border/60 bg-background/60 font-mono text-sm" />
                     <Button variant="outline" onClick={handleCopyLink}>
                       {copiedLink ? <CheckCircle className="h-4 w-4 text-price-below" /> : <Copy className="h-4 w-4" />}
                     </Button>
@@ -332,10 +286,11 @@ export default function ConvidarPage() {
         </Card>
 
         {/* Invitations List */}
-        <Card className="bg-card/50">
+        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Histórico · convites</p>
+            <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+              <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               Convites Enviados
             </CardTitle>
             <CardDescription>Histórico e estado dos convites</CardDescription>
@@ -349,7 +304,7 @@ export default function ConvidarPage() {
                 return (
                   <div
                     key={invitation.id}
-                    className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border/50 bg-background/50"
+                    className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-background/40 p-3"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">

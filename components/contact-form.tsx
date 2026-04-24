@@ -4,9 +4,10 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { Mail, Phone, MapPin, Loader2 } from "lucide-react"
+import { Mail, Phone, MapPin, Loader2, ArrowUpRight, Send } from "lucide-react"
+import { BlueprintBackdrop } from "@/components/landing/blueprint-backdrop"
 
 export function ContactForm() {
   const [isLoading, setIsLoading] = useState(false)
@@ -37,7 +38,7 @@ export function ContactForm() {
 
       if (!response.ok) throw new Error("Failed to send message")
 
-      toast.success("Mensagem Enviada", {
+      toast.success("Mensagem enviada", {
         description: "Obrigado por contactar-nos. Responderemos em breve.",
       })
 
@@ -50,8 +51,8 @@ export function ContactForm() {
         message: "",
       })
     } catch (error) {
-      toast.error("Erro", {
-        description: "Falha ao enviar a mensagem. Tente novamente.",
+      toast.error("Falha no envio", {
+        description: "Não foi possível enviar a mensagem. Tente novamente.",
       })
     } finally {
       setIsLoading(false)
@@ -69,7 +70,7 @@ export function ContactForm() {
       icon: Phone,
       label: "Telefone",
       value: "+351 XXX XXX XXX",
-      href: "tel:+351XXX",
+      href: "tel:+351000000000",
     },
     {
       icon: MapPin,
@@ -80,133 +81,188 @@ export function ContactForm() {
   ]
 
   return (
-    <div className="relative min-h-screen bg-background py-20 lg:py-32 overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute top-20 left-1/4 h-[300px] w-[300px] rounded-full bg-primary/10 blur-[100px] animate-float" />
-        <div className="absolute bottom-1/4 right-1/3 h-[250px] w-[250px] rounded-full bg-accent/10 blur-[80px] animate-float animate-delay-500" />
-      </div>
+    <section className="relative overflow-hidden pb-16">
+      <BlueprintBackdrop variant="subtle" />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="mx-auto max-w-2xl text-center mb-16 animate-smooth-enter">
-          <h2 className="text-4xl font-bold tracking-tight sm:text-5xl bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">Entre em Contacto</h2>
-          <p className="mt-6 text-lg text-muted-foreground">
-            Tem questões sobre a MOAP? Gostaríamos de ouvir de si. Envie-nos uma mensagem e responderemos o mais breve possível.
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[5fr_7fr] lg:gap-16 lg:px-8">
+        {/* Left column — editorial copy + contact lines */}
+        <aside className="reveal-up">
+          <div className="eyebrow-strong">// Contacto / 01</div>
+          <h1 className="mt-3 display text-5xl sm:text-6xl lg:text-7xl">
+            Vamos
+            <br />
+            <span className="italic text-primary">conversar.</span>
+          </h1>
+          <p className="mt-6 max-w-md text-pretty text-muted-foreground leading-relaxed">
+            Tem um projeto, um orçamento para analisar, ou quer uma demonstração? Diga-nos
+            quem é e em que podemos ajudar — respondemos em poucas horas úteis.
           </p>
-        </div>
 
-        <div className="grid gap-8 lg:grid-cols-3 mb-16">
-          {contactInfo.map((info, idx) => {
-            const Icon = info.icon
-            return (
-              <a key={info.label} href={info.href} className="group animate-list-item" style={{ animationDelay: `${idx * 100}ms` }}>
-                <Card className="border border-border/40 bg-gradient-to-br from-card/60 to-card/30 hover:from-card/80 hover:to-card/50 transition-all duration-300 h-full hover-neon overflow-hidden">
-                  <CardContent className="pt-6 relative">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-primary/5 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    <div className="flex flex-col items-center text-center relative z-10">
-                      <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center group-hover:from-primary/40 group-hover:to-primary/20 transition-all duration-300 shadow-lg group-hover:shadow-xl">
-                        <Icon className="h-6 w-6 text-primary group-hover:scale-110 transition-transform duration-300 group-hover:animate-float-rotate" />
-                      </div>
-                      <h3 className="mt-4 font-semibold group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-primary group-hover:to-accent transition-all">{info.label}</h3>
-                      <p className="mt-2 text-sm text-muted-foreground group-hover:text-foreground transition-colors">{info.value}</p>
+          <div className="mt-10 space-y-4">
+            {contactInfo.map((info) => {
+              const Icon = info.icon
+              return (
+                <a
+                  key={info.label}
+                  href={info.href}
+                  className="group flex items-center justify-between border-t border-hairline py-4 transition-colors hover:border-primary/60"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-hairline bg-secondary text-primary transition-colors group-hover:border-primary/50 group-hover:bg-primary/10">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <div className="eyebrow">{info.label}</div>
+                      <div className="mt-0.5 font-medium">{info.value}</div>
                     </div>
-                  </CardContent>
-                </Card>
-              </a>
-            )
-          })}
-        </div>
+                  </div>
+                  <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
+                </a>
+              )
+            })}
+          </div>
 
-        <Card className="border border-border/40 bg-gradient-to-br from-card/60 to-card/30 max-w-2xl mx-auto backdrop-blur-enhanced overflow-hidden">
-          <div className="absolute top-0 left-0 w-40 h-40 bg-primary/10 blur-3xl opacity-50 -translate-x-1/2 -translate-y-1/2" />
-          <CardHeader className="relative z-10">
-            <CardTitle className="bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">Envie-nos uma Mensagem</CardTitle>
-            <CardDescription>Preencha o formulário abaixo e entraremos em contacto consigo.</CardDescription>
-          </CardHeader>
-          <CardContent className="relative z-10">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid gap-6 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Nome Completo</label>
+          <div className="mt-10 rounded-2xl border border-hairline bg-secondary/30 p-5">
+            <div className="eyebrow">Horário</div>
+            <div className="mt-2 text-sm text-foreground">
+              Segunda — Sexta{" "}
+              <span className="font-mono text-muted-foreground">09:00 — 18:00 WET</span>
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Resposta média em 4h em dias úteis.
+            </div>
+          </div>
+        </aside>
+
+        {/* Right column — form card */}
+        <div className="relative reveal-up">
+          <div className="relative overflow-hidden rounded-3xl border border-hairline bg-card noise-overlay">
+            {/* decorative eyebrow row */}
+            <div className="flex items-center justify-between border-b border-hairline px-6 py-4 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              <span className="text-primary">{"> form / send-message"}</span>
+              <span>{new Date().toISOString().slice(0, 10)}</span>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5 p-6 sm:p-8">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="Nome" required>
                   <Input
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    placeholder="Seu nome"
+                    placeholder="O seu nome"
                     required
+                    className="h-11 rounded-xl border-hairline bg-background"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Email</label>
+                </Field>
+                <Field label="Email" required>
                   <Input
                     name="email"
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
-                    placeholder="seu@email.com"
+                    placeholder="voce@exemplo.pt"
                     required
+                    className="h-11 rounded-xl border-hairline bg-background"
                   />
-                </div>
+                </Field>
               </div>
 
-              <div className="grid gap-6 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Telefone</label>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="Telefone">
                   <Input
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    placeholder="+351 XXX XXX XXX"
+                    placeholder="+351 …"
+                    className="h-11 rounded-xl border-hairline bg-background"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Empresa</label>
+                </Field>
+                <Field label="Empresa">
                   <Input
                     name="company"
                     value={formData.company}
                     onChange={handleChange}
-                    placeholder="Sua empresa"
+                    placeholder="Opcional"
+                    className="h-11 rounded-xl border-hairline bg-background"
                   />
-                </div>
+                </Field>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Assunto</label>
+              <Field label="Assunto" required>
                 <Input
                   name="subject"
                   value={formData.subject}
                   onChange={handleChange}
-                  placeholder="Assunto da mensagem"
+                  placeholder="Sobre o que é?"
                   required
+                  className="h-11 rounded-xl border-hairline bg-background"
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Mensagem</label>
+              <Field label="Mensagem" required>
                 <Textarea
                   name="message"
                   value={formData.message}
                   onChange={handleChange}
-                  placeholder="Sua mensagem aqui..."
+                  placeholder="Escreva a sua mensagem…"
                   rows={6}
                   required
+                  className="resize-none rounded-xl border-hairline bg-background"
                 />
-              </div>
+              </Field>
 
-              <Button type="submit" size="lg" className="w-full hover-neon hover-lift btn-ripple bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/50 transition-all duration-300 font-semibold" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    A enviar...
-                  </>
-                ) : (
-                  "Enviar Mensagem"
-                )}
-              </Button>
+              <div className="flex flex-col-reverse items-stretch gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Ao enviar, concorda com a nossa{" "}
+                  <a href="/privacy-policy" className="underline underline-offset-2 hover:text-foreground">
+                    Política de Privacidade
+                  </a>
+                  .
+                </p>
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={isLoading}
+                  className="group h-12 rounded-full px-6 font-medium"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      A enviar…
+                    </>
+                  ) : (
+                    <>
+                      Enviar mensagem
+                      <Send className="ml-2 h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                    </>
+                  )}
+                </Button>
+              </div>
             </form>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
+    </section>
+  )
+}
+
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string
+  required?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <Label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+        {required ? <span className="text-primary">*</span> : null}
+      </Label>
+      {children}
     </div>
   )
 }

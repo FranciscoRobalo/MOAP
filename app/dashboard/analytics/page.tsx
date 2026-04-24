@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useData } from "@/contexts/data-context"
 import { useLanguage } from "@/contexts/language-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
+import { DashboardStatCard } from "@/components/dashboard/stat-card"
 import {
   BarChart,
   Bar,
@@ -169,63 +171,38 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{labels.title}</h1>
-        <p className="text-muted-foreground">{labels.subtitle}</p>
-      </div>
+      <DashboardPageHeader
+        eyebrow={language === "pt" ? "Relatórios / Visão geral" : language === "es" ? "Informes / Vista general" : "Reports / Overview"}
+        title={labels.title}
+        description={labels.subtitle}
+      />
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{labels.totalProjects}</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{obras.length}</div>
-            <div className="flex items-center gap-1 text-xs text-price-below">
-              <TrendingUp className="h-3 w-3" />+{statusCounts.aprovado} {labels.approved.toLowerCase()}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{labels.totalBudgets}</CardTitle>
-            <Calculator className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{budgets.length}</div>
-            <div className="flex items-center gap-1 text-xs text-price-below">
-              <TrendingUp className="h-3 w-3" />
-              {budgets.filter((b) => b.status === "finalizado").length} finalizados
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{labels.totalValue}</CardTitle>
-            <Euro className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">€{(totalBudgetValue / 1000).toFixed(0)}k</div>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              {language === "pt" ? "em orçamentos" : language === "es" ? "en presupuestos" : "in budgets"}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{labels.scheduledVisits}</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{scheduledVisitsCount}</div>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              {visitas.filter((v) => v.status === "realizada").length}{" "}
-              {language === "pt" ? "realizadas" : language === "es" ? "realizadas" : "completed"}
-            </div>
-          </CardContent>
-        </Card>
+        <DashboardStatCard
+          eyebrow={labels.totalProjects}
+          value={obras.length}
+          description={`+${statusCounts.aprovado} ${labels.approved.toLowerCase()}`}
+          icon={Building2}
+        />
+        <DashboardStatCard
+          eyebrow={labels.totalBudgets}
+          value={budgets.length}
+          description={`${budgets.filter((b) => b.status === "finalizado").length} finalizados`}
+          icon={Calculator}
+        />
+        <DashboardStatCard
+          eyebrow={labels.totalValue}
+          value={`€${(totalBudgetValue / 1000).toFixed(0)}k`}
+          description={language === "pt" ? "em orçamentos" : language === "es" ? "en presupuestos" : "in budgets"}
+          icon={Euro}
+        />
+        <DashboardStatCard
+          eyebrow={labels.scheduledVisits}
+          value={scheduledVisitsCount}
+          description={`${visitas.filter((v) => v.status === "realizada").length} ${language === "pt" ? "realizadas" : language === "es" ? "realizadas" : "completed"}`}
+          icon={Calendar}
+        />
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
@@ -239,9 +216,10 @@ export default function AnalyticsPage() {
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             {/* Project Status Pie Chart */}
-            <Card className="bg-card/50">
+            <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
               <CardHeader>
-                <CardTitle>{labels.projectsByStatus}</CardTitle>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Distribuição · Estado</p>
+                <CardTitle className="font-display text-xl font-medium tracking-tight">{labels.projectsByStatus}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
@@ -269,9 +247,10 @@ export default function AnalyticsPage() {
             </Card>
 
             {/* Materials vs Works Distribution */}
-            <Card className="bg-card/50">
+            <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
               <CardHeader>
-                <CardTitle>{labels.priceDistribution}</CardTitle>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Distribuição · Base</p>
+                <CardTitle className="font-display text-xl font-medium tracking-tight">{labels.priceDistribution}</CardTitle>
                 <CardDescription>
                   {materialsCount + worksCount}{" "}
                   {language === "pt"
@@ -309,9 +288,10 @@ export default function AnalyticsPage() {
         </TabsContent>
 
         <TabsContent value="projects" className="space-y-4">
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle>{labels.projectTrend}</CardTitle>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Série temporal</p>
+              <CardTitle className="font-display text-xl font-medium tracking-tight">{labels.projectTrend}</CardTitle>
               <CardDescription>
                 {language === "pt"
                   ? "Evolução mensal de obras submetidas"
@@ -350,9 +330,10 @@ export default function AnalyticsPage() {
         </TabsContent>
 
         <TabsContent value="budgets" className="space-y-4">
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle>{labels.budgetTrend}</CardTitle>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Série temporal</p>
+              <CardTitle className="font-display text-xl font-medium tracking-tight">{labels.budgetTrend}</CardTitle>
               <CardDescription>
                 {language === "pt"
                   ? "Orçamentos e valores por mês"
@@ -401,9 +382,10 @@ export default function AnalyticsPage() {
         </TabsContent>
 
         <TabsContent value="prices" className="space-y-4">
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle>{labels.categoryBreakdown}</CardTitle>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Ranking · Categorias</p>
+              <CardTitle className="font-display text-xl font-medium tracking-tight">{labels.categoryBreakdown}</CardTitle>
               <CardDescription>
                 {language === "pt"
                   ? "Número de itens e preço médio por categoria"

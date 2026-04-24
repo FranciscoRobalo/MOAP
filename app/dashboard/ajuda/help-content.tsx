@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useLanguage } from "@/contexts/language-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import {
   Search,
   FileText,
@@ -270,10 +271,11 @@ export function HelpContent() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{labels.title}</h1>
-        <p className="text-muted-foreground">{labels.subtitle}</p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Recursos / FAQ"
+        title={labels.title}
+        description={labels.subtitle}
+      />
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -296,9 +298,10 @@ export function HelpContent() {
         <TabsContent value="faq" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Getting Started */}
-            <Card className="bg-card/50">
+            <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 01 / Onboarding</p>
+                <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
                   <BookOpen className="h-5 w-5 text-primary" />
                   {labels.gettingStarted}
                 </CardTitle>
@@ -316,9 +319,10 @@ export function HelpContent() {
             </Card>
 
             {/* Budget Analysis */}
-            <Card className="bg-card/50">
+            <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 02 / Análise</p>
+                <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
                   <BarChart3 className="h-5 w-5 text-primary" />
                   {labels.budgetAnalysis}
                 </CardTitle>
@@ -336,9 +340,10 @@ export function HelpContent() {
             </Card>
 
             {/* Project Management */}
-            <Card className="bg-card/50">
+            <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 03 / Projetos</p>
+                <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
                   <FileText className="h-5 w-5 text-primary" />
                   {labels.projectManagement}
                 </CardTitle>
@@ -356,9 +361,10 @@ export function HelpContent() {
             </Card>
 
             {/* Account Settings */}
-            <Card className="bg-card/50">
+            <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 04 / Conta</p>
+                <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
                   <HelpCircle className="h-5 w-5 text-primary" />
                   {labels.accountSettings}
                 </CardTitle>
@@ -380,16 +386,22 @@ export function HelpContent() {
         <TabsContent value="guides" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             {guides.map((guide, index) => (
-              <Card key={index} className="bg-card/50 hover:bg-card/80 transition-colors cursor-pointer">
+              <Card
+                key={index}
+                className="bp-bracket group relative cursor-pointer overflow-hidden border-border/60 bg-card/30 transition-colors hover:border-border"
+              >
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
-                    <div className="p-3 rounded-lg bg-primary/10">
-                      <guide.icon className="h-6 w-6 text-primary" />
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/60 text-primary">
+                      <guide.icon className="h-5 w-5" aria-hidden="true" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-1">{guide.title}</h3>
-                      <p className="text-sm text-muted-foreground mb-2">{guide.description}</p>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Guia · {String(index + 1).padStart(2, "0")}
+                      </p>
+                      <h3 className="mt-0.5 font-display text-lg font-medium tracking-tight">{guide.title}</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">{guide.description}</p>
+                      <div className="mt-2 flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         {guide.duration}
                       </div>
@@ -403,9 +415,10 @@ export function HelpContent() {
 
         <TabsContent value="contact" className="space-y-4">
           <div className="grid gap-6 md:grid-cols-2">
-            <Card className="bg-card/50">
+            <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
               <CardHeader>
-                <CardTitle>{labels.contactSupport}</CardTitle>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Suporte</p>
+                <CardTitle className="font-display text-xl font-medium tracking-tight">{labels.contactSupport}</CardTitle>
                 <CardDescription>
                   {language === "pt"
                     ? "Envie-nos uma mensagem e responderemos em breve"
@@ -449,51 +462,51 @@ export function HelpContent() {
             </Card>
 
             <div className="space-y-4">
-              <Card className="bg-card/50">
+              <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-primary/10">
-                      <Mail className="h-6 w-6 text-primary" />
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/60 text-primary">
+                      <Mail className="h-4 w-4" aria-hidden="true" />
                     </div>
                     <div>
-                      <h3 className="font-semibold">Email</h3>
-                      <p className="text-sm text-muted-foreground">suporte@moap.pt</p>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Email</p>
+                      <p className="mt-0.5 font-display text-base font-medium">suporte@moap.pt</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/50">
+              <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-primary/10">
-                      <Phone className="h-6 w-6 text-primary" />
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/60 text-primary">
+                      <Phone className="h-4 w-4" aria-hidden="true" />
                     </div>
                     <div>
-                      <h3 className="font-semibold">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                         {language === "pt" ? "Telefone" : language === "es" ? "Teléfono" : "Phone"}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">+351 210 000 000</p>
+                      </p>
+                      <p className="mt-0.5 font-display text-base font-medium">+351 210 000 000</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-card/50">
+              <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-primary/10">
-                      <Clock className="h-6 w-6 text-primary" />
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/60 text-primary">
+                      <Clock className="h-4 w-4" aria-hidden="true" />
                     </div>
                     <div>
-                      <h3 className="font-semibold">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                         {language === "pt"
                           ? "Horário de Suporte"
                           : language === "es"
                             ? "Horario de Soporte"
                             : "Support Hours"}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
+                      </p>
+                      <p className="mt-0.5 font-display text-base font-medium">
                         {language === "pt"
                           ? "Seg-Sex: 9h-18h"
                           : language === "es"

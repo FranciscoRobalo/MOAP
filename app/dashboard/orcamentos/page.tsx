@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { useData, type Budget, type BudgetItem } from "@/contexts/data-context"
 import { useAuth } from "@/contexts/auth-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import { toast } from "sonner"
 
 const availableMaterials = [
@@ -133,11 +134,11 @@ export default function OrcamentosPage() {
 
   const statusConfig = {
     rascunho: { label: "Rascunho", color: "bg-muted text-muted-foreground" },
-    pendente: { label: "Pendente Aprovação", color: "bg-yellow-500 text-white" },
+    pendente: { label: "Pendente Aprovação", color: "bg-amber text-background" },
     aprovado: { label: "Aprovado", color: "bg-price-below text-white" },
     rejeitado: { label: "Rejeitado", color: "bg-price-high text-white" },
     finalizado: { label: "Finalizado", color: "bg-primary text-primary-foreground" },
-    enviado: { label: "Enviado", color: "bg-blue-500 text-white" },
+    enviado: { label: "Enviado", color: "bg-primary text-primary-foreground" },
   }
 
   const calculateTotal = (items: BudgetItem[]) => {
@@ -236,18 +237,18 @@ export default function OrcamentosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Orçamentos</h1>
-          <p className="text-muted-foreground">Crie e gerencie orçamentos com base nos materiais da plataforma.</p>
-        </div>
-        <Dialog open={isCreating} onOpenChange={setIsCreating}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Orçamento
-            </Button>
-          </DialogTrigger>
+      <DashboardPageHeader
+        eyebrow="Gestão / 02"
+        title="Orçamentos"
+        description="Crie e gerencie orçamentos com base nos materiais da plataforma."
+        actions={
+          <Dialog open={isCreating} onOpenChange={setIsCreating}>
+            <DialogTrigger asChild>
+              <Button className="rounded-full gap-2">
+                <Plus className="h-4 w-4" />
+                Novo Orçamento
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Criar Novo Orçamento</DialogTitle>
@@ -260,13 +261,13 @@ export default function OrcamentosPage() {
                   placeholder="Ex: Orçamento Fase 1"
                   value={newBudget.name}
                   onChange={(e) => setNewBudget((p) => ({ ...p, name: e.target.value }))}
-                  className="bg-input/50"
+                  className="border-border/60 bg-background/60"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Obra *</Label>
                 <Select value={newBudget.obraName} onValueChange={(v) => setNewBudget((p) => ({ ...p, obraName: v }))}>
-                  <SelectTrigger className="bg-input/50">
+                  <SelectTrigger className="border-border/60 bg-background/60">
                     <SelectValue placeholder="Selecione a obra" />
                   </SelectTrigger>
                   <SelectContent>
@@ -285,29 +286,31 @@ export default function OrcamentosPage() {
                 <Button onClick={handleCreateBudget}>Criar Orçamento</Button>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Budget List */}
         <div className="lg:col-span-1 space-y-4">
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg">Orçamentos</CardTitle>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Registo</p>
+                  <CardTitle className="font-display text-xl font-medium tracking-tight">Orçamentos</CardTitle>
                   <CardDescription>{budgets.length} orçamentos criados</CardDescription>
                 </div>
                 {pendingCount > 0 && (
-                  <Badge className="bg-yellow-500 text-white animate-pulse">
-                    <Clock className="h-3 w-3 mr-1" />
+                  <Badge variant="outline" className="gap-1.5 rounded-full border-amber/40 bg-amber/10 font-mono text-[10px] uppercase tracking-wider text-amber">
+                    <Clock className="h-3 w-3" />
                     {pendingCount} pendente{pendingCount > 1 ? "s" : ""}
                   </Badge>
                 )}
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="bg-input/50 mt-2">
+                <SelectTrigger className="border-border/60 bg-background/60 mt-2">
                   <SelectValue placeholder="Filtrar por estado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -415,7 +418,7 @@ export default function OrcamentosPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="flex-1 bg-price-below/10 hover:bg-price-below/20 text-price-below border-price-below/30"
+                                className="flex-1 border-price-below/40 bg-price-below/10 text-price-below hover:bg-price-below/20"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   const itemsToImport = budget.items.map(item => ({
@@ -491,12 +494,13 @@ export default function OrcamentosPage() {
         {/* Budget Editor */}
         <div className="lg:col-span-2">
           {selectedBudget ? (
-            <Card className="bg-card/50">
+            <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calculator className="h-5 w-5" />
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Edição</p>
+                    <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+                      <Calculator className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                       {selectedBudget.name}
                     </CardTitle>
                     <CardDescription>{selectedBudget.obraName}</CardDescription>
@@ -514,15 +518,16 @@ export default function OrcamentosPage() {
               <CardContent className="space-y-6">
                 {/* Add Item */}
                 {selectedBudget.status === "rascunho" && (
-                  <div className="p-4 border rounded-lg bg-muted/30">
-                    <h4 className="font-medium mb-3">Adicionar Material</h4>
+                  <div className="rounded-md border border-border/60 bg-background/40 p-4">
+                    <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">+ novo item</p>
+                    <h4 className="sr-only">Adicionar Material</h4>
                     <div className="grid gap-4 sm:grid-cols-3">
                       <div className="sm:col-span-2">
                         <Select
                           value={newItem.materialId}
                           onValueChange={(v) => setNewItem((p) => ({ ...p, materialId: v }))}
                         >
-                          <SelectTrigger className="bg-input/50">
+                          <SelectTrigger className="border-border/60 bg-background/60">
                             <SelectValue placeholder="Selecione um material" />
                           </SelectTrigger>
                           <SelectContent>
@@ -540,7 +545,7 @@ export default function OrcamentosPage() {
                           placeholder="Qtd"
                           value={newItem.quantity || ""}
                           onChange={(e) => setNewItem((p) => ({ ...p, quantity: Number(e.target.value) }))}
-                          className="bg-input/50"
+                          className="border-border/60 bg-background/60"
                         />
                         <Button onClick={handleAddItem}>
                           <Plus className="h-4 w-4" />
@@ -585,7 +590,7 @@ export default function OrcamentosPage() {
                                 type="number"
                                 value={item.quantity}
                                 onChange={(e) => handleUpdateQuantity(item.id, Number(e.target.value))}
-                                className="w-20 h-8 text-right bg-input/50"
+                                className="w-20 h-8 text-right border-border/60 bg-background/60"
                               />
                             ) : (
                               item.quantity
@@ -598,7 +603,7 @@ export default function OrcamentosPage() {
                                 step="0.01"
                                 value={item.unitPrice}
                                 onChange={(e) => handleUpdatePrice(item.id, Number(e.target.value))}
-                                className="w-24 h-8 text-right bg-input/50"
+                                className="w-24 h-8 text-right border-border/60 bg-background/60"
                               />
                             ) : (
                               `€${item.unitPrice.toFixed(2)}`
@@ -658,7 +663,7 @@ export default function OrcamentosPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="bg-card/50">
+            <Card className="border-border/60 bg-card/30">
               <CardContent className="py-16 text-center">
                 <Calculator className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="font-semibold text-lg mb-2">Selecione um Orçamento</h3>

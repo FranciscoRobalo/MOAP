@@ -12,7 +12,7 @@ export default function ObrasListLoading() {
         <Skeleton className="h-10 w-32" />
       </div>
 
-      <Card className="bg-card/50">
+      <Card className="border-border/60 bg-card/30">
         <CardContent className="pt-6">
           <Skeleton className="h-10 w-full" />
         </CardContent>
@@ -20,7 +20,7 @@ export default function ObrasListLoading() {
 
       <div className="grid gap-4 md:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <Card key={i} className="bg-card/50">
+          <Card key={i} className="border-border/60 bg-card/30">
             <CardContent className="pt-6">
               <Skeleton className="h-16 w-full" />
             </CardContent>
@@ -30,7 +30,7 @@ export default function ObrasListLoading() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[...Array(6)].map((_, i) => (
-          <Card key={i} className="bg-card/50">
+          <Card key={i} className="border-border/60 bg-card/30">
             <CardHeader>
               <Skeleton className="h-6 w-3/4" />
               <Skeleton className="h-4 w-1/2" />
