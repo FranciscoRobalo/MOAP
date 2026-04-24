@@ -231,9 +231,10 @@ export default function VisitasPage() {
                 <Button type="submit">Agendar Visita</Button>
               </div>
             </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">

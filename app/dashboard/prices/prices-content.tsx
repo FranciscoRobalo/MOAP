@@ -308,32 +308,34 @@ export default function PricesContent() {
               <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
               {isSyncing ? "A Sincronizar..." : "Sincronizar Preços IA"}
             </Button>
-          <Button 
-            onClick={() => {
-              setActiveTab("materials")
-              setNewMaterial({ ...newMaterial, type: "material" })
-              setIsAdding(true)
-            }} 
-            disabled={isAdding}
-            variant="outline"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar Material
-          </Button>
-          <Button 
-            onClick={() => {
-              setActiveTab("works")
-              setNewMaterial({ ...newMaterial, type: "work" })
-              setIsAdding(true)
-            }} 
-            disabled={isAdding}
-            className="bg-price-below hover:bg-price-below/90"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar Serviço/Trabalho
-          </Button>
-        </div>
-      </div>
+            <Button
+              onClick={() => {
+                setActiveTab("materials")
+                setNewMaterial({ ...newMaterial, type: "material" })
+                setIsAdding(true)
+              }}
+              disabled={isAdding}
+              variant="outline"
+              className="rounded-full gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar Material
+            </Button>
+            <Button
+              onClick={() => {
+                setActiveTab("works")
+                setNewMaterial({ ...newMaterial, type: "work" })
+                setIsAdding(true)
+              }}
+              disabled={isAdding}
+              className="rounded-full gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar Serviço/Trabalho
+            </Button>
+          </div>
+        }
+      />
 
       {isSyncing && (
         <Card className="bg-primary/5 border-primary/20">
