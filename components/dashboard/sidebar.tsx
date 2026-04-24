@@ -21,6 +21,8 @@ import {
   HelpCircle,
   UserPlus,
   ExternalLink,
+  ClipboardCheck,
+  Inbox,
 } from "lucide-react"
 import { useAuth, type UserRole } from "@/contexts/auth-context"
 import { useData } from "@/contexts/data-context"
@@ -47,12 +49,16 @@ const navSections: NavSection[] = [
     items: [
       { nameKey: "overview", href: "/dashboard", icon: LayoutGrid, roles: ["admin", "cliente", "tecnico"] },
       { nameKey: "budgetAnalysis", href: "/dashboard/analise", icon: BarChart3, roles: ["admin", "cliente", "tecnico"] },
+      // Client-side view of budgets they submitted for admin review
+      { nameKey: "mySubmissions", href: "/dashboard/meus-orcamentos", icon: Inbox, roles: ["cliente", "tecnico"] },
       { nameKey: "messages", href: "/dashboard/messages", icon: MessageSquare, roles: ["admin", "cliente", "tecnico"] },
     ],
   },
   {
     labelKey: "navAdmin",
     items: [
+      // Admin queue for reviewing submitted analyses
+      { nameKey: "budgetReviews", href: "/dashboard/revisoes", icon: ClipboardCheck, roles: ["admin"] },
       { nameKey: "analytics", href: "/dashboard/analytics", icon: TrendingUp, roles: ["admin"] },
       { nameKey: "materialPrices", href: "/dashboard/prices", icon: DollarSign, roles: ["admin"] },
       { nameKey: "budgetApproval", href: "/dashboard/registos", icon: UserPlus, roles: ["admin"] },

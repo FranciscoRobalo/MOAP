@@ -1063,6 +1063,196 @@ button, a, [role="button"], input, textarea, select {
   }
 }
 
+/* ========================================================================
+   Custom cursor
+   ======================================================================== */
+
+/* Hide native cursor only when our custom cursor is actually active
+   (SSR-safe — the class is only added on fine-pointer devices after mount). */
+html.cursor-active,
+html.cursor-active body {
+  cursor: none;
+}
+html.cursor-active a,
+html.cursor-active button,
+html.cursor-active [role="button"],
+html.cursor-active input,
+html.cursor-active textarea,
+html.cursor-active select,
+html.cursor-active label,
+html.cursor-active summary,
+html.cursor-active [contenteditable="true"],
+html.cursor-active [data-cursor] {
+  cursor: none;
+}
+
+.cursor-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 160ms ease;
+  mix-blend-mode: normal;
+}
+.cursor-layer[data-visible] { opacity: 1; }
+
+.cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--foreground);
+  pointer-events: none;
+  will-change: transform;
+  /* IMPORTANT: `transform` is written every frame by JS. Do NOT add it to
+     this transition list — CSS would chase the target for 180ms on every
+     frame, which is the main source of cursor lag. */
+  transition:
+    width 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 160ms ease,
+    opacity 160ms ease;
+}
+
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 55%, transparent);
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
+  pointer-events: none;
+  will-change: transform, width, height, border-radius;
+  /* Same rule as the dot: never transition transform. backdrop-filter was
+     also removed — it forces an expensive GPU recomposite under a layer
+     whose transform changes 60 times a second. */
+  transition:
+    width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 200ms ease,
+    background 200ms ease;
+  display: grid;
+  place-items: center;
+}
+
+.cursor-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary-foreground);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 180ms ease, transform 180ms ease;
+  padding: 0 6px;
+}
+
+/* Hover state — grows into a soft primary pill */
+.cursor-layer[data-state="hover"] .cursor-ring {
+  width: 46px;
+  height: 46px;
+  border-color: color-mix(in srgb, var(--primary) 70%, transparent);
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.cursor-layer[data-state="hover"] .cursor-dot {
+  width: 4px;
+  height: 4px;
+  background: var(--primary);
+}
+
+/* Label state — capsule with text inside */
+.cursor-layer[data-state="label"] .cursor-ring {
+  width: auto;
+  min-width: 72px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  border-color: transparent;
+  background: var(--primary);
+}
+.cursor-layer[data-state="label"] .cursor-label {
+  opacity: 1;
+  transform: translateY(0);
+}
+.cursor-layer[data-state="label"] .cursor-dot {
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+/* Text / I-beam state */
+.cursor-layer[data-state="text"] .cursor-ring {
+  width: 2px;
+  height: 22px;
+  border-radius: 2px;
+  border-color: transparent;
+  background: var(--foreground);
+}
+.cursor-layer[data-state="text"] .cursor-dot {
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+/* Disabled / not-allowed */
+.cursor-layer[data-state="disabled"] .cursor-ring {
+  width: 46px;
+  height: 46px;
+  border-color: color-mix(in srgb, var(--destructive) 60%, transparent);
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+}
+.cursor-layer[data-state="disabled"] .cursor-ring::before {
+  content: "";
+  position: absolute;
+  inset: 50% 20%;
+  height: 1.5px;
+  background: var(--destructive);
+  transform: translateY(-50%) rotate(-45deg);
+  transform-origin: center;
+}
+.cursor-layer[data-state="disabled"] .cursor-dot {
+  background: var(--destructive);
+}
+
+/* Pressed — quick shrink flash. We animate width/height (which already have
+   transitions and center naturally thanks to the translate(-50%, -50%) the
+   JS loop applies) instead of using `transform: scale`, because transform
+   is owned by the RAF loop and any CSS override would fight it and make
+   the cursor jump back to the viewport origin. */
+.cursor-layer[data-pressed] .cursor-ring {
+  width: 28px;
+  height: 28px;
+}
+.cursor-layer[data-pressed] .cursor-dot {
+  width: 3px;
+  height: 3px;
+}
+
+/* Keep cursor hidden on hide-cursor contexts (modals sometimes request it) */
+[data-hide-cursor="true"] .cursor-layer { opacity: 0 !important; }
+
+/* Touch / no-hover — never show */
+@media (hover: none), (pointer: coarse) {
+  .cursor-layer { display: none; }
+  html.cursor-active,
+  html.cursor-active body { cursor: auto; }
+}
+
+/* Reduced motion — keep the cursor but remove smoothing is handled in JS */
+@media (prefers-reduced-motion: reduce) {
+  .cursor-ring,
+  .cursor-dot {
+    transition: none !important;
+  }
+}
+
 
 
 /* Print styles */

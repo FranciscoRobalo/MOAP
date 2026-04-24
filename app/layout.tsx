@@ -8,6 +8,7 @@ import { TutorialProvider } from "@/contexts/tutorial-context"
 import { LanguageProvider } from "@/contexts/language-context"
 import { ThemeProvider } from "@/contexts/theme-context"
 import { CookieConsent } from "@/components/cookie-consent"
+import { CustomCursor } from "@/components/cursor/custom-cursor"
 import "./globals.css"
 
 const _inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" })
@@ -43,6 +44,7 @@ export default function RootLayout({
           </LanguageProvider>
         </ThemeProvider>
         <CookieConsent />
+        <CustomCursor />
         <Analytics />
       </body>
     </html>

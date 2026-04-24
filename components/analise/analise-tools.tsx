@@ -1,14 +1,17 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import {
   Archive,
   BarChart3,
   FileDown,
   GitCompareArrows,
   Save,
+  Send,
   Sparkles,
   Wand2,
+  ArrowUpRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -17,6 +20,16 @@ import { SavingsSimulatorSheet } from "./savings-simulator-sheet"
 import { ProposalComparisonDialog } from "./proposal-comparison-dialog"
 import { HistorySheet } from "./history-sheet"
 import { ExecutiveReportDialog } from "./executive-report-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface AnaliseToolsProps {
   analysis: AnalysisResult | null
@@ -26,6 +39,7 @@ interface AnaliseToolsProps {
   isLoadingSaved: boolean
   decisions: Record<string, DecisionRecord>
   onSave: () => void
+  onSubmitForReview: () => Promise<boolean> | boolean
   onRefreshSaved: () => void
   onLoadSaved: (id: string) => void
   onDeleteSaved: (id: string) => void
@@ -39,6 +53,7 @@ export function AnaliseTools({
   isLoadingSaved,
   decisions,
   onSave,
+  onSubmitForReview,
   onRefreshSaved,
   onLoadSaved,
   onDeleteSaved,
@@ -47,6 +62,15 @@ export function AnaliseTools({
   const [compareOpen, setCompareOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const [submitOpen, setSubmitOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submittedId, setSubmittedId] = useState<string | null>(null)
+
+  // The "current" saved row (if we have one), used to show a status chip
+  // and to keep the Submit CTA honest (e.g. hide it once it's already
+  // submitted or approved).
+  const currentSaved = analysisId ? saved.find((s) => s.id === analysisId) : null
+  const currentStatus = currentSaved?.submission_status ?? "draft"
 
   const pendingDecisions =
     analysis?.items.filter((i) => {
@@ -76,8 +100,12 @@ export function AnaliseTools({
                 {pendingDecisions} por decidir
               </span>
             )}
+            {analysisId && currentSaved && (
+              <StatusChip status={currentStatus} />
+            )}
             <Button
               size="sm"
+              variant="outline"
               onClick={onSave}
               disabled={!analysis || isSaving}
               className="rounded-full"
@@ -85,6 +113,44 @@ export function AnaliseTools({
               <Save className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
               {analysisId ? "Guardar como novo" : isSaving ? "A guardar…" : "Guardar análise"}
             </Button>
+            {/* Submit-for-review CTA. Hidden once the submission is already
+                in the admin pipeline (submitted/in_review/approved) to keep
+                the action unambiguous. */}
+            {(currentStatus === "draft" || !analysisId) && (
+              <Button
+                size="sm"
+                onClick={() => setSubmitOpen(true)}
+                disabled={!analysis || isSaving || submitting}
+                className="rounded-full gap-1.5"
+              >
+                <Send className="h-3.5 w-3.5" aria-hidden="true" />
+                Submeter para revisão
+              </Button>
+            )}
+            {currentStatus === "changes_requested" && analysisId && (
+              <Button
+                size="sm"
+                onClick={() => setSubmitOpen(true)}
+                disabled={!analysis || submitting}
+                className="rounded-full gap-1.5"
+              >
+                <Send className="h-3.5 w-3.5" aria-hidden="true" />
+                Resubmeter com alterações
+              </Button>
+            )}
+            {submittedId && (
+              <Button
+                asChild
+                size="sm"
+                variant="secondary"
+                className="rounded-full gap-1.5"
+              >
+                <Link href={`/dashboard/meus-orcamentos/${submittedId}`}>
+                  Ver estado
+                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -162,7 +228,98 @@ export function AnaliseTools({
         onOpenChange={setReportOpen}
         analysis={analysis}
       />
+
+      {/* Submit-for-review confirmation dialog. We confirm on purpose so the
+          client understands the analysis will leave their workspace and
+          enter the admin review queue. */}
+      <AlertDialog open={submitOpen} onOpenChange={setSubmitOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {currentStatus === "changes_requested"
+                ? "Resubmeter orçamento"
+                : "Submeter orçamento para revisão"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-sm">
+              <span className="block">
+                {currentStatus === "changes_requested"
+                  ? "A versão atual será reenviada ao administrador. Certifique-se de que aplicou as alterações pedidas."
+                  : "A análise atual será enviada para a equipa MOAP para aprovação. Poderá acompanhar o estado em “Os meus orçamentos”."}
+              </span>
+              <span className="block font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                Após aprovação, receberá feedback detalhado e, se aplicável, preços revistos.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={submitting}
+              onClick={async (e) => {
+                e.preventDefault()
+                setSubmitting(true)
+                try {
+                  const ok = await onSubmitForReview()
+                  if (ok) {
+                    setSubmitOpen(false)
+                    setSubmittedId(analysisId)
+                  }
+                } finally {
+                  setSubmitting(false)
+                }
+              }}
+            >
+              <Send className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              {submitting ? "A submeter…" : "Confirmar submissão"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
+  )
+}
+
+const STATUS_CHIP_CONFIG: Record<
+  string,
+  { label: string; className: string }
+> = {
+  draft: {
+    label: "Rascunho",
+    className: "border-border/70 bg-muted/40 text-muted-foreground",
+  },
+  submitted: {
+    label: "Submetido",
+    className: "border-primary/40 bg-primary/10 text-primary",
+  },
+  in_review: {
+    label: "Em revisão",
+    className: "border-amber/40 bg-amber/10 text-amber",
+  },
+  approved: {
+    label: "Aprovado",
+    className: "border-price-below/40 bg-price-below/10 text-price-below",
+  },
+  changes_requested: {
+    label: "Alterações pedidas",
+    className: "border-price-above/40 bg-price-above/10 text-price-above",
+  },
+  rejected: {
+    label: "Rejeitado",
+    className: "border-price-critical/40 bg-price-critical/10 text-price-critical",
+  },
+}
+
+function StatusChip({ status }: { status: string }) {
+  const cfg = STATUS_CHIP_CONFIG[status] ?? STATUS_CHIP_CONFIG.draft
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em]",
+        cfg.className,
+      )}
+    >
+      {cfg.label}
+    </span>
   )
 }
 

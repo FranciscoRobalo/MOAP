@@ -33,6 +33,8 @@ import {
 } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { PlatformShowcase } from "@/components/platform-showcase"
+import { useAuth } from "@/contexts/auth-context"
 
 // Available card types for customization
 type CardType = "obras" | "budgets" | "messages" | "analytics" | "prices" | "users" | "documents"
@@ -43,6 +45,8 @@ const DEFAULT_CARDS: CardType[] = ["obras", "budgets", "messages"]
 export default function DashboardPage() {
   const { obras, budgets, conversations, notifications, materials } = useData()
   const { t, language } = useLanguage()
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
   const [isVisible, setIsVisible] = useState(false)
   const [visibleCards, setVisibleCards] = useState<CardType[]>(DEFAULT_CARDS)
   const [showCustomizeDialog, setShowCustomizeDialog] = useState(false)
@@ -507,6 +511,20 @@ export default function DashboardPage() {
           <ActivityFeed limit={8} />
         </div>
       </div>
+
+      {/* Workflow map — admin only. Identical marketing showcase that previously
+          lived on the public landing page, moved here so it mirrors the real
+          admin review flow (submission → admin review → client feedback). */}
+      {isAdmin && (
+        <div
+          className={`transition-all duration-500 ${
+            isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
+          style={{ transitionDelay: "1000ms" }}
+        >
+          <PlatformShowcase />
+        </div>
+      )}
     </div>
   )
 }
