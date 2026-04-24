@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import { Search, MessageSquare, UserPlus, MoreHorizontal } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
@@ -151,14 +150,17 @@ function UsersContent() {
           placeholder={language === "pt" ? "Pesquisar por nome, email ou empresa..." : language === "es" ? "Buscar por nombre, email o empresa..." : "Search by name, email or company..."}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9 bg-input/50"
+          className="pl-9 rounded-full border-border/60 bg-background/60"
         />
       </div>
 
       {/* Users Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredUsers.map((user) => (
-          <Card key={user.id} className="bg-card/50 overflow-hidden">
+          <Card
+            key={user.id}
+            className="bp-bracket group relative overflow-hidden border-border/60 bg-card/30 transition-colors hover:border-border"
+          >
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -166,20 +168,25 @@ function UsersContent() {
                     <img
                       src={user.avatar || "/placeholder.svg"}
                       alt={user.name}
-                      className="h-14 w-14 rounded-full object-cover"
+                      className="h-14 w-14 rounded-full object-cover ring-1 ring-border/60"
                     />
                     <span
-                      className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-card ${
+                      className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card ${
                         user.status === "online"
                           ? "bg-price-below"
                           : user.status === "away"
-                            ? "bg-price-average"
+                            ? "bg-amber"
                             : "bg-muted-foreground"
                       }`}
                     />
                   </div>
-                  <div>
-                    <CardTitle className="text-base">{user.name}</CardTitle>
+                  <div className="min-w-0">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                      {getTypeBadgeLabel(user.type)}
+                    </p>
+                    <CardTitle className="mt-0.5 font-display text-lg font-medium tracking-tight truncate">
+                      {user.name}
+                    </CardTitle>
                     <CardDescription className="text-sm">{user.role}</CardDescription>
                   </div>
                 </div>
@@ -198,22 +205,20 @@ function UsersContent() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-1 text-sm">
-                <p className="text-muted-foreground">{user.email}</p>
+              <div className="space-y-1 border-t border-border/40 pt-3 text-sm">
+                <p className="text-muted-foreground truncate">{user.email}</p>
                 <p className="font-medium">{user.company}</p>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex gap-2">
-                  <Badge variant="secondary" className="bg-primary/10 text-primary">
-                    {user.projects} {language === "pt" ? "projetos" : language === "es" ? "proyectos" : "projects"}
-                  </Badge>
-                  <Badge variant="outline" className="text-muted-foreground">
-                    {getTypeBadgeLabel(user.type)}
-                  </Badge>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-baseline gap-1">
+                  <span className="font-display text-2xl font-medium tracking-tight tabular-nums">{user.projects}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {language === "pt" ? "projetos" : language === "es" ? "proyectos" : "projects"}
+                  </span>
                 </div>
                 <Link href="/dashboard/messages">
-                  <Button size="sm" variant="outline">
-                    <MessageSquare className="mr-2 h-4 w-4" />
+                  <Button size="sm" variant="outline" className="rounded-full gap-1.5">
+                    <MessageSquare className="h-4 w-4" />
                     {language === "pt" ? "Mensagem" : language === "es" ? "Mensaje" : "Message"}
                   </Button>
                 </Link>

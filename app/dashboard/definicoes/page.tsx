@@ -81,7 +81,7 @@ export default function DefinicoesPage() {
       />
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="bg-card/50">
+        <TabsList className="border border-border/60 bg-card/30">
           <TabsTrigger value="profile" className="gap-2">
             <User className="h-4 w-4" />
             Perfil
@@ -102,9 +102,10 @@ export default function DefinicoesPage() {
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle>Informação do Perfil</CardTitle>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 01 / Perfil</p>
+              <CardTitle className="font-display text-2xl font-medium tracking-tight">Informação do Perfil</CardTitle>
               <CardDescription>Atualize as suas informações pessoais.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -179,9 +180,10 @@ export default function DefinicoesPage() {
 
         {/* Notifications Tab */}
         <TabsContent value="notifications" className="space-y-6">
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle>Preferências de Notificações</CardTitle>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 02 / Alertas</p>
+              <CardTitle className="font-display text-2xl font-medium tracking-tight">Preferências de Notificações</CardTitle>
               <CardDescription>Escolha como e quando deseja ser notificado.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -247,9 +249,10 @@ export default function DefinicoesPage() {
 
         {/* Preferences Tab */}
         <TabsContent value="preferences" className="space-y-6">
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle>Preferências Gerais</CardTitle>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 03 / Aparência</p>
+              <CardTitle className="font-display text-2xl font-medium tracking-tight">Preferências Gerais</CardTitle>
               <CardDescription>Configure a aparência e formato da aplicação.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -325,9 +328,10 @@ export default function DefinicoesPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 04 / Onboarding</p>
+              <CardTitle className="flex items-center gap-2 font-display text-2xl font-medium tracking-tight">
                 <Lightbulb className="h-5 w-5 text-primary" />
                 Tutorial da Plataforma
               </CardTitle>
@@ -354,9 +358,10 @@ export default function DefinicoesPage() {
 
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle>Segurança da Conta</CardTitle>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 05 / Segurança</p>
+              <CardTitle className="font-display text-2xl font-medium tracking-tight">Segurança da Conta</CardTitle>
               <CardDescription>Gerencie a segurança da sua conta.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -415,8 +420,8 @@ export default function DefinicoesPage() {
       </Tabs>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" />
+        <Button onClick={handleSave} disabled={saving} className="rounded-full gap-2">
+          <Save className="h-4 w-4" />
           {saving ? "A guardar..." : "Guardar Alterações"}
         </Button>
       </div>

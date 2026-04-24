@@ -216,9 +216,10 @@ export default function AnalyticsPage() {
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             {/* Project Status Pie Chart */}
-            <Card className="bg-card/50">
+            <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
               <CardHeader>
-                <CardTitle>{labels.projectsByStatus}</CardTitle>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Distribuição · Estado</p>
+                <CardTitle className="font-display text-xl font-medium tracking-tight">{labels.projectsByStatus}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
@@ -246,9 +247,10 @@ export default function AnalyticsPage() {
             </Card>
 
             {/* Materials vs Works Distribution */}
-            <Card className="bg-card/50">
+            <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
               <CardHeader>
-                <CardTitle>{labels.priceDistribution}</CardTitle>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Distribuição · Base</p>
+                <CardTitle className="font-display text-xl font-medium tracking-tight">{labels.priceDistribution}</CardTitle>
                 <CardDescription>
                   {materialsCount + worksCount}{" "}
                   {language === "pt"
@@ -286,9 +288,10 @@ export default function AnalyticsPage() {
         </TabsContent>
 
         <TabsContent value="projects" className="space-y-4">
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle>{labels.projectTrend}</CardTitle>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Série temporal</p>
+              <CardTitle className="font-display text-xl font-medium tracking-tight">{labels.projectTrend}</CardTitle>
               <CardDescription>
                 {language === "pt"
                   ? "Evolução mensal de obras submetidas"
@@ -327,9 +330,10 @@ export default function AnalyticsPage() {
         </TabsContent>
 
         <TabsContent value="budgets" className="space-y-4">
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle>{labels.budgetTrend}</CardTitle>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Série temporal</p>
+              <CardTitle className="font-display text-xl font-medium tracking-tight">{labels.budgetTrend}</CardTitle>
               <CardDescription>
                 {language === "pt"
                   ? "Orçamentos e valores por mês"
@@ -378,9 +382,10 @@ export default function AnalyticsPage() {
         </TabsContent>
 
         <TabsContent value="prices" className="space-y-4">
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle>{labels.categoryBreakdown}</CardTitle>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Ranking · Categorias</p>
+              <CardTitle className="font-display text-xl font-medium tracking-tight">{labels.categoryBreakdown}</CardTitle>
               <CardDescription>
                 {language === "pt"
                   ? "Número de itens e preço médio por categoria"

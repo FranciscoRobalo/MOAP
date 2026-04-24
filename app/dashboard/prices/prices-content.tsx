@@ -338,9 +338,10 @@ export default function PricesContent() {
       />
 
       {isSyncing && (
-        <Card className="bg-primary/5 border-primary/20">
+        <Card className="bp-bracket relative overflow-hidden border-primary/40 bg-primary/5">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Live · IA</p>
+            <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
               <RefreshCw className="h-5 w-5 animate-spin" />
               Sincronização em Progresso
             </CardTitle>
@@ -356,12 +357,19 @@ export default function PricesContent() {
       )}
 
       {showSyncResults && (
-        <Card className={priceChanges.length > 0 ? "bg-green-500/5 border-green-500/20" : "bg-muted/50"}>
+        <Card
+          className={
+            priceChanges.length > 0
+              ? "bp-bracket relative overflow-hidden border-price-below/40 bg-price-below/5"
+              : "bp-bracket relative overflow-hidden border-border/60 bg-card/30"
+          }
+        >
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Resultado</p>
+                <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+                  <CheckCircle2 className="h-5 w-5 text-price-below" />
                   Sincronização Concluída
                 </CardTitle>
                 <CardDescription>
@@ -379,7 +387,7 @@ export default function PricesContent() {
             <CardContent>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {priceChanges.map((change) => (
-                  <div key={change.id} className="flex items-center justify-between p-3 rounded-lg bg-card/50">
+                  <div key={change.id} className="flex items-center justify-between p-3 rounded-lg border-border/60 bg-card/30">
                     <div className="flex-1">
                       <p className="font-medium text-sm line-clamp-1">{change.name}</p>
                       <div className="flex items-center gap-2 mt-1">
@@ -443,9 +451,12 @@ export default function PricesContent() {
           </div>
 
           {isAdding && (
-            <Card className="bg-card/50 border-primary/50">
+            <Card className="bp-bracket relative overflow-hidden border-primary/40 bg-primary/5">
               <CardHeader>
-                <CardTitle className="text-lg">Novo {activeTab === "materials" ? "Material" : "Trabalho"}</CardTitle>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Novo Registo</p>
+                <CardTitle className="font-display text-xl font-medium tracking-tight">
+                  Adicionar {activeTab === "materials" ? "Material" : "Trabalho"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
@@ -517,9 +528,14 @@ export default function PricesContent() {
             </Card>
           )}
 
-          <Card className="bg-card/50">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
             <CardHeader>
-              <CardTitle>Lista de {activeTab === "materials" ? "Materiais" : "Trabalhos"}</CardTitle>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Registo · {activeTab === "materials" ? "Materiais" : "Trabalhos"}
+              </p>
+              <CardTitle className="font-display text-xl font-medium tracking-tight">
+                Lista de {activeTab === "materials" ? "Materiais" : "Trabalhos"}
+              </CardTitle>
               <CardDescription>
                 {filteredItems.length} {activeTab === "materials" ? "materiais" : "trabalhos"} encontrados
               </CardDescription>

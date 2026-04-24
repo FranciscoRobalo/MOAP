@@ -68,6 +68,8 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { cn } from "@/lib/utils"
 import { useData } from "@/contexts/data-context"
 import { useAuth } from "@/contexts/auth-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
+import { DashboardStatCard } from "@/components/dashboard/stat-card"
 import * as XLSX from "xlsx"
 import { toast } from "sonner"
 
@@ -2321,19 +2323,19 @@ www.moap.pt
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Análise de Orçamentos</h1>
-        <p className="text-muted-foreground">
-          Carregue um ficheiro CSV com o seu orçamento para comparar com os preços de referência.
-        </p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Operações / Análise"
+        title="Análise de Orçamentos"
+        description="Carregue um ficheiro CSV, PDF ou Excel para comparar com os preços de referência."
+      />
 
       {/* Upload Section */}
       {!analysisResult && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="bg-card/50" data-tutorial="analise-upload">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30" data-tutorial="analise-upload">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Passo · 01</p>
+              <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
                 <Upload className="h-5 w-5 text-primary" />
                 Carregar Orçamento
               </CardTitle>
@@ -2401,9 +2403,10 @@ www.moap.pt
             </CardContent>
           </Card>
 
-          <Card className="bg-card/50" data-tutorial="analise-format">
+          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30" data-tutorial="analise-format">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Referência</p>
+              <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
                 <Info className="h-5 w-5 text-primary" />
                 Formatos Aceites
               </CardTitle>
@@ -2486,53 +2489,60 @@ www.moap.pt
             </div>
           )}
 
-          {/* Summary Cards - Enhanced */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="bg-card/50">
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{analysisResult.totalBudget.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
-                <p className="text-sm text-muted-foreground">Total do Orçamento</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-card/50">
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{analysisResult.totalReference.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
-                <p className="text-sm text-muted-foreground">Total de Referência</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-card/50">
-              <CardContent className="pt-6">
-                <div className={cn("text-2xl font-bold", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).color)}>
-                  {analysisResult.overallVariance > 0 ? "+" : ""}
-                  {analysisResult.overallVariance.toFixed(1)}%
-                </div>
-                <p className="text-sm text-muted-foreground">Variação Global</p>
-              </CardContent>
-            </Card>
-            <Card className={cn("bg-card/50", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).bg)}>
-              <CardContent className="pt-6">
-                <div className={cn("text-2xl font-bold", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).color)}>
-                  {(ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).label}
-                </div>
-                <p className="text-sm text-muted-foreground">Classificação Geral</p>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Summary Cards - Editorial */}
+          {(() => {
+            const rating = ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown
+            const varianceTone: "default" | "primary" | "amber" | "muted" =
+              analysisResult.overallRating === "below"
+                ? "primary"
+                : analysisResult.overallRating === "above" || analysisResult.overallRating === "critical"
+                  ? "amber"
+                  : "default"
+            return (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <DashboardStatCard
+                  eyebrow="§ 01 / Orçamento"
+                  value={analysisResult.totalBudget.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                  description="Total do Orçamento"
+                />
+                <DashboardStatCard
+                  eyebrow="§ 02 / Referência"
+                  value={analysisResult.totalReference.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                  description="Total de Referência"
+                />
+                <DashboardStatCard
+                  eyebrow="§ 03 / Desvio"
+                  value={`${analysisResult.overallVariance > 0 ? "+" : ""}${analysisResult.overallVariance.toFixed(1)}%`}
+                  description="Variação Global"
+                  tone={varianceTone}
+                />
+                <DashboardStatCard
+                  eyebrow="§ 04 / Rating"
+                  value={rating.label}
+                  description="Classificação Geral"
+                  tone={varianceTone}
+                />
+              </div>
+            )
+          })()}
 
           {/* Quality Score and Quick Actions */}
           <div className="grid gap-4 md:grid-cols-2">
             {/* Quality Score Card */}
-            <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+            <Card className="bp-bracket relative overflow-hidden border-primary/30 bg-primary/5">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-2">Pontuação de Qualidade</p>
-                    <div className="flex items-baseline gap-2">
-                      <div className="text-3xl font-bold text-primary">{calculateQualityScore(analysisResult)}</div>
-                      <span className="text-muted-foreground">/100</span>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Quality Index</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Pontuação de Qualidade</p>
+                    <div className="mt-2 flex items-baseline gap-1">
+                      <span className="font-display text-4xl font-medium tracking-tight tabular-nums text-primary">
+                        {calculateQualityScore(analysisResult)}
+                      </span>
+                      <span className="font-mono text-xs text-muted-foreground">/ 100</span>
                     </div>
-                    <div className="w-32 h-1.5 bg-muted rounded-full mt-3 overflow-hidden">
-                      <div 
+                    <div className="w-40 h-1 bg-border/60 rounded-full mt-3 overflow-hidden">
+                      <div
                         className="h-full bg-primary transition-all"
                         style={{ width: `${calculateQualityScore(analysisResult)}%` }}
                       />
@@ -2540,9 +2550,10 @@ www.moap.pt
                   </div>
                   <button
                     onClick={() => setShowQualityDetails(!showQualityDetails)}
-                    className="p-2 hover:bg-primary/10 rounded-lg transition-colors"
+                    className="rounded-md border border-border/60 bg-background/60 p-2 text-primary transition-colors hover:bg-primary/10"
+                    aria-label="Detalhes da pontuação"
                   >
-                    <HelpCircle className="h-5 w-5 text-primary" />
+                    <HelpCircle className="h-4 w-4" />
                   </button>
                 </div>
                 {showQualityDetails && (
@@ -2566,7 +2577,7 @@ www.moap.pt
             </Card>
 
             {/* Quick Actions Toolbar */}
-            <Card className="bg-card/50">
+            <Card className="border-border/60 bg-card/30">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-medium text-muted-foreground">Ações Rápidas</p>
@@ -2632,7 +2643,7 @@ www.moap.pt
 
           {/* Advanced Metrics Row */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="bg-card/50 border-l-4 border-l-primary">
+            <Card className="border-border/60 bg-card/30 border-l-4 border-l-primary">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -2645,7 +2656,7 @@ www.moap.pt
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-card/50 border-l-4 border-l-price-below">
+            <Card className="border-border/60 bg-card/30 border-l-4 border-l-price-below">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -2658,7 +2669,7 @@ www.moap.pt
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-card/50 border-l-4 border-l-price-above">
+            <Card className="border-border/60 bg-card/30 border-l-4 border-l-price-above">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -2671,7 +2682,7 @@ www.moap.pt
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-card/50 border-l-4 border-l-price-critical">
+            <Card className="border-border/60 bg-card/30 border-l-4 border-l-price-critical">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -2711,7 +2722,7 @@ www.moap.pt
 
           {/* Category Breakdown */}
           {analysisResult.categoryBreakdown && analysisResult.categoryBreakdown.length > 0 && (
-            <Card className="bg-card/50">
+            <Card className="border-border/60 bg-card/30">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-primary" />
@@ -2756,7 +2767,7 @@ www.moap.pt
           )}
 
           {/* Distribution */}
-          <Card className="bg-card/50">
+          <Card className="border-border/60 bg-card/30">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-primary" />
@@ -2798,7 +2809,7 @@ www.moap.pt
           </Card>
 
           {/* Items Table */}
-          <Card className="bg-card/50">
+          <Card className="border-border/60 bg-card/30">
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
