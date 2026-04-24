@@ -3,14 +3,19 @@
 import { useEffect, useRef, useState } from "react"
 
 /**
- * Modern, editorial-feel custom cursor.
+ * Modern, editorial-feel custom cursor — zero-re-render edition.
  *
  * Two stacked layers:
- *   - .cursor-dot  — tiny, follows the pointer 1:1 (no smoothing)
+ *   - .cursor-dot  — tiny, near 1:1 pointer tracking
  *   - .cursor-ring — larger, lerp-smoothed trail that morphs by target
  *
+ * All hot-path work (pointer move, hover state, press state, visibility)
+ * mutates DOM attributes / transforms via refs. React only renders once:
+ * an empty shell on mount. This eliminates the lag caused by per-frame
+ * re-renders and by CSS transitions conflicting with transform updates.
+ *
  * Implicit state detection (no markup needed):
- *   - Hovering <a>, <button>, [role="button"], .bp-bracket, [data-cursor="hover"]
+ *   - Hovering <a>, <button>, [role="button"], [data-cursor="hover"], .bp-bracket
  *       → ring grows + soft primary fill
  *   - Hovering <input type="text|search|...">, <textarea>, [contenteditable]
  *       → ring becomes a thin I-beam
@@ -23,102 +28,138 @@ import { useEffect, useRef, useState } from "react"
  * entirely on touch devices.
  */
 export function CustomCursor() {
+  // Only React state — whether to render the shell at all.
+  // Everything else is ref-based to avoid re-renders during movement.
+  const [mounted, setMounted] = useState(false)
+  const [enabled, setEnabled] = useState(false)
+
+  const layerRef = useRef<HTMLDivElement>(null)
   const dotRef = useRef<HTMLDivElement>(null)
   const ringRef = useRef<HTMLDivElement>(null)
   const labelRef = useRef<HTMLSpanElement>(null)
 
-  const [enabled, setEnabled] = useState(false)
-  const [label, setLabel] = useState("")
-  const [mode, setMode] = useState<"default" | "hover" | "text" | "label" | "disabled">("default")
-  const [pressed, setPressed] = useState(false)
-  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
+    if (!mounted) return
     if (typeof window === "undefined") return
+
     const mqTouch = window.matchMedia("(hover: none), (pointer: coarse)")
     const mqReduced = window.matchMedia("(prefers-reduced-motion: reduce)")
+
     if (mqTouch.matches) {
       setEnabled(false)
       return
     }
+
     setEnabled(true)
     document.documentElement.classList.add("cursor-active")
-    const onTouchChange = () => {
-      if (mqTouch.matches) {
-        setEnabled(false)
-        document.documentElement.classList.remove("cursor-active")
-      } else {
-        setEnabled(true)
-        document.documentElement.classList.add("cursor-active")
-      }
-    }
-    mqTouch.addEventListener?.("change", onTouchChange)
 
-    const reduceMotion = mqReduced.matches
-    const onReducedChange = () => (reducedRef.current = mqReduced.matches)
-    const reducedRef = { current: reduceMotion }
-    mqReduced.addEventListener?.("change", onReducedChange)
+    const layer = layerRef.current
+    const dot = dotRef.current
+    const ring = ringRef.current
+    const labelEl = labelRef.current
+    if (!layer || !dot || !ring || !labelEl) return
 
-    // Pointer position (target) + eased ring position
+    // --- Mutable, non-React state ---------------------------------------
+    const reduced = { current: mqReduced.matches }
     const mouse = { x: -100, y: -100 }
     const ringPos = { x: -100, y: -100 }
     const dotPos = { x: -100, y: -100 }
-    let rafId = 0
     let magnetTarget: HTMLElement | null = null
+    let currentMode: "default" | "hover" | "text" | "label" | "disabled" = "default"
+    let currentLabel = ""
+    let visible = false
+    let pressed = false
+    let rafId = 0
 
+    // Attribute setters — write to DOM only when the value actually changes.
+    const setAttr = (name: string, value: string | null) => {
+      if (value == null) {
+        if (layer.hasAttribute(name)) layer.removeAttribute(name)
+      } else if (layer.getAttribute(name) !== value) {
+        layer.setAttribute(name, value)
+      }
+    }
+    const setMode = (m: typeof currentMode) => {
+      if (m === currentMode) return
+      currentMode = m
+      setAttr("data-state", m)
+    }
+    const setLabel = (text: string) => {
+      if (text === currentLabel) return
+      currentLabel = text
+      labelEl.textContent = text
+    }
+    const setVisible = (v: boolean) => {
+      if (v === visible) return
+      visible = v
+      setAttr("data-visible", v ? "true" : null)
+    }
+    const setPressed = (p: boolean) => {
+      if (p === pressed) return
+      pressed = p
+      setAttr("data-pressed", p ? "true" : null)
+    }
+
+    // --- Animation loop --------------------------------------------------
     const step = () => {
-      // Target position with optional magnetic pull
       let tx = mouse.x
       let ty = mouse.y
-      if (magnetTarget && !reducedRef.current) {
+      if (magnetTarget && !reduced.current) {
         const r = magnetTarget.getBoundingClientRect()
         const cx = r.left + r.width / 2
         const cy = r.top + r.height / 2
-        // Pull ~22% toward the element center when close to it
-        const pullX = (cx - mouse.x) * 0.22
-        const pullY = (cy - mouse.y) * 0.22
-        tx = mouse.x + pullX
-        ty = mouse.y + pullY
+        tx = mouse.x + (cx - mouse.x) * 0.22
+        ty = mouse.y + (cy - mouse.y) * 0.22
       }
 
-      // Dot — 1:1
-      dotPos.x += (mouse.x - dotPos.x) * (reducedRef.current ? 1 : 0.85)
-      dotPos.y += (mouse.y - dotPos.y) * (reducedRef.current ? 1 : 0.85)
+      // Dot — near 1:1 with light smoothing for sub-pixel stability
+      if (reduced.current) {
+        dotPos.x = mouse.x
+        dotPos.y = mouse.y
+      } else {
+        dotPos.x += (mouse.x - dotPos.x) * 0.9
+        dotPos.y += (mouse.y - dotPos.y) * 0.9
+      }
       // Ring — smoother trail
-      const ease = reducedRef.current ? 1 : 0.18
-      ringPos.x += (tx - ringPos.x) * ease
-      ringPos.y += (ty - ringPos.y) * ease
+      if (reduced.current) {
+        ringPos.x = tx
+        ringPos.y = ty
+      } else {
+        ringPos.x += (tx - ringPos.x) * 0.2
+        ringPos.y += (ty - ringPos.y) * 0.2
+      }
 
-      if (dotRef.current) {
-        dotRef.current.style.transform = `translate3d(${dotPos.x}px, ${dotPos.y}px, 0) translate(-50%, -50%)`
-      }
-      if (ringRef.current) {
-        ringRef.current.style.transform = `translate3d(${ringPos.x}px, ${ringPos.y}px, 0) translate(-50%, -50%)`
-      }
+      // Direct transform writes — no CSS transition on transform (see globals.css)
+      dot.style.transform = `translate3d(${dotPos.x}px, ${dotPos.y}px, 0) translate(-50%, -50%)`
+      ring.style.transform = `translate3d(${ringPos.x}px, ${ringPos.y}px, 0) translate(-50%, -50%)`
+
       rafId = requestAnimationFrame(step)
     }
     rafId = requestAnimationFrame(step)
 
+    // --- Pointer handlers -----------------------------------------------
     const onMove = (e: PointerEvent) => {
       mouse.x = e.clientX
       mouse.y = e.clientY
       if (!visible) setVisible(true)
     }
-    const onEnter = () => setVisible(true)
-    const onLeave = () => setVisible(false)
+    const onEnterWindow = () => setVisible(true)
+    const onLeaveWindow = () => setVisible(false)
     const onDown = () => setPressed(true)
     const onUp = () => setPressed(false)
 
-    // Hover target resolution — find the nearest "interactive" ancestor
+    const INTERACTIVE_SELECTOR =
+      'a, button, [role="button"], [data-cursor], [data-cursor-label], ' +
+      'input:not([type="hidden"]), textarea, select, [contenteditable="true"], ' +
+      'label, summary, [role="link"], [role="menuitem"], [role="tab"], [role="option"]'
+
     const resolveTarget = (el: Element | null): HTMLElement | null => {
       if (!el) return null
-      return (
-        (el.closest(
-          'a, button, [role="button"], [data-cursor], [data-cursor-label], ' +
-            'input:not([type="hidden"]), textarea, select, [contenteditable="true"], ' +
-            'label, summary, [role="link"], [role="menuitem"], [role="tab"], [role="option"]',
-        ) as HTMLElement | null) ?? null
-      )
+      return (el.closest(INTERACTIVE_SELECTOR) as HTMLElement | null) ?? null
     }
 
     const updateForTarget = (el: HTMLElement | null) => {
@@ -128,11 +169,15 @@ export function CustomCursor() {
         setLabel("")
         return
       }
-      // Explicit label takes priority
+
       const explicitLabel = el.getAttribute("data-cursor-label")
       const explicit = el.getAttribute("data-cursor")
 
-      if (explicit === "disabled" || el.hasAttribute("disabled") || el.getAttribute("aria-disabled") === "true") {
+      if (
+        explicit === "disabled" ||
+        el.hasAttribute("disabled") ||
+        el.getAttribute("aria-disabled") === "true"
+      ) {
         magnetTarget = null
         setMode("disabled")
         setLabel("")
@@ -150,7 +195,10 @@ export function CustomCursor() {
       const isText =
         explicit === "text" ||
         tag === "textarea" ||
-        (tag === "input" && !["button", "submit", "checkbox", "radio", "range", "file", "color"].includes((el as HTMLInputElement).type)) ||
+        (tag === "input" &&
+          !["button", "submit", "checkbox", "radio", "range", "file", "color"].includes(
+            (el as HTMLInputElement).type,
+          )) ||
         el.getAttribute("contenteditable") === "true"
 
       if (isText) {
@@ -167,19 +215,33 @@ export function CustomCursor() {
 
     const onOver = (e: PointerEvent) => updateForTarget(resolveTarget(e.target as Element))
     const onOut = (e: PointerEvent) => {
-      // Only reset if we leave ALL interactive ancestors
       const next = resolveTarget((e.relatedTarget as Element) ?? null)
-      if (!next) updateForTarget(null)
-      else updateForTarget(next)
+      updateForTarget(next)
+    }
+
+    // Media query listeners
+    const onTouchChange = () => {
+      if (mqTouch.matches) {
+        setEnabled(false)
+        document.documentElement.classList.remove("cursor-active")
+      } else {
+        setEnabled(true)
+        document.documentElement.classList.add("cursor-active")
+      }
+    }
+    const onReducedChange = () => {
+      reduced.current = mqReduced.matches
     }
 
     window.addEventListener("pointermove", onMove, { passive: true })
-    window.addEventListener("pointerdown", onDown)
-    window.addEventListener("pointerup", onUp)
-    window.addEventListener("pointerover", onOver)
-    window.addEventListener("pointerout", onOut)
-    document.addEventListener("mouseleave", onLeave)
-    document.addEventListener("mouseenter", onEnter)
+    window.addEventListener("pointerdown", onDown, { passive: true })
+    window.addEventListener("pointerup", onUp, { passive: true })
+    window.addEventListener("pointerover", onOver, { passive: true })
+    window.addEventListener("pointerout", onOut, { passive: true })
+    document.addEventListener("mouseleave", onLeaveWindow)
+    document.addEventListener("mouseenter", onEnterWindow)
+    mqTouch.addEventListener?.("change", onTouchChange)
+    mqReduced.addEventListener?.("change", onReducedChange)
 
     return () => {
       cancelAnimationFrame(rafId)
@@ -188,29 +250,20 @@ export function CustomCursor() {
       window.removeEventListener("pointerup", onUp)
       window.removeEventListener("pointerover", onOver)
       window.removeEventListener("pointerout", onOut)
-      document.removeEventListener("mouseleave", onLeave)
-      document.removeEventListener("mouseenter", onEnter)
+      document.removeEventListener("mouseleave", onLeaveWindow)
+      document.removeEventListener("mouseenter", onEnterWindow)
       mqTouch.removeEventListener?.("change", onTouchChange)
       mqReduced.removeEventListener?.("change", onReducedChange)
       document.documentElement.classList.remove("cursor-active")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [mounted])
 
-  if (!enabled) return null
+  if (!mounted || !enabled) return null
 
   return (
-    <div
-      aria-hidden="true"
-      data-state={mode}
-      data-pressed={pressed || undefined}
-      data-visible={visible || undefined}
-      className="cursor-layer"
-    >
+    <div ref={layerRef} aria-hidden="true" data-state="default" className="cursor-layer">
       <div ref={ringRef} className="cursor-ring">
-        <span ref={labelRef} className="cursor-label">
-          {label}
-        </span>
+        <span ref={labelRef} className="cursor-label" />
       </div>
       <div ref={dotRef} className="cursor-dot" />
     </div>

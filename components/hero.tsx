@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowUpRight, FileUp, TrendingUp } from "lucide-react"
+import { ArrowUpRight, Check, FileUp, MessageSquareWarning, TrendingUp, X } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 import { BlueprintBackdrop } from "@/components/landing/blueprint-backdrop"
 import { Marquee } from "@/components/landing/marquee"
@@ -158,19 +158,31 @@ function StatCell({
 }
 
 /**
- * Honest preview of a MOAP analysis report.
+ * Honest preview of the MOAP analysis workspace.
  *
  * Everything mirrors the real tool at /dashboard/analise:
- * - Metric labels: "Total do Orçamento", "Total de Referência",
- *   "Variação Global", "Classificação Geral" are the exact same strings.
- * - Items ("Demolição de paredes", "Betão C25/30", "Pintura interior")
- *   come from the real CSV example shown in the upload dialog.
- * - Rating vocabulary uses the real labels (Abaixo / Na média / Acima / Muito acima)
- *   and the shared --price-* color tokens from the analysis UI.
+ * - The four KPI cards use the exact same eyebrows and labels
+ *   ("§ 01 / Orçamento · Total do Orçamento", etc.) as DashboardStatCard.
+ * - Items come from the CSV example shown in the upload dialog.
+ * - Each row exposes the real three-way decision control
+ *   (Aceitar / Negociar / Rejeitar) implemented by DecisionControls.
+ * - The footer strip mirrors the real Quality Index card (x/100 + bar)
+ *   and the Potencial de poupança summary shown above the table.
+ * - Colors come from the shared --price-* tokens.
  */
 function ReportPreviewCard() {
-  // Real CSV example items + realistic market deltas
-  const items = [
+  // Real CSV example items + realistic market deltas + pre-made decisions
+  type Decision = "accepted" | "negotiate" | "rejected"
+  const items: {
+    name: string
+    unit: string
+    qty: number
+    unitPrice: number
+    refPrice: number
+    variance: number
+    rating: "below" | "average" | "above" | "critical"
+    decision: Decision
+  }[] = [
     {
       name: "Demolição de paredes",
       unit: "m²",
@@ -178,7 +190,8 @@ function ReportPreviewCard() {
       unitPrice: 12.5,
       refPrice: 14.0,
       variance: -10.7,
-      rating: "below" as const,
+      rating: "below",
+      decision: "accepted",
     },
     {
       name: "Betão C25/30",
@@ -187,16 +200,18 @@ function ReportPreviewCard() {
       unitPrice: 95.0,
       refPrice: 98.0,
       variance: -3.1,
-      rating: "average" as const,
+      rating: "average",
+      decision: "accepted",
     },
     {
       name: "Pintura interior",
       unit: "m²",
       qty: 200,
-      unitPrice: 8.75,
+      unitPrice: 11.85,
       refPrice: 11.0,
-      variance: -20.5,
-      rating: "critical" as const,
+      variance: 7.7,
+      rating: "above",
+      decision: "negotiate",
     },
   ]
 
@@ -204,6 +219,16 @@ function ReportPreviewCard() {
   const totalBudget = items.reduce((s, i) => s + i.qty * i.unitPrice, 0)
   const totalReference = items.reduce((s, i) => s + i.qty * i.refPrice, 0)
   const globalVariance = ((totalBudget - totalReference) / totalReference) * 100
+  const potentialSavings = items
+    .filter((i) => i.variance > 0)
+    .reduce((s, i) => s + (i.unitPrice - i.refPrice) * i.qty, 0)
+
+  const varianceTone =
+    globalVariance <= -3
+      ? "text-price-below"
+      : globalVariance >= 3
+        ? "text-price-above"
+        : "text-foreground"
 
   return (
     <div className="relative">
@@ -213,52 +238,87 @@ function ReportPreviewCard() {
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
           <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
         </span>
-        <span className="eyebrow-strong">Relatório MOAP</span>
+        <span className="eyebrow-strong">Workspace MOAP · Análise</span>
       </div>
 
       <div className="bp-bracket relative overflow-hidden rounded-2xl border hairline bg-card shadow-2xl">
         {/* Scan sweep */}
         <div className="scan-sweep pointer-events-none absolute inset-0 overflow-hidden" />
 
-        {/* Header — clean editorial strip, no macOS chrome */}
+        {/* Header — editorial strip with file + item count */}
         <div className="flex items-center justify-between border-b hairline bg-secondary/30 px-5 py-3">
-          <span className="font-mono text-xs text-muted-foreground">orcamento.csv</span>
-          <span className="eyebrow">3 itens</span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">
+              MOAP / análise
+            </span>
+            <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+            <span className="font-mono text-xs text-muted-foreground">orcamento.csv</span>
+          </div>
+          <span className="eyebrow">3 itens · 1 região</span>
         </div>
 
-        {/* Top metrics — real labels */}
+        {/* KPI strip — identical structure to DashboardStatCard in /dashboard/analise */}
         <div className="grid grid-cols-2 divide-x hairline border-b hairline">
           <div className="p-4">
-            <p className="eyebrow">Total do Orçamento</p>
-            <p className="mt-1 font-display text-2xl font-medium tracking-tight text-foreground">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              § 01 / Orçamento
+            </p>
+            <p className="mt-1 font-display text-2xl font-medium tracking-tight tabular-nums text-foreground">
               € <AnimatedCounter value={Math.round(totalBudget)} decimals={0} duration={2000} />
             </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Total do Orçamento</p>
           </div>
           <div className="p-4">
-            <p className="eyebrow">Total de Referência</p>
-            <p className="mt-1 font-display text-2xl font-medium tracking-tight text-muted-foreground">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              § 02 / Referência
+            </p>
+            <p className="mt-1 font-display text-2xl font-medium tracking-tight tabular-nums text-muted-foreground">
               € <AnimatedCounter value={Math.round(totalReference)} decimals={0} duration={2200} />
             </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Total de Referência</p>
           </div>
           <div className="border-t hairline p-4">
-            <p className="eyebrow">Variação Global</p>
-            <p className="mt-1 font-mono text-xl text-price-below">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              § 03 / Desvio
+            </p>
+            <p className={`mt-1 font-display text-2xl font-medium tracking-tight tabular-nums ${varianceTone}`}>
+              {globalVariance > 0 ? "+" : ""}
               {globalVariance.toFixed(1)}%
             </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Variação Global</p>
           </div>
           <div className="border-t hairline bg-price-below/5 p-4">
-            <p className="eyebrow">Classificação Geral</p>
-            <p className="mt-1 font-mono text-sm font-semibold text-price-below">
-              Abaixo da Média
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">§ 04 / Rating</p>
+            <p className="mt-1 font-display text-2xl font-medium tracking-tight text-price-below">
+              Abaixo
             </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Classificação Geral</p>
           </div>
         </div>
 
-        {/* Items table — real items from CSV example */}
+        {/* Potencial de poupança — matches the real callout in analise */}
+        <div className="flex items-center justify-between gap-4 border-b hairline bg-primary/5 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border hairline bg-background">
+              <TrendingUp className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p className="eyebrow">Potencial de poupança</p>
+              <p className="font-display text-lg font-medium tabular-nums text-primary">
+                € {potentialSavings.toLocaleString("pt-PT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </p>
+            </div>
+          </div>
+          <span className="hidden rounded-full border border-primary/30 bg-primary/10 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-primary sm:inline-flex">
+            IA · script pronto
+          </span>
+        </div>
+
+        {/* Items — each row shows the real decision control from /dashboard/analise */}
         <div className="divide-y hairline">
           <div className="grid grid-cols-[1fr_auto] items-center gap-4 bg-secondary/40 px-4 py-2">
-            <span className="eyebrow">Artigo</span>
-            <span className="eyebrow text-right">Δ vs. mercado</span>
+            <span className="eyebrow">Artigo · Δ vs. mercado</span>
+            <span className="eyebrow text-right">Decisão</span>
           </div>
           {items.map((r, i) => (
             <div
@@ -267,23 +327,32 @@ function ReportPreviewCard() {
               style={{ animation: `fade-in 0.6s ease-out ${0.6 + i * 0.15}s backwards` }}
             >
               <div className="min-w-0">
-                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {r.qty} {r.unit} · € {r.unitPrice.toFixed(2)}/{r.unit}
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-medium text-foreground">{r.name}</p>
+                  <RatingChip variance={r.variance} rating={r.rating} />
+                </div>
+                <p className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {r.qty} {r.unit} · € {r.unitPrice.toFixed(2)}/{r.unit} · ref. € {r.refPrice.toFixed(2)}
                 </p>
-                <p className="truncate text-sm font-medium text-foreground">{r.name}</p>
               </div>
-              <RatingChip variance={r.variance} rating={r.rating} />
+              <DecisionPillStatic decision={r.decision} />
             </div>
           ))}
         </div>
 
-        {/* Footer progress */}
-        <div className="flex items-center justify-between border-t hairline px-4 py-3">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-3.5 w-3.5 text-primary" />
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              Pontuação de qualidade 92/100
-            </span>
+        {/* Footer — mirrors the real Quality Index card */}
+        <div className="flex items-center justify-between gap-4 border-t hairline px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Quality Index</p>
+              <div className="mt-1 flex items-baseline gap-1">
+                <span className="font-display text-lg font-medium tabular-nums text-primary">92</span>
+                <span className="font-mono text-[10px] text-muted-foreground">/ 100</span>
+              </div>
+            </div>
+            <div className="h-1 w-28 overflow-hidden rounded-full bg-border/60">
+              <div className="h-full bg-primary" style={{ width: "92%" }} />
+            </div>
           </div>
           <span className="eyebrow-strong">EXEMPLO</span>
         </div>
@@ -311,10 +380,47 @@ function RatingChip({
   const sign = variance > 0 ? "+" : ""
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-mono text-xs ${colorClass}`}
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] ${colorClass}`}
     >
       {sign}
       {variance.toFixed(1)}%
     </span>
+  )
+}
+
+/**
+ * Visual replica of the real <DecisionControls /> group used per-row in
+ * /dashboard/analise. Static (non-interactive) because it lives on the
+ * landing page — but the geometry, colors, and icons all match 1:1.
+ */
+function DecisionPillStatic({ decision }: { decision: "accepted" | "negotiate" | "rejected" }) {
+  const segments: {
+    key: "accepted" | "negotiate" | "rejected"
+    Icon: typeof Check
+    active: string
+  }[] = [
+    { key: "accepted", Icon: Check, active: "border-price-below/60 bg-price-below/10 text-price-below" },
+    { key: "negotiate", Icon: MessageSquareWarning, active: "border-price-above/60 bg-price-above/10 text-price-above" },
+    { key: "rejected", Icon: X, active: "border-price-critical/60 bg-price-critical/10 text-price-critical" },
+  ]
+  return (
+    <div
+      className="inline-flex items-center gap-px overflow-hidden rounded-full border hairline bg-background/40 p-0.5"
+      aria-label="Decisão sobre o item"
+    >
+      {segments.map(({ key, Icon, active }) => {
+        const isActive = key === decision
+        return (
+          <span
+            key={key}
+            className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-muted-foreground ${
+              isActive ? active : "border-transparent"
+            }`}
+          >
+            <Icon className="h-3 w-3" />
+          </span>
+        )
+      })}
+    </div>
   )
 }

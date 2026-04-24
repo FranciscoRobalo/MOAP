@@ -1107,6 +1107,9 @@ html.cursor-active [data-cursor] {
   background: var(--foreground);
   pointer-events: none;
   will-change: transform;
+  /* IMPORTANT: `transform` is written every frame by JS. Do NOT add it to
+     this transition list — CSS would chase the target for 180ms on every
+     frame, which is the main source of cursor lag. */
   transition:
     width 160ms cubic-bezier(0.22, 1, 0.36, 1),
     height 160ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -1123,16 +1126,17 @@ html.cursor-active [data-cursor] {
   border-radius: 9999px;
   border: 1px solid color-mix(in srgb, var(--foreground) 55%, transparent);
   background: color-mix(in srgb, var(--foreground) 4%, transparent);
-  backdrop-filter: blur(2px) saturate(1.2);
   pointer-events: none;
   will-change: transform, width, height, border-radius;
+  /* Same rule as the dot: never transition transform. backdrop-filter was
+     also removed — it forces an expensive GPU recomposite under a layer
+     whose transform changes 60 times a second. */
   transition:
     width 220ms cubic-bezier(0.22, 1, 0.36, 1),
     height 220ms cubic-bezier(0.22, 1, 0.36, 1),
     border-radius 220ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 200ms ease,
-    background 200ms ease,
-    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    background 200ms ease;
   display: grid;
   place-items: center;
 }
@@ -1217,9 +1221,18 @@ html.cursor-active [data-cursor] {
   background: var(--destructive);
 }
 
-/* Pressed — quick scale-down flash */
+/* Pressed — quick shrink flash. We animate width/height (which already have
+   transitions and center naturally thanks to the translate(-50%, -50%) the
+   JS loop applies) instead of using `transform: scale`, because transform
+   is owned by the RAF loop and any CSS override would fight it and make
+   the cursor jump back to the viewport origin. */
 .cursor-layer[data-pressed] .cursor-ring {
-  transform: translate3d(0, 0, 0) scale(0.78);
+  width: 28px;
+  height: 28px;
+}
+.cursor-layer[data-pressed] .cursor-dot {
+  width: 3px;
+  height: 3px;
 }
 
 /* Keep cursor hidden on hide-cursor contexts (modals sometimes request it) */
