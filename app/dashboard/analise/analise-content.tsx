@@ -70,6 +70,12 @@ import { useData } from "@/contexts/data-context"
 import { useAuth } from "@/contexts/auth-context"
 import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import { DashboardStatCard } from "@/components/dashboard/stat-card"
+import { AnaliseTools } from "@/components/analise/analise-tools"
+import { DecisionControls } from "@/components/analise/decision-controls"
+import { NotesSheet } from "@/components/analise/notes-sheet"
+import { NegotiationDialog } from "@/components/analise/negotiation-dialog"
+import { useAnaliseWorkspace } from "@/hooks/use-analise-workspace"
+import { StickyNote, MessageSquare } from "lucide-react"
 import * as XLSX from "xlsx"
 import { toast } from "sonner"
 
@@ -258,6 +264,58 @@ export default function AnaliseContent() {
   const [highlightRisks, setHighlightRisks] = useState(true)
   const [autoExpandSuggestions, setAutoExpandSuggestions] = useState(false)
   
+  // Workspace (Supabase-backed) — saved analyses, decisions, notes, scripts
+  const workspace = useAnaliseWorkspace(analysisResult)
+  const [notesItem, setNotesItem] = useState<BudgetItem | null>(null)
+  const [negotiationItem, setNegotiationItem] = useState<BudgetItem | null>(null)
+
+  // Load a saved analysis by id — transforms the DB row into an AnalysisResult shape
+  const loadSavedAnalysis = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/analise/saved/${id}`)
+      if (!res.ok) {
+        toast.error("Não foi possível carregar a análise")
+        return
+      }
+      const { analysis } = (await res.json()) as { analysis: any }
+      const restored: AnalysisResult = {
+        id: analysis.id,
+        fileName: analysis.file_name,
+        uploadDate: analysis.created_at,
+        region: analysis.region ?? "Lisboa e Vale do Tejo",
+        totalBudget: Number(analysis.total_budget) || 0,
+        totalReference: Number(analysis.total_reference) || 0,
+        overallVariance: Number(analysis.overall_variance) || 0,
+        overallRating: (analysis.overall_rating as AnalysisResult["overallRating"]) || "average",
+        items: (analysis.items as BudgetItem[]) ?? [],
+        stats:
+          (analysis.stats as AnalysisResult["stats"]) ?? {
+            totalItems: 0,
+            matchedItems: 0,
+            belowAverage: 0,
+            average: 0,
+            aboveAverage: 0,
+            critical: 0,
+            unknown: 0,
+            matchRate: 0,
+            avgConfidence: 0,
+            potentialSavings: 0,
+            riskItems: 0,
+          },
+        categoryBreakdown:
+          (analysis.category_breakdown as AnalysisResult["categoryBreakdown"]) ?? [],
+        recommendations: (analysis.recommendations as string[]) ?? [],
+        qualityScore: analysis.quality_score ?? undefined,
+      }
+      setAnalysisResult(restored)
+      workspace.setAnalysisId(analysis.id)
+      toast.success("Análise carregada")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar")
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Sorting
   const [sortField, setSortField] = useState<"name" | "price" | "variance" | "confidence">("name")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
@@ -2495,6 +2553,20 @@ Pintura interior;m2;200;8.75`}
             </div>
           )}
 
+          {/* Análise Workspace · saved, simulator, compare, history, export */}
+          <AnaliseTools
+            analysis={analysisResult}
+            analysisId={workspace.analysisId}
+            isSaving={workspace.isSaving}
+            saved={workspace.saved}
+            isLoadingSaved={workspace.isLoadingSaved}
+            decisions={workspace.decisions}
+            onSave={() => workspace.saveCurrent()}
+            onRefreshSaved={workspace.refreshSaved}
+            onLoadSaved={loadSavedAnalysis}
+            onDeleteSaved={workspace.deleteSaved}
+          />
+
           {/* Potential Savings Banner */}
           {analysisResult.stats.potentialSavings > 0 && (
             <div className="bp-bracket relative overflow-hidden rounded-lg border border-price-below/30 bg-price-below/5 p-5">
@@ -2590,7 +2662,7 @@ Pintura interior;m2;200;8.75`}
                       <p className="font-medium text-foreground mb-2">Composição da Pontuação:</p>
                       <p>🎯 Taxa de correspondência: {(analysisResult.stats.matchRate * 40).toFixed(0)}/40</p>
                       <p>⭐ Confiança média: {(analysisResult.stats.avgConfidence * 30).toFixed(0)}/30</p>
-                      <p>📊 Cobertura: {Math.min((analysisResult.items.length / 50) * 15, 15).toFixed(0)}/15</p>
+                      <p>��� Cobertura: {Math.min((analysisResult.items.length / 50) * 15, 15).toFixed(0)}/15</p>
                       <p>🛡️ Baixo risco: {((1 - analysisResult.stats.riskItems / Math.max(analysisResult.items.length, 1)) * 15).toFixed(0)}/15</p>
                     </div>
                     
@@ -3167,31 +3239,60 @@ Pintura interior;m2;200;8.75`}
                                     </div>
                                   </td>
                                   <td className="px-4 py-3">
-                                    <div className="flex justify-center gap-1">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => openEditDialog(item)}
-                                        disabled={isReanalyzing === item.id}
-                                        title="Editar item"
-                                      >
-                                        <Pencil className="h-4 w-4" />
-                                      </Button>
-                                      {isAdmin && (
+                                    <div className="flex flex-col items-center gap-2">
+                                      <div className="flex justify-center gap-1">
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          onClick={() => reanalyzeItem(item)}
+                                          onClick={() => openEditDialog(item)}
                                           disabled={isReanalyzing === item.id}
-                                          title="Re-analisar Item"
-                                          className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
+                                          title="Editar item"
                                         >
-                                          {isReanalyzing === item.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                          ) : (
-                                            <Sparkles className="h-4 w-4" />
-                                          )}
+                                          <Pencil className="h-4 w-4" />
                                         </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => setNotesItem(item)}
+                                          title="Anotações do item"
+                                        >
+                                          <StickyNote className="h-4 w-4" />
+                                        </Button>
+                                        {(item.rating === "above" || item.rating === "critical") && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setNegotiationItem(item)}
+                                            title="Gerar script de negociação (IA)"
+                                            className="text-primary hover:text-primary"
+                                          >
+                                            <MessageSquare className="h-4 w-4" />
+                                          </Button>
+                                        )}
+                                        {isAdmin && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => reanalyzeItem(item)}
+                                            disabled={isReanalyzing === item.id}
+                                            title="Re-analisar Item"
+                                            className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
+                                          >
+                                            {isReanalyzing === item.id ? (
+                                              <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                              <Sparkles className="h-4 w-4" />
+                                            )}
+                                          </Button>
+                                        )}
+                                      </div>
+                                      {(item.rating === "above" || item.rating === "critical") && (
+                                        <DecisionControls
+                                          value={workspace.decisions[item.id]?.decision}
+                                          onChange={(next) => workspace.setDecision(item.id, next)}
+                                          disabled={!workspace.analysisId}
+                                          size="xs"
+                                        />
                                       )}
                                     </div>
                                   </td>
