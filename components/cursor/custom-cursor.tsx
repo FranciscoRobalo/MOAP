@@ -219,16 +219,8 @@ export function CustomCursor() {
       updateForTarget(next)
     }
 
-    // Media query listeners
-    const onTouchChange = () => {
-      if (mqTouch.matches) {
-        setEnabled(false)
-        document.documentElement.classList.remove("cursor-active")
-      } else {
-        setEnabled(true)
-        document.documentElement.classList.add("cursor-active")
-      }
-    }
+    // Reduced-motion listener. If the user toggles the preference mid-session,
+    // the RAF loop reads `reduced.current` on every frame so it adapts immediately.
     const onReducedChange = () => {
       reduced.current = mqReduced.matches
     }
@@ -238,9 +230,11 @@ export function CustomCursor() {
     window.addEventListener("pointerup", onUp, { passive: true })
     window.addEventListener("pointerover", onOver, { passive: true })
     window.addEventListener("pointerout", onOut, { passive: true })
-    document.addEventListener("mouseleave", onLeaveWindow)
-    document.addEventListener("mouseenter", onEnterWindow)
-    mqTouch.addEventListener?.("change", onTouchChange)
+    // `mouseenter` / `mouseleave` don't bubble, so we attach them to <html>
+    // instead of `document`. They fire only when the pointer physically
+    // enters or leaves the viewport (tab switches, dragging off-screen).
+    document.documentElement.addEventListener("mouseleave", onLeaveWindow)
+    document.documentElement.addEventListener("mouseenter", onEnterWindow)
     mqReduced.addEventListener?.("change", onReducedChange)
 
     return () => {
@@ -250,15 +244,17 @@ export function CustomCursor() {
       window.removeEventListener("pointerup", onUp)
       window.removeEventListener("pointerover", onOver)
       window.removeEventListener("pointerout", onOut)
-      document.removeEventListener("mouseleave", onLeaveWindow)
-      document.removeEventListener("mouseenter", onEnterWindow)
-      mqTouch.removeEventListener?.("change", onTouchChange)
+      document.documentElement.removeEventListener("mouseleave", onLeaveWindow)
+      document.documentElement.removeEventListener("mouseenter", onEnterWindow)
       mqReduced.removeEventListener?.("change", onReducedChange)
       document.documentElement.classList.remove("cursor-active")
     }
   }, [mounted])
 
-  if (!mounted || !enabled) return null
+  // Always render the shell once mounted. On touch devices the CSS media
+  // query (@media (hover: none), (pointer: coarse)) hides it and restores
+  // the native cursor, so we don't need a React-side guard for that.
+  if (!mounted) return null
 
   return (
     <div ref={layerRef} aria-hidden="true" data-state="default" className="cursor-layer">
