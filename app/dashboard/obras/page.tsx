@@ -63,7 +63,7 @@ export default function ObrasListPage() {
       />
 
       {/* Filters */}
-      <Card className="bg-card/50">
+      <Card className="border-border/60 bg-card/30">
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center">
             <div className="relative flex-1">
@@ -72,12 +72,12 @@ export default function ObrasListPage() {
                 placeholder="Pesquisar obras..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-input/50"
+                className="pl-9 border-border/60 bg-background/60"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[140px] bg-input/50">
+                <SelectTrigger className="w-[140px] border-border/60 bg-background/60">
                   <Filter className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
@@ -91,7 +91,7 @@ export default function ObrasListPage() {
                 </SelectContent>
               </Select>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[160px] bg-input/50">
+                <SelectTrigger className="w-[160px] border-border/60 bg-background/60">
                   <Building2 className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Categoria" />
                 </SelectTrigger>
@@ -105,7 +105,7 @@ export default function ObrasListPage() {
                 </SelectContent>
               </Select>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[140px] bg-input/50">
+                <SelectTrigger className="w-[140px] border-border/60 bg-background/60">
                   <ArrowUpDown className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Ordenar" />
                 </SelectTrigger>
@@ -147,7 +147,7 @@ export default function ObrasListPage() {
           const status = statusConfig[obra.status as keyof typeof statusConfig] || { label: obra.status || "Unknown", color: "bg-muted text-muted-foreground" }
 
           return (
-            <Card key={obra.id} className="bg-card/50 hover:bg-card/80 transition-colors group">
+            <Card key={obra.id} className="group border-border/60 bg-card/30 transition-colors hover:border-border hover:bg-card/50">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
@@ -207,7 +207,7 @@ export default function ObrasListPage() {
       </div>
 
       {filteredObras.length === 0 && (
-        <Card className="bg-card/50">
+        <Card className="border-border/60 bg-card/30">
           <CardContent className="py-12 text-center">
             <Building2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-medium mb-2">Nenhuma obra encontrada</h3>

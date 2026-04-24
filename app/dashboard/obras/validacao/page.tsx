@@ -90,11 +90,11 @@ export default function ValidacaoObrasPage() {
             placeholder="Pesquisar obras..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-input/50"
+            className="pl-10 border-border/60 bg-background/60"
           />
         </div>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-48 bg-input/50">
+          <SelectTrigger className="w-48 border-border/60 bg-background/60">
             <SelectValue placeholder="Todos os estados" />
           </SelectTrigger>
           <SelectContent>
@@ -115,7 +115,7 @@ export default function ValidacaoObrasPage() {
           const StatusIcon = status.icon
 
           return (
-            <Card key={obra.id} className="bg-card/50">
+            <Card key={obra.id} className="border-border/60 bg-card/30">
               <CardContent className="pt-6">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="flex-1 space-y-2">
@@ -189,7 +189,7 @@ export default function ValidacaoObrasPage() {
         })}
 
         {filteredObras.length === 0 && (
-          <Card className="bg-card/50">
+          <Card className="border-border/60 bg-card/30">
             <CardContent className="py-12 text-center">
               <Building2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
               <p className="text-muted-foreground">Nenhuma obra encontrada com os filtros selecionados.</p>

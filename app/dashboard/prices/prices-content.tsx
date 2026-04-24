@@ -387,7 +387,7 @@ export default function PricesContent() {
             <CardContent>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {priceChanges.map((change) => (
-                  <div key={change.id} className="flex items-center justify-between p-3 rounded-lg border-border/60 bg-card/30">
+                  <div key={change.id} className="flex items-center justify-between p-3 rounded-md border border-border/60 bg-background/40">
                     <div className="flex-1">
                       <p className="font-medium text-sm line-clamp-1">{change.name}</p>
                       <div className="flex items-center gap-2 mt-1">
@@ -429,13 +429,13 @@ export default function PricesContent() {
                 placeholder="Pesquisar..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-input/50"
+                className="pl-9 border-border/60 bg-background/60"
               />
             </div>
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium whitespace-nowrap">Categoria:</label>
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-48 bg-input/50">
+                <SelectTrigger className="w-48 border-border/60 bg-background/60">
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
@@ -465,14 +465,14 @@ export default function PricesContent() {
                       placeholder={activeTab === "materials" ? "Nome do material" : "Nome do trabalho"}
                       value={newMaterial.name}
                       onChange={(e) => setNewMaterial((prev) => ({ ...prev, name: e.target.value }))}
-                      className="bg-input/50"
+                      className="border-border/60 bg-background/60"
                     />
                   </div>
                   <Input
                     placeholder="Unidade (kg, m², un)"
                     value={newMaterial.unit}
                     onChange={(e) => setNewMaterial((prev) => ({ ...prev, unit: e.target.value }))}
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                   />
                   <Input
                     type="number"
@@ -484,7 +484,7 @@ export default function PricesContent() {
                         price: Number.parseFloat(e.target.value) || 0,
                       }))
                     }
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                   />
                   <Input
                     type="number"
@@ -496,13 +496,13 @@ export default function PricesContent() {
                         priceMax: Number.parseFloat(e.target.value) || 0,
                       }))
                     }
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                   />
                   <Select
                     value={newMaterial.category}
                     onValueChange={(value) => setNewMaterial((prev) => ({ ...prev, category: value }))}
                   >
-                    <SelectTrigger className="bg-input/50">
+                    <SelectTrigger className="border-border/60 bg-background/60">
                       <SelectValue placeholder="Categoria" />
                     </SelectTrigger>
                     <SelectContent>
@@ -569,7 +569,7 @@ export default function PricesContent() {
                                     name: e.target.value,
                                   }))
                                 }
-                                className="h-8 bg-input/50"
+                                className="h-8 border-border/60 bg-background/60"
                               />
                             </td>
                             <td className="py-3">
@@ -581,7 +581,7 @@ export default function PricesContent() {
                                     unit: e.target.value,
                                   }))
                                 }
-                                className="h-8 w-20 bg-input/50"
+                                className="h-8 w-20 border-border/60 bg-background/60"
                               />
                             </td>
                             <td className="py-3">
@@ -595,7 +595,7 @@ export default function PricesContent() {
                                       price: Number.parseFloat(e.target.value) || 0,
                                     }))
                                   }
-                                  className="h-8 w-20 bg-input/50"
+                                  className="h-8 w-20 border-border/60 bg-background/60"
                                 />
                                 <span className="text-muted-foreground">-</span>
                                 <Input
@@ -607,7 +607,7 @@ export default function PricesContent() {
                                       priceMax: Number.parseFloat(e.target.value) || 0,
                                     }))
                                   }
-                                  className="h-8 w-20 bg-input/50"
+                                  className="h-8 w-20 border-border/60 bg-background/60"
                                 />
                               </div>
                             </td>
@@ -621,7 +621,7 @@ export default function PricesContent() {
                                   }))
                                 }
                               >
-                                <SelectTrigger className="h-8 bg-input/50">
+                                <SelectTrigger className="h-8 border-border/60 bg-background/60">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -833,9 +833,10 @@ export default function PricesContent() {
             )}
 
             {suggestionError && !isLoadingSuggestions && (
-              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-center">
-                <p className="text-red-500 font-medium">{suggestionError}</p>
-                <p className="text-sm text-muted-foreground mt-1">
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-center">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-destructive">Erro</p>
+                <p className="mt-1 font-medium text-destructive">{suggestionError}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
                   Verifique se a chave API do OpenAI está configurada nas variáveis de ambiente.
                 </p>
               </div>

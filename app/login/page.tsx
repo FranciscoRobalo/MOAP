@@ -152,7 +152,7 @@ function LoginPageContent() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-11 bg-input/50"
+                  className="h-11 border-border/60 bg-background/60"
                 />
               </div>
 
@@ -170,7 +170,7 @@ function LoginPageContent() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="h-11 bg-input/50 pr-10"
+                    className="h-11 border-border/60 bg-background/60 pr-10"
                   />
                   <Button
                     type="button"

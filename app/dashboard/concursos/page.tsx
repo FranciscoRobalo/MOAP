@@ -207,10 +207,11 @@ export default function ConcursosPage() {
       />
 
       {/* Search and Filters */}
-      <Card className="bg-card/50">
+      <Card className="border-border/60 bg-card/30">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Filter className="h-5 w-5" />
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Critérios</p>
+          <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+            <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             Filtros
           </CardTitle>
         </CardHeader>
@@ -221,13 +222,13 @@ export default function ConcursosPage() {
               placeholder="Pesquisar por título ou entidade..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-input/50"
+              className="pl-10 border-border/60 bg-background/60"
             />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Select value={filterRegion} onValueChange={setFilterRegion}>
-              <SelectTrigger className="bg-input/50">
+              <SelectTrigger className="border-border/60 bg-background/60">
                 <SelectValue placeholder="Região" />
               </SelectTrigger>
               <SelectContent>
@@ -240,7 +241,7 @@ export default function ConcursosPage() {
             </Select>
 
             <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="bg-input/50">
+              <SelectTrigger className="border-border/60 bg-background/60">
                 <SelectValue placeholder="Categoria" />
               </SelectTrigger>
               <SelectContent>
@@ -253,7 +254,7 @@ export default function ConcursosPage() {
             </Select>
 
             <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="bg-input/50">
+              <SelectTrigger className="border-border/60 bg-background/60">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
@@ -266,7 +267,7 @@ export default function ConcursosPage() {
             </Select>
 
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="bg-input/50">
+              <SelectTrigger className="border-border/60 bg-background/60">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
@@ -286,7 +287,7 @@ export default function ConcursosPage() {
                 placeholder="0"
                 value={budgetMin}
                 onChange={(e) => setBudgetMin(e.target.value)}
-                className="bg-input/50"
+                className="border-border/60 bg-background/60"
               />
             </div>
             <div className="space-y-2">
@@ -296,7 +297,7 @@ export default function ConcursosPage() {
                 placeholder="10000000"
                 value={budgetMax}
                 onChange={(e) => setBudgetMax(e.target.value)}
-                className="bg-input/50"
+                className="border-border/60 bg-background/60"
               />
             </div>
           </div>
@@ -315,14 +316,14 @@ export default function ConcursosPage() {
           const days = daysUntilDeadline(concurso.deadline)
 
           return (
-            <Card key={concurso.id} className="bg-card/50">
+            <Card key={concurso.id} className="border-border/60 bg-card/30">
               <CardContent className="pt-6">
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                     <div className="flex-1 space-y-2">
                       <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                          <Building2 className="h-5 w-5 text-primary" />
+                        <div className="shrink-0 rounded-md border border-border/60 bg-background/60 p-2 text-muted-foreground">
+                          <Building2 className="h-4 w-4" aria-hidden="true" />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-start justify-between gap-2">
@@ -447,7 +448,7 @@ export default function ConcursosPage() {
         })}
 
         {filteredConcursos.length === 0 && (
-          <Card className="bg-card/50">
+          <Card className="border-border/60 bg-card/30">
             <CardContent className="py-12 text-center">
               <p className="text-muted-foreground">Nenhum concurso encontrado com os filtros selecionados.</p>
             </CardContent>
@@ -492,7 +493,7 @@ export default function ConcursosPage() {
                 placeholder="Adicione uma mensagem personalizada ao convite..."
                 value={inviteMessage}
                 onChange={(e) => setInviteMessage(e.target.value)}
-                className="bg-input/50"
+                className="border-border/60 bg-background/60"
               />
             </div>
 

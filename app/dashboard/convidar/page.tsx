@@ -155,10 +155,11 @@ export default function ConvidarPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Invite Form */}
-        <Card className="bg-card/50">
+        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5" />
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Envio · convites</p>
+            <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+              <UserPlus className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               Enviar Convites
             </CardTitle>
             <CardDescription>Convide pessoas por email ou partilhe o link de convite</CardDescription>
@@ -181,7 +182,7 @@ export default function ConvidarPage() {
                         placeholder="email@exemplo.pt"
                         value={singleEmail}
                         onChange={(e) => setSingleEmail(e.target.value)}
-                        className="bg-input/50"
+                        className="border-border/60 bg-background/60"
                         required
                       />
                     </div>
@@ -191,7 +192,7 @@ export default function ConvidarPage() {
                         placeholder="Nome da pessoa"
                         value={singleName}
                         onChange={(e) => setSingleName(e.target.value)}
-                        className="bg-input/50"
+                        className="border-border/60 bg-background/60"
                       />
                     </div>
                   </div>
@@ -201,7 +202,7 @@ export default function ConvidarPage() {
                       placeholder="Adicione uma mensagem pessoal ao convite..."
                       value={personalMessage}
                       onChange={(e) => setPersonalMessage(e.target.value)}
-                      className="bg-input/50"
+                      className="border-border/60 bg-background/60"
                       rows={3}
                     />
                   </div>
@@ -220,7 +221,7 @@ export default function ConvidarPage() {
                       placeholder="Insira os emails separados por vírgula, ponto-e-vírgula ou nova linha:&#10;&#10;email1@exemplo.pt&#10;email2@exemplo.pt&#10;email3@exemplo.pt"
                       value={emailList}
                       onChange={(e) => setEmailList(e.target.value)}
-                      className="bg-input/50 min-h-[120px] font-mono text-sm"
+                      className="border-border/60 bg-background/60 min-h-[120px] font-mono text-sm"
                     />
                     <p className="text-xs text-muted-foreground">
                       {emailList
@@ -236,7 +237,7 @@ export default function ConvidarPage() {
                       placeholder="Mensagem para todos os convites..."
                       value={personalMessage}
                       onChange={(e) => setPersonalMessage(e.target.value)}
-                      className="bg-input/50"
+                      className="border-border/60 bg-background/60"
                       rows={2}
                     />
                   </div>
@@ -256,7 +257,7 @@ export default function ConvidarPage() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <Input value={inviteLink} readOnly className="bg-input/50 font-mono text-sm" />
+                    <Input value={inviteLink} readOnly className="border-border/60 bg-background/60 font-mono text-sm" />
                     <Button variant="outline" onClick={handleCopyLink}>
                       {copiedLink ? <CheckCircle className="h-4 w-4 text-price-below" /> : <Copy className="h-4 w-4" />}
                     </Button>
@@ -285,10 +286,11 @@ export default function ConvidarPage() {
         </Card>
 
         {/* Invitations List */}
-        <Card className="bg-card/50">
+        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Histórico · convites</p>
+            <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+              <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               Convites Enviados
             </CardTitle>
             <CardDescription>Histórico e estado dos convites</CardDescription>
@@ -302,7 +304,7 @@ export default function ConvidarPage() {
                 return (
                   <div
                     key={invitation.id}
-                    className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border/50 bg-background/50"
+                    className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-background/40 p-3"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">

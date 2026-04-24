@@ -137,7 +137,7 @@ export default function VisitasPage() {
                     setNewVisit((p) => ({ ...p, obraId: v, obraName: obra?.name || "" }))
                   }}
                 >
-                  <SelectTrigger className="bg-input/50">
+                  <SelectTrigger className="border-border/60 bg-background/60">
                     <SelectValue placeholder="Selecione a obra" />
                   </SelectTrigger>
                   <SelectContent>
@@ -153,7 +153,7 @@ export default function VisitasPage() {
               <div className="space-y-2">
                 <Label>Tipo de Visita *</Label>
                 <Select value={newVisit.type} onValueChange={(v) => setNewVisit((p) => ({ ...p, type: v }))}>
-                  <SelectTrigger className="bg-input/50">
+                  <SelectTrigger className="border-border/60 bg-background/60">
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -173,14 +173,14 @@ export default function VisitasPage() {
                     type="date"
                     value={newVisit.date}
                     onChange={(e) => setNewVisit((p) => ({ ...p, date: e.target.value }))}
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                     required
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Hora *</Label>
                   <Select value={newVisit.time} onValueChange={(v) => setNewVisit((p) => ({ ...p, time: v }))}>
-                    <SelectTrigger className="bg-input/50">
+                    <SelectTrigger className="border-border/60 bg-background/60">
                       <SelectValue placeholder="Hora" />
                     </SelectTrigger>
                     <SelectContent>
@@ -201,7 +201,7 @@ export default function VisitasPage() {
                     placeholder="Nome"
                     value={newVisit.contactName}
                     onChange={(e) => setNewVisit((p) => ({ ...p, contactName: e.target.value }))}
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                   />
                 </div>
                 <div className="space-y-2">
@@ -210,7 +210,7 @@ export default function VisitasPage() {
                     placeholder="+351 900 000 000"
                     value={newVisit.contactPhone}
                     onChange={(e) => setNewVisit((p) => ({ ...p, contactPhone: e.target.value }))}
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                   />
                 </div>
               </div>
@@ -221,7 +221,7 @@ export default function VisitasPage() {
                   placeholder="Observações adicionais..."
                   value={newVisit.notes}
                   onChange={(e) => setNewVisit((p) => ({ ...p, notes: e.target.value }))}
-                  className="bg-input/50"
+                  className="border-border/60 bg-background/60"
                 />
               </div>
 
@@ -259,9 +259,10 @@ export default function VisitasPage() {
       </div>
 
       {/* Upcoming Visits */}
-      <Card className="bg-card/50">
+      <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
         <CardHeader>
-          <CardTitle>Visitas Agendadas</CardTitle>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Agenda · Próximas</p>
+          <CardTitle className="font-display text-xl font-medium tracking-tight">Visitas Agendadas</CardTitle>
           <CardDescription>Próximas visitas técnicas às obras</CardDescription>
         </CardHeader>
         <CardContent>
@@ -272,7 +273,7 @@ export default function VisitasPage() {
               upcomingVisits.map((visit) => (
                 <div
                   key={visit.id}
-                  className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 rounded-lg border border-border/50 bg-background/50"
+                  className="flex flex-col gap-4 rounded-md border border-border/60 bg-background/40 p-4 lg:flex-row lg:items-center lg:justify-between"
                 >
                   <div className="flex-1 space-y-2">
                     <div className="flex items-start justify-between">
@@ -320,9 +321,10 @@ export default function VisitasPage() {
 
       {/* Completed Visits */}
       {completedVisits.length > 0 && (
-        <Card className="bg-card/50">
+        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
           <CardHeader>
-            <CardTitle>Visitas Realizadas</CardTitle>
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Agenda · Histórico</p>
+            <CardTitle className="font-display text-xl font-medium tracking-tight">Visitas Realizadas</CardTitle>
             <CardDescription>Histórico de visitas</CardDescription>
           </CardHeader>
           <CardContent>
@@ -330,7 +332,7 @@ export default function VisitasPage() {
               {completedVisits.map((visit) => (
                 <div
                   key={visit.id}
-                  className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-background/50 opacity-75"
+                  className="flex items-center justify-between rounded-md border border-border/60 bg-background/40 p-4 opacity-75"
                 >
                   <div>
                     <h3 className="font-semibold">{visit.obraName}</h3>

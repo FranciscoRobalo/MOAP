@@ -19,7 +19,7 @@ export default function NotificacoesLoading() {
 
       <div className="space-y-3">
         {[...Array(5)].map((_, i) => (
-          <Card key={i} className="bg-card/50">
+          <Card key={i} className="border-border/60 bg-card/30">
             <CardContent className="pt-4 pb-4">
               <div className="flex items-start gap-4">
                 <Skeleton className="h-10 w-10 rounded-full" />

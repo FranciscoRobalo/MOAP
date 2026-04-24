@@ -131,7 +131,7 @@ export default function DefinicoesPage() {
                     id="name"
                     value={profile.name}
                     onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                   />
                 </div>
                 <div className="space-y-2">
@@ -141,7 +141,7 @@ export default function DefinicoesPage() {
                     type="email"
                     value={profile.email}
                     onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))}
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                   />
                 </div>
                 <div className="space-y-2">
@@ -150,7 +150,7 @@ export default function DefinicoesPage() {
                     id="phone"
                     value={profile.phone}
                     onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                   />
                 </div>
                 <div className="space-y-2">
@@ -159,7 +159,7 @@ export default function DefinicoesPage() {
                     id="company"
                     value={profile.company}
                     onChange={(e) => setProfile((p) => ({ ...p, company: e.target.value }))}
-                    className="bg-input/50"
+                    className="border-border/60 bg-background/60"
                   />
                 </div>
               </div>
@@ -170,7 +170,7 @@ export default function DefinicoesPage() {
                   id="bio"
                   value={profile.bio}
                   onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))}
-                  className="bg-input/50 min-h-[100px]"
+                  className="border-border/60 bg-background/60 min-h-[100px]"
                   placeholder="Conte um pouco sobre si..."
                 />
               </div>
@@ -266,7 +266,7 @@ export default function DefinicoesPage() {
                     value={preferences.language}
                     onValueChange={(v) => setPreferences((p) => ({ ...p, language: v }))}
                   >
-                    <SelectTrigger className="bg-input/50">
+                    <SelectTrigger className="border-border/60 bg-background/60">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -282,7 +282,7 @@ export default function DefinicoesPage() {
                     value={preferences.currency}
                     onValueChange={(v) => setPreferences((p) => ({ ...p, currency: v }))}
                   >
-                    <SelectTrigger className="bg-input/50">
+                    <SelectTrigger className="border-border/60 bg-background/60">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -298,7 +298,7 @@ export default function DefinicoesPage() {
                     value={preferences.dateFormat}
                     onValueChange={(v) => setPreferences((p) => ({ ...p, dateFormat: v }))}
                   >
-                    <SelectTrigger className="bg-input/50">
+                    <SelectTrigger className="border-border/60 bg-background/60">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -314,7 +314,7 @@ export default function DefinicoesPage() {
                     Tema
                   </Label>
                   <Select value={preferences.theme} onValueChange={(v) => setPreferences((p) => ({ ...p, theme: v }))}>
-                    <SelectTrigger className="bg-input/50">
+                    <SelectTrigger className="border-border/60 bg-background/60">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -373,16 +373,16 @@ export default function DefinicoesPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="currentPassword">Palavra-passe Atual</Label>
-                    <Input id="currentPassword" type="password" className="bg-input/50" />
+                    <Input id="currentPassword" type="password" className="border-border/60 bg-background/60" />
                   </div>
                   <div></div>
                   <div className="space-y-2">
                     <Label htmlFor="newPassword">Nova Palavra-passe</Label>
-                    <Input id="newPassword" type="password" className="bg-input/50" />
+                    <Input id="newPassword" type="password" className="border-border/60 bg-background/60" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Confirmar Palavra-passe</Label>
-                    <Input id="confirmPassword" type="password" className="bg-input/50" />
+                    <Input id="confirmPassword" type="password" className="border-border/60 bg-background/60" />
                   </div>
                 </div>
                 <Button variant="outline">Alterar Palavra-passe</Button>

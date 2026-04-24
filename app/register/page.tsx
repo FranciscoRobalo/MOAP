@@ -200,7 +200,7 @@ function RegisterPageContent() {
                     value={formData.name}
                     onChange={(e) => updateField("name", e.target.value)}
                     required
-                    className="h-11 bg-input/50"
+                    className="h-11 border-border/60 bg-background/60"
                   />
                 </div>
 
@@ -215,7 +215,7 @@ function RegisterPageContent() {
                     value={formData.username}
                     onChange={(e) => updateField("username", e.target.value.toLowerCase().replace(/\s/g, ""))}
                     required
-                    className="h-11 bg-input/50 font-mono"
+                    className="h-11 border-border/60 bg-background/60 font-mono"
                   />
                 </div>
               </div>
@@ -231,7 +231,7 @@ function RegisterPageContent() {
                   value={formData.email}
                   onChange={(e) => updateField("email", e.target.value)}
                   required
-                  className="h-11 bg-input/50"
+                  className="h-11 border-border/60 bg-background/60"
                 />
               </div>
 
@@ -246,7 +246,7 @@ function RegisterPageContent() {
                     placeholder={t("companyPlaceholder")}
                     value={formData.company}
                     onChange={(e) => updateField("company", e.target.value)}
-                    className="h-11 bg-input/50"
+                    className="h-11 border-border/60 bg-background/60"
                   />
                 </div>
 
@@ -260,7 +260,7 @@ function RegisterPageContent() {
                     placeholder={t("phonePlaceholder")}
                     value={formData.phone}
                     onChange={(e) => updateField("phone", e.target.value)}
-                    className="h-11 bg-input/50"
+                    className="h-11 border-border/60 bg-background/60"
                   />
                 </div>
               </div>
@@ -270,7 +270,7 @@ function RegisterPageContent() {
                   {t("accountType")} *
                 </Label>
                 <Select value={formData.role} onValueChange={(value) => updateField("role", value)}>
-                  <SelectTrigger className="h-11 bg-input/50">
+                  <SelectTrigger className="h-11 border-border/60 bg-background/60">
                     <SelectValue placeholder={t("selectAccountType")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -293,7 +293,7 @@ function RegisterPageContent() {
                       value={formData.password}
                       onChange={(e) => updateField("password", e.target.value)}
                       required
-                      className="h-11 bg-input/50 pr-10"
+                      className="h-11 border-border/60 bg-background/60 pr-10"
                     />
                     <Button
                       type="button"
@@ -324,7 +324,7 @@ function RegisterPageContent() {
                       value={formData.confirmPassword}
                       onChange={(e) => updateField("confirmPassword", e.target.value)}
                       required
-                      className="h-11 bg-input/50 pr-10"
+                      className="h-11 border-border/60 bg-background/60 pr-10"
                     />
                     <Button
                       type="button"

@@ -340,9 +340,10 @@ export default function ProposalsPage() {
         <div className="space-y-4">
           {selectedProposal ? (
             <>
-              <Card className="bg-card/50">
+              <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
                 <CardHeader>
-                  <CardTitle className="text-lg">Detalhes da Proposta</CardTitle>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Detalhes</p>
+                  <CardTitle className="font-display text-xl font-medium tracking-tight">Detalhes da Proposta</CardTitle>
                   <CardDescription>{selectedProposal.name}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -407,9 +408,10 @@ export default function ProposalsPage() {
               </Card>
 
               {selectedProposal.rating.overall > 0 && (
-                <Card className="bg-card/50">
+                <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
                   <CardHeader>
-                    <CardTitle className="text-lg">Avaliações</CardTitle>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Pontuação</p>
+                    <CardTitle className="font-display text-xl font-medium tracking-tight">Avaliações</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="text-center pb-4 border-b border-border">
@@ -432,7 +434,7 @@ export default function ProposalsPage() {
               <Button className="w-full">Ver Relat��rio Completo</Button>
             </>
           ) : (
-            <Card className="bg-card/50">
+            <Card className="border-border/60 bg-card/30">
               <CardContent className="py-12 text-center">
                 <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">Selecione uma proposta para ver os detalhes</p>
@@ -463,7 +465,10 @@ function ProposalCard({
 
   return (
     <Card
-      className={cn("bg-card/50 cursor-pointer transition-all hover:bg-card/80", isSelected && "ring-2 ring-primary")}
+      className={cn(
+        "cursor-pointer border-border/60 bg-card/30 transition-colors hover:border-border hover:bg-card/50",
+        isSelected && "border-primary/60 ring-1 ring-primary/50",
+      )}
       onClick={onClick}
     >
       <CardContent className="pt-6">
