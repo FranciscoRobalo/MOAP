@@ -44,7 +44,7 @@ export function Features() {
       icon: MapPin,
       title: t("feature3Title"),
       description: t("feature3Desc"),
-      badge: "7 Regiões"
+      badge: "Localização"
     },
     {
       icon: Scale,

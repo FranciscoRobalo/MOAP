@@ -25,19 +25,22 @@ export function Header() {
 
         <nav className="hidden items-center gap-8 md:flex">
           <Link
-            href="#funcionalidades"
+            href="/#funcionalidades"
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             {t("features")}
           </Link>
-          <Link href="#como-funciona" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+          <Link href="/#como-funciona" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
             {t("howItWorks")}
           </Link>
-          <Link href="#relatorio" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+          <Link href="/#relatorio" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
             {t("report")}
           </Link>
-          <Link href="#carregar" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+          <Link href="/#carregar" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
             {t("uploadDocument")}
+          </Link>
+          <Link href="/contacto" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            Contacto
           </Link>
           <Link href="/login?action=budget-request" className="text-sm font-medium text-primary transition-colors hover:text-primary/80">
             {t("heroBudgetRequest")}
@@ -76,24 +79,27 @@ export function Header() {
         <div className="border-t border-border/40 bg-background px-4 py-4 md:hidden">
           <nav className="flex flex-col gap-4">
             <Link
-              href="#funcionalidades"
+              href="/#funcionalidades"
               className="text-sm text-muted-foreground"
               onClick={() => setMobileMenuOpen(false)}
             >
               {t("features")}
             </Link>
             <Link
-              href="#como-funciona"
+              href="/#como-funciona"
               className="text-sm text-muted-foreground"
               onClick={() => setMobileMenuOpen(false)}
             >
               {t("howItWorks")}
             </Link>
-            <Link href="#relatorio" className="text-sm text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/#relatorio" className="text-sm text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>
               {t("report")}
             </Link>
-            <Link href="#carregar" className="text-sm text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/#carregar" className="text-sm text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>
               {t("uploadDocument")}
+            </Link>
+            <Link href="/contacto" className="text-sm text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>
+              Contacto
             </Link>
             <Link href="/login?action=budget-request" className="text-sm font-medium text-primary" onClick={() => setMobileMenuOpen(false)}>
               {t("heroBudgetRequest")}

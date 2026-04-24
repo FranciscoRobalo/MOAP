@@ -34,8 +34,8 @@ export function PlatformShowcase() {
       items: [
         "50.000+ materiais de construção",
         "Preços atualizados regularmente",
-        "7 regiões do país cobertas",
         "Categorias bem organizadas",
+        "Busca rápida e intuitiva",
       ],
       color: "from-amber-500 to-orange-500",
     },
@@ -55,8 +55,8 @@ export function PlatformShowcase() {
   const metrics = [
     { label: "Materiais Base de Dados", value: "50k+", icon: Database },
     { label: "Taxa de Correspondência", value: "Elevada", icon: FileUp },
-    { label: "Regiões Cobertas", value: "7", icon: BarChart3 },
     { label: "Conformidade", value: "GDPR", icon: Shield },
+    { label: "Suporte", value: "Multi-formato", icon: BarChart3 },
   ]
 
   return (
@@ -121,27 +121,27 @@ export function PlatformShowcase() {
         {/* Features Summary */}
         <Card className="border-border/40 bg-gradient-to-r from-card/50 to-card/30">
           <CardHeader>
-            <CardTitle>25+ Funcionalidades Incluídas</CardTitle>
-            <CardDescription>Tudo que precisa para gerir orçamentos de forma inteligente</CardDescription>
+            <CardTitle>Funcionalidades Principais</CardTitle>
+            <CardDescription>Tudo que precisa para analisar e otimizar seus orçamentos</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-6 md:grid-cols-3">
               <div>
                 <h4 className="font-semibold mb-3">Análise de Dados</h4>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>✓ Extração inteligente de PDFs</li>
+                  <li>✓ Extração de PDFs</li>
                   <li>✓ Parsing de Excel e CSV</li>
-                  <li>✓ Reconhecimento de padrões</li>
-                  <li>✓ Normalização automática</li>
+                  <li>✓ Normalização de dados</li>
+                  <li>✓ Validação automática</li>
                 </ul>
               </div>
               <div>
-                <h4 className="font-semibold mb-3">Inteligência</h4>
+                <h4 className="font-semibold mb-3">Comparação</h4>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>✓ Comparação de preços</li>
-                  <li>✓ Análise de mercado regional</li>
-                  <li>✓ Previsões com IA</li>
-                  <li>✓ Detecção de anomalias</li>
+                  <li>✓ Análise de preços</li>
+                  <li>✓ Comparação com mercado</li>
+                  <li>✓ Histórico de variações</li>
+                  <li>✓ Identificação de outliers</li>
                 </ul>
               </div>
               <div>

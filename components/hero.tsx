@@ -16,8 +16,8 @@ export function Hero() {
   const stats = [
     { value: "Precisão Alta", label: "Extração de Dados" },
     { value: "50k+", label: "Materiais na BD" },
-    { value: "7", label: "Regiões Cobertas" },
-    { value: "Multi-Formato", label: "Suporte" },
+    { value: "Multi-Formato", label: "Suporte de Ficheiros" },
+    { value: "GDPR", label: "Conformidade" },
   ]
 
   const scrollToUpload = () => {
