@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Upload, FileSpreadsheet, FileText, CheckCircle, AlertCircle, Plus, Trash2 } from "lucide-react"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 
 interface ExtractedMaterial {
   id: string
@@ -263,12 +264,11 @@ export default function ImportarPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Importar Documentos</h1>
-        <p className="text-muted-foreground">
-          Carregue orçamentos e extraia automaticamente os materiais para adicionar à lista de preços.
-        </p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Documentos / Importação"
+        title="Importar Documentos"
+        description="Carregue orçamentos e extraia automaticamente os materiais para adicionar à lista de preços."
+      />
 
       {/* Upload Area */}
       <Card

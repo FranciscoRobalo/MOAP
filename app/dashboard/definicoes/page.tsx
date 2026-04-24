@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/contexts/auth-context"
 import { useTutorial } from "@/contexts/tutorial-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import {
   User,
   Bell,
@@ -73,10 +74,11 @@ export default function DefinicoesPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Definições</h1>
-        <p className="text-muted-foreground">Gerencie as suas preferências e configurações da conta.</p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Conta / Configuração"
+        title="Definições"
+        description="Gerencie as suas preferências e configurações da conta."
+      />
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="bg-card/50">

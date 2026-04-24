@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { useData, type Budget, type BudgetItem } from "@/contexts/data-context"
 import { useAuth } from "@/contexts/auth-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import { toast } from "sonner"
 
 const availableMaterials = [
@@ -236,18 +237,18 @@ export default function OrcamentosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Orçamentos</h1>
-          <p className="text-muted-foreground">Crie e gerencie orçamentos com base nos materiais da plataforma.</p>
-        </div>
-        <Dialog open={isCreating} onOpenChange={setIsCreating}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Orçamento
-            </Button>
-          </DialogTrigger>
+      <DashboardPageHeader
+        eyebrow="Gestão / 02"
+        title="Orçamentos"
+        description="Crie e gerencie orçamentos com base nos materiais da plataforma."
+        actions={
+          <Dialog open={isCreating} onOpenChange={setIsCreating}>
+            <DialogTrigger asChild>
+              <Button className="rounded-full gap-2">
+                <Plus className="h-4 w-4" />
+                Novo Orçamento
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Criar Novo Orçamento</DialogTitle>
@@ -285,9 +286,10 @@ export default function OrcamentosPage() {
                 <Button onClick={handleCreateBudget}>Criar Orçamento</Button>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Budget List */}

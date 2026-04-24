@@ -20,6 +20,7 @@ import {
 import { useAuth } from "@/contexts/auth-context"
 import { useData } from "@/contexts/data-context"
 import { useLanguage } from "@/contexts/language-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import { toast } from "sonner"
 import { 
   Search, CheckCircle2, XCircle, Clock, User, Mail, Building2, Phone, Calendar, 
@@ -195,26 +196,27 @@ export default function RegistosContent() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Aprovações</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">Gerir orçamentos e registos de utilizadores pendentes de aprovação.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {pendingBudgets.length > 0 && (
-            <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-xs sm:text-sm">
-              <Calculator className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-              {pendingBudgets.length} orçamento{pendingBudgets.length !== 1 ? "s" : ""} pendente{pendingBudgets.length !== 1 ? "s" : ""}
-            </Badge>
-          )}
-          {pendingRegCount > 0 && (
-            <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-xs sm:text-sm">
-              <User className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-              {pendingRegCount} registo{pendingRegCount !== 1 ? "s" : ""} pendente{pendingRegCount !== 1 ? "s" : ""}
-            </Badge>
-          )}
-        </div>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Administração / Aprovações"
+        title="Aprovações"
+        description="Gerir orçamentos e registos de utilizadores pendentes de aprovação."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            {pendingBudgets.length > 0 && (
+              <Badge variant="outline" className="gap-1.5 rounded-full border-amber/40 bg-amber/10 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-amber">
+                <Calculator className="h-3 w-3" />
+                {pendingBudgets.length} orçamento{pendingBudgets.length !== 1 ? "s" : ""} pendente{pendingBudgets.length !== 1 ? "s" : ""}
+              </Badge>
+            )}
+            {pendingRegCount > 0 && (
+              <Badge variant="outline" className="gap-1.5 rounded-full border-amber/40 bg-amber/10 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-amber">
+                <User className="h-3 w-3" />
+                {pendingRegCount} registo{pendingRegCount !== 1 ? "s" : ""} pendente{pendingRegCount !== 1 ? "s" : ""}
+              </Badge>
+            )}
+          </div>
+        }
+      />
 
       {/* Main Tabs: Budgets vs Users */}
       <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">

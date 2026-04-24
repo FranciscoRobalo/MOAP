@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 
 interface Concurso {
   id: string
@@ -199,10 +200,11 @@ export default function ConcursosPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Concursos Públicos</h1>
-        <p className="text-muted-foreground">Explore obras disponíveis e convide parceiros para participar.</p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Mercado / Concursos"
+        title="Concursos Públicos"
+        description="Explore obras disponíveis e convide parceiros para participar."
+      />
 
       {/* Search and Filters */}
       <Card className="bg-card/50">

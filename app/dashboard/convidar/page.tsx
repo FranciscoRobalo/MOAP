@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Mail, Send, UserPlus, Clock, CheckCircle, XCircle, Copy, Trash2, Users } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 
 interface Invitation {
   id: string
@@ -137,12 +138,11 @@ export default function ConvidarPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Convidar para a Plataforma</h1>
-        <p className="text-muted-foreground">
-          Convide colegas, parceiros e fornecedores para se juntarem à plataforma MOAP.
-        </p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Pessoas / Convites"
+        title="Convidar para a Plataforma"
+        description="Convide colegas, parceiros e fornecedores para se juntarem à plataforma MOAP."
+      />
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-4">

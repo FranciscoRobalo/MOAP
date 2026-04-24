@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Pencil, Trash2, Save, X, RefreshCw, TrendingUp, TrendingDown, CheckCircle2, Search, Sparkles, Loader2, Check } from "lucide-react"
 import { useData, type Material } from "@/contexts/data-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -289,25 +290,24 @@ export default function PricesContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Preços de Materiais e Trabalhos</h1>
-          <p className="text-muted-foreground">
-            Gerir preços de referência para análise de orçamentos.
-            <span className="ml-2 text-xs">
-              ({materialsCount} materiais, {worksCount} trabalhos)
-            </span>
-          </p>
-        </div>
-        <div className="flex gap-2 flex-wrap justify-end">
-          <Button onClick={() => setShowSuggestDialog(true)} variant="outline" className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
-            <Sparkles className="mr-2 h-4 w-4" />
-            Pesquisar com IA
-          </Button>
-          <Button onClick={syncPricesWithMarket} disabled={isSyncing} variant="outline">
-            <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-            {isSyncing ? "A Sincronizar..." : "Sincronizar Preços IA"}
-          </Button>
+      <DashboardPageHeader
+        eyebrow="Base de dados / Preços"
+        title="Preços de Materiais e Trabalhos"
+        description={`Gerir preços de referência para análise de orçamentos. (${materialsCount} materiais, ${worksCount} trabalhos)`}
+        actions={
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              onClick={() => setShowSuggestDialog(true)}
+              variant="outline"
+              className="rounded-full gap-2 border-amber/30 bg-amber/10 text-amber hover:bg-amber/20"
+            >
+              <Sparkles className="h-4 w-4" />
+              Pesquisar com IA
+            </Button>
+            <Button onClick={syncPricesWithMarket} disabled={isSyncing} variant="outline" className="rounded-full gap-2">
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+              {isSyncing ? "A Sincronizar..." : "Sincronizar Preços IA"}
+            </Button>
           <Button 
             onClick={() => {
               setActiveTab("materials")

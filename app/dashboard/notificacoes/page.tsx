@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useData } from "@/contexts/data-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import Link from "next/link"
 import {
   Bell,
@@ -130,24 +131,23 @@ export default function NotificacoesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Notificações</h1>
-          <p className="text-muted-foreground">
-            {unreadCount > 0 ? `${unreadCount} notificações por ler` : "Todas as notificações lidas"}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => markAllNotificationsAsRead()} disabled={unreadCount === 0}>
-            <CheckCheck className="mr-2 h-4 w-4" />
-            Marcar todas como lidas
-          </Button>
-          <Button variant="destructive" onClick={() => clearNotifications()} disabled={notifications.length === 0}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            Limpar
-          </Button>
-        </div>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Conta / Alertas"
+        title="Notificações"
+        description={unreadCount > 0 ? `${unreadCount} notificações por ler` : "Todas as notificações lidas"}
+        actions={
+          <>
+            <Button variant="outline" className="rounded-full gap-2" onClick={() => markAllNotificationsAsRead()} disabled={unreadCount === 0}>
+              <CheckCheck className="h-4 w-4" />
+              Marcar todas como lidas
+            </Button>
+            <Button variant="destructive" className="rounded-full gap-2" onClick={() => clearNotifications()} disabled={notifications.length === 0}>
+              <Trash2 className="h-4 w-4" />
+              Limpar
+            </Button>
+          </>
+        }
+      />
 
       <Tabs defaultValue="all" className="space-y-4">
         <TabsList className="bg-card/50 flex-wrap h-auto gap-1 p-1">

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { useData } from "@/contexts/data-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import { Building2, MapPin, Calendar, Euro, FileText, Send, CheckCircle } from "lucide-react"
 
 const projectTypes = [
@@ -103,12 +104,11 @@ export default function NovaObraPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Nova Obra</h1>
-        <p className="text-muted-foreground">
-          Preencha o formulário abaixo para nos ajudar a entender as suas necessidades.
-        </p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Projetos / Novo"
+        title="Nova Obra"
+        description="Preencha o formulário abaixo para nos ajudar a entender as suas necessidades."
+      />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card className="bg-card/50" data-tutorial="obra-form">

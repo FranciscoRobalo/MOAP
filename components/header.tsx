@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useLanguage } from "@/contexts/language-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 
 export function Header() {
@@ -76,6 +77,7 @@ export function Header() {
 
         {/* Right cluster */}
         <div className="hidden shrink-0 items-center gap-2 md:flex">
+          <ThemeToggle />
           <LanguageSwitcher />
           {user ? (
             <Link href="/dashboard">
@@ -102,6 +104,7 @@ export function Header() {
 
         {/* Mobile cluster */}
         <div className="flex shrink-0 items-center gap-2 md:hidden">
+          <ThemeToggle />
           <LanguageSwitcher variant="compact" />
           <Button
             variant="ghost"

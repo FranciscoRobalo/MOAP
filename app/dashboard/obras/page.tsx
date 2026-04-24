@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useData } from "@/contexts/data-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import { Building2, MapPin, Calendar, Euro, Search, Plus, Eye, Filter, ArrowUpDown, Clock } from "lucide-react"
 
 const statusConfig = {
@@ -46,18 +47,19 @@ export default function ObrasListPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Minhas Obras</h1>
-          <p className="text-muted-foreground">Gerencie todas as suas obras e projetos.</p>
-        </div>
-        <Link href="/dashboard/obras/nova">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nova Obra
-          </Button>
-        </Link>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Projetos / 03"
+        title="Minhas Obras"
+        description="Gerencie todas as suas obras e projetos."
+        actions={
+          <Link href="/dashboard/obras/nova">
+            <Button className="rounded-full gap-2">
+              <Plus className="h-4 w-4" />
+              Nova Obra
+            </Button>
+          </Link>
+        }
+      />
 
       {/* Filters */}
       <Card className="bg-card/50">

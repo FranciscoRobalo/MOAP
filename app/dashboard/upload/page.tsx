@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Upload, FileText, X, CheckCircle } from "lucide-react"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 
 interface UploadedFile {
   id: string
@@ -84,10 +85,11 @@ export default function UploadPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Carregar Documentos</h1>
-        <p className="text-muted-foreground">Carregue os seus orçamentos para análise automática.</p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Documentos / Upload"
+        title="Carregar Documentos"
+        description="Carregue os seus orçamentos para análise automática."
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Upload Area */}

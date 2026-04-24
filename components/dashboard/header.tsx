@@ -1,7 +1,6 @@
 "use client"
 
 import { Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
 import { NotificationsDropdown } from "./notifications-dropdown"
 import { useLanguage } from "@/contexts/language-context"
@@ -10,10 +9,9 @@ import { ThemeToggle } from "@/components/theme-toggle"
 
 export function DashboardHeader() {
   const { user } = useAuth()
-  const { t, language } = useLanguage()
+  const { t } = useLanguage()
 
   const openCommandPalette = () => {
-    // Dispatch keyboard event to open command palette
     const event = new KeyboardEvent("keydown", {
       key: "k",
       metaKey: true,
@@ -23,33 +21,33 @@ export function DashboardHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-30 h-16 border-b border-border bg-background/80 backdrop-blur-xl">
-      <div className="flex h-full items-center justify-between px-6">
-        <div className="flex items-center gap-4 flex-1 max-w-md ml-12 lg:ml-0">
-          <Button
-            variant="outline"
-            className="relative flex-1 justify-start text-muted-foreground bg-input/50 hover:bg-input/80"
+    <header className="sticky top-0 z-30 h-16 border-b border-hairline/80 bg-background/75 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+      <div className="flex h-full items-center gap-4 px-4 sm:px-6">
+        {/* Search trigger — editorial pill with mono kbd hint */}
+        <div className="ml-12 flex flex-1 items-center lg:ml-0">
+          <button
+            type="button"
             onClick={openCommandPalette}
+            className="group flex h-9 w-full max-w-md items-center gap-2 rounded-full border border-hairline/80 bg-background/50 px-3 text-left text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary/50 hover:text-foreground"
+            aria-label={t("search")}
           >
-            <Search className="mr-2 h-4 w-4" />
-            <span className="flex-1 text-left">{t("search")}</span>
-            <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
-              <span className="text-xs">⌘</span>K
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground/70 transition-colors group-hover:text-foreground" />
+            <span className="flex-1 truncate">{t("search")}</span>
+            <kbd className="kbd hidden items-center gap-0.5 sm:inline-flex">
+              <span className="text-[11px]">⌘</span>K
             </kbd>
-          </Button>
+          </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Right cluster */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <ThemeToggle />
           <LanguageSwitcher variant="compact" />
           <NotificationsDropdown />
-          <div className="h-8 w-8 rounded-full bg-primary/20 overflow-hidden flex items-center justify-center text-primary font-semibold text-xs">
+          <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-hairline/80 bg-primary/10 text-xs font-semibold text-primary">
             {user?.avatar_url ? (
-              <img
-                src={user.avatar_url}
-                alt={user?.name}
-                className="h-full w-full object-cover"
-              />
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.avatar_url} alt={user?.name ?? ""} className="h-full w-full object-cover" />
             ) : (
               <span>{user?.name?.charAt(0).toUpperCase()}</span>
             )}

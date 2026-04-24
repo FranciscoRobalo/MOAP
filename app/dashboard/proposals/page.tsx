@@ -21,6 +21,7 @@ import {
   Eye,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 
 interface Proposal {
   id: string
@@ -236,10 +237,11 @@ export default function ProposalsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Propostas</h1>
-        <p className="text-muted-foreground">Visualize e analise as suas propostas e avaliações.</p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Comercial / Propostas"
+        title="Propostas"
+        description="Visualize e analise as suas propostas e avaliações."
+      />
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -454,7 +456,7 @@ export default function ProposalsPage() {
                 </Card>
               )}
 
-              <Button className="w-full">Ver Relatório Completo</Button>
+              <Button className="w-full">Ver Relat��rio Completo</Button>
             </>
           ) : (
             <Card className="bg-card/50">

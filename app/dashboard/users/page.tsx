@@ -10,6 +10,7 @@ import { Search, MessageSquare, UserPlus, MoreHorizontal } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
 import { useLanguage } from "@/contexts/language-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 
 interface User {
   id: string
@@ -131,16 +132,17 @@ function UsersContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{getPageTitle()}</h1>
-          <p className="text-muted-foreground">{getPageDescription()}</p>
-        </div>
-        <Button>
-          <UserPlus className="mr-2 h-4 w-4" />
-          {language === "pt" ? "Convidar Utilizador" : language === "es" ? "Invitar Usuario" : "Invite User"}
-        </Button>
-      </div>
+      <DashboardPageHeader
+        eyebrow={language === "pt" ? "Pessoas" : language === "es" ? "Personas" : "People"}
+        title={getPageTitle()}
+        description={getPageDescription()}
+        actions={
+          <Button className="rounded-full gap-2">
+            <UserPlus className="h-4 w-4" />
+            {language === "pt" ? "Convidar Utilizador" : language === "es" ? "Invitar Usuario" : "Invite User"}
+          </Button>
+        }
+      />
 
       {/* Search */}
       <div className="relative max-w-md">

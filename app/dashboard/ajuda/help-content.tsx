@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useLanguage } from "@/contexts/language-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import {
   Search,
   FileText,
@@ -270,10 +271,11 @@ export function HelpContent() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{labels.title}</h1>
-        <p className="text-muted-foreground">{labels.subtitle}</p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Recursos / FAQ"
+        title={labels.title}
+        description={labels.subtitle}
+      />
 
       {/* Search */}
       <div className="relative max-w-md">

@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useData } from "@/contexts/data-context"
 import { useLanguage } from "@/contexts/language-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import {
   BarChart,
   Bar,
@@ -169,10 +170,11 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{labels.title}</h1>
-        <p className="text-muted-foreground">{labels.subtitle}</p>
-      </div>
+      <DashboardPageHeader
+        eyebrow={language === "pt" ? "Relatórios / Visão geral" : language === "es" ? "Informes / Vista general" : "Reports / Overview"}
+        title={labels.title}
+        description={labels.subtitle}
+      />
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import { Calendar, Clock, User, Plus, Trash2, CheckCircle } from "lucide-react"
 import {
   Dialog,
@@ -108,18 +109,18 @@ export default function VisitasPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Agendar Visita à Obra</h1>
-          <p className="text-muted-foreground">Gerir e agendar visitas técnicas às suas obras.</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Visita
-            </Button>
-          </DialogTrigger>
+      <DashboardPageHeader
+        eyebrow="Operações / Visitas"
+        title="Agendar Visita à Obra"
+        description="Gerir e agendar visitas técnicas às suas obras."
+        actions={
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="rounded-full gap-2">
+                <Plus className="h-4 w-4" />
+                Nova Visita
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Agendar Nova Visita</DialogTitle>

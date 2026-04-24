@@ -35,7 +35,7 @@ export function Hero() {
 
   return (
     <section className="relative overflow-hidden pt-32 pb-24 lg:pt-40 lg:pb-32">
-      <BlueprintBackdrop />
+      <BlueprintBackdrop interactive />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Main editorial split */}
