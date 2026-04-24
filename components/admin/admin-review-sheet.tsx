@@ -28,7 +28,6 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -470,7 +469,7 @@ export function AdminReviewSheet({
             </Tabs>
 
             {/* Sticky-ish action footer */}
-            <Separator />
+            <div className="h-px w-full bg-border" role="separator" aria-hidden="true" />
             <div className="flex flex-wrap items-center justify-between gap-3">
               <Button
                 variant="outline"

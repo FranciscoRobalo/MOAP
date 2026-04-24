@@ -21,7 +21,6 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { DashboardPageHeader } from "@/components/dashboard/page-header"
@@ -542,7 +541,7 @@ export function MeuOrcamentoDetail({ id }: { id: string }) {
         </Card>
       )}
 
-      <Separator />
+      <div className="h-px w-full bg-border" role="separator" aria-hidden="true" />
       <div className="text-center text-xs text-muted-foreground">
         ID · {data.id}
       </div>
