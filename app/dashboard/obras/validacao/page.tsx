@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
+import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import { Building2, Calendar, MapPin, Euro, Eye, Clock, CheckCircle, XCircle, AlertCircle, Search } from "lucide-react"
 
 type ValidationStatus = "aprovado" | "pendente" | "em_analise" | "rejeitado" | "info_adicional"
@@ -42,35 +43,41 @@ export default function ValidacaoObrasPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Pré-Validação de Obras</h1>
-        <p className="text-muted-foreground">Acompanhe o estado de aprovação de cada obra submetida.</p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Projetos / Validação"
+        title="Pré-Validação de Obras"
+        description="Acompanhe o estado de aprovação de cada obra submetida."
+      />
 
       {/* Status Summary */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {Object.entries(statusConfig).map(([key, config]) => {
           const StatusIcon = config.icon
+          const isActive = filterStatus === key
           return (
-            <Card
+            <button
               key={key}
-              className={`bg-card/50 cursor-pointer transition-all hover:ring-2 hover:ring-primary/50 ${
-                filterStatus === key ? "ring-2 ring-primary" : ""
-              }`}
+              type="button"
               onClick={() => setFilterStatus(filterStatus === key ? "all" : key)}
+              className={`bp-bracket relative overflow-hidden rounded-lg border bg-card/30 p-5 text-left transition-colors ${
+                isActive ? "border-primary/60 ring-1 ring-primary/50" : "border-border/60 hover:border-border"
+              }`}
+              aria-pressed={isActive}
             >
-              <CardContent className="pt-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{config.label}</p>
-                    <p className="text-2xl font-bold">{statusCounts[key] || 0}</p>
-                  </div>
-                  <div className={`p-2 rounded-full ${config.color}`}>
-                    <StatusIcon className="h-4 w-4" />
-                  </div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                    {config.label}
+                  </p>
+                  <p className="mt-3 font-display text-4xl font-medium tracking-tight tabular-nums">
+                    {statusCounts[key] || 0}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="rounded-md border border-border/60 bg-background/60 p-2 text-muted-foreground">
+                  <StatusIcon className="h-4 w-4" aria-hidden="true" />
+                </div>
+              </div>
+            </button>
           )
         })}
       </div>

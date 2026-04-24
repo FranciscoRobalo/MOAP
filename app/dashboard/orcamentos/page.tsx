@@ -134,7 +134,7 @@ export default function OrcamentosPage() {
 
   const statusConfig = {
     rascunho: { label: "Rascunho", color: "bg-muted text-muted-foreground" },
-    pendente: { label: "Pendente Aprovação", color: "bg-yellow-500 text-white" },
+    pendente: { label: "Pendente Aprovação", color: "bg-amber text-background" },
     aprovado: { label: "Aprovado", color: "bg-price-below text-white" },
     rejeitado: { label: "Rejeitado", color: "bg-price-high text-white" },
     finalizado: { label: "Finalizado", color: "bg-primary text-primary-foreground" },
@@ -302,8 +302,8 @@ export default function OrcamentosPage() {
                   <CardDescription>{budgets.length} orçamentos criados</CardDescription>
                 </div>
                 {pendingCount > 0 && (
-                  <Badge className="bg-yellow-500 text-white animate-pulse">
-                    <Clock className="h-3 w-3 mr-1" />
+                  <Badge variant="outline" className="gap-1.5 rounded-full border-amber/40 bg-amber/10 font-mono text-[10px] uppercase tracking-wider text-amber">
+                    <Clock className="h-3 w-3" />
                     {pendingCount} pendente{pendingCount > 1 ? "s" : ""}
                   </Badge>
                 )}

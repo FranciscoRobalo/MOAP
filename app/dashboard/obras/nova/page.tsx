@@ -81,12 +81,13 @@ export default function NovaObraPage() {
   if (submitted) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="bg-card/50 max-w-md w-full text-center">
+        <Card className="bp-bracket relative max-w-md w-full overflow-hidden border-border/60 bg-card/30 text-center">
           <CardContent className="pt-10 pb-10">
-            <div className="mx-auto w-16 h-16 bg-price-below/20 rounded-full flex items-center justify-center mb-6">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-price-below/40 bg-price-below/10">
               <CheckCircle className="h-8 w-8 text-price-below" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Obra Submetida!</h2>
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Confirmação</p>
+            <h2 className="mt-2 font-display text-3xl font-medium tracking-tight">Obra Submetida</h2>
             <p className="text-muted-foreground mb-6">
               A sua solicitação foi recebida com sucesso. Iremos analisar os detalhes e entrar em contacto brevemente.
             </p>

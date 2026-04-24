@@ -683,7 +683,7 @@ export default function PricesContent() {
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-yellow-500" />
+              <Sparkles className="h-5 w-5 text-amber" />
               Pesquisar {activeTab === "materials" ? "Materiais" : "Trabalhos"} com IA
             </DialogTitle>
             <DialogDescription>

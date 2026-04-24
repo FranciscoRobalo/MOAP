@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useData } from "@/contexts/data-context"
 import { useLanguage } from "@/contexts/language-context"
 import { DashboardPageHeader } from "@/components/dashboard/page-header"
+import { DashboardStatCard } from "@/components/dashboard/stat-card"
 import {
   BarChart,
   Bar,
@@ -178,56 +179,30 @@ export default function AnalyticsPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{labels.totalProjects}</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{obras.length}</div>
-            <div className="flex items-center gap-1 text-xs text-price-below">
-              <TrendingUp className="h-3 w-3" />+{statusCounts.aprovado} {labels.approved.toLowerCase()}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{labels.totalBudgets}</CardTitle>
-            <Calculator className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{budgets.length}</div>
-            <div className="flex items-center gap-1 text-xs text-price-below">
-              <TrendingUp className="h-3 w-3" />
-              {budgets.filter((b) => b.status === "finalizado").length} finalizados
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{labels.totalValue}</CardTitle>
-            <Euro className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">€{(totalBudgetValue / 1000).toFixed(0)}k</div>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              {language === "pt" ? "em orçamentos" : language === "es" ? "en presupuestos" : "in budgets"}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{labels.scheduledVisits}</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{scheduledVisitsCount}</div>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              {visitas.filter((v) => v.status === "realizada").length}{" "}
-              {language === "pt" ? "realizadas" : language === "es" ? "realizadas" : "completed"}
-            </div>
-          </CardContent>
-        </Card>
+        <DashboardStatCard
+          eyebrow={labels.totalProjects}
+          value={obras.length}
+          description={`+${statusCounts.aprovado} ${labels.approved.toLowerCase()}`}
+          icon={Building2}
+        />
+        <DashboardStatCard
+          eyebrow={labels.totalBudgets}
+          value={budgets.length}
+          description={`${budgets.filter((b) => b.status === "finalizado").length} finalizados`}
+          icon={Calculator}
+        />
+        <DashboardStatCard
+          eyebrow={labels.totalValue}
+          value={`€${(totalBudgetValue / 1000).toFixed(0)}k`}
+          description={language === "pt" ? "em orçamentos" : language === "es" ? "en presupuestos" : "in budgets"}
+          icon={Euro}
+        />
+        <DashboardStatCard
+          eyebrow={labels.scheduledVisits}
+          value={scheduledVisitsCount}
+          description={`${visitas.filter((v) => v.status === "realizada").length} ${language === "pt" ? "realizadas" : language === "es" ? "realizadas" : "completed"}`}
+          icon={Calendar}
+        />
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">

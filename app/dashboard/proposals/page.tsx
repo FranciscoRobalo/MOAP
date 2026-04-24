@@ -22,6 +22,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DashboardPageHeader } from "@/components/dashboard/page-header"
+import { DashboardStatCard } from "@/components/dashboard/stat-card"
 
 interface Proposal {
   id: string
@@ -245,53 +246,23 @@ export default function ProposalsPage() {
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Propostas</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+        <DashboardStatCard eyebrow="Total Propostas" value={stats.total} icon={FileText} tone="muted" />
+        <DashboardStatCard eyebrow="Aprovadas" value={stats.approved} icon={CheckCircle} />
+        <DashboardStatCard eyebrow="Em Análise" value={stats.pending} icon={Clock} tone="amber" />
+        <div className="bp-bracket relative overflow-hidden rounded-lg border border-border/60 bg-card/30 p-5 transition-colors hover:border-border">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Avaliação Média</p>
+              <div className="mt-3 flex items-center gap-2">
+                <p className="font-display text-4xl font-medium tracking-tight tabular-nums">{stats.avgRating.toFixed(1)}</p>
+                {renderStars(stats.avgRating)}
               </div>
-              <FileText className="h-8 w-8 text-muted-foreground" />
             </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Aprovadas</p>
-                <p className="text-2xl font-bold text-price-below">{stats.approved}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-price-below" />
+            <div className="rounded-md border border-border/60 bg-background/60 p-2 text-muted-foreground">
+              <Star className="h-4 w-4" aria-hidden="true" />
             </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Em Análise</p>
-                <p className="text-2xl font-bold text-price-average">{stats.pending}</p>
-              </div>
-              <Clock className="h-8 w-8 text-price-average" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Avaliação Média</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-2xl font-bold">{stats.avgRating.toFixed(1)}</p>
-                  {renderStars(stats.avgRating)}
-                </div>
-              </div>
-              <Star className="h-8 w-8 text-price-average" />
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -442,9 +413,11 @@ export default function ProposalsPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="text-center pb-4 border-b border-border">
-                      <p className="text-4xl font-bold">{selectedProposal.rating.overall.toFixed(1)}</p>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Avaliação Geral</p>
+                      <p className="mt-2 font-display text-5xl font-medium tracking-tight tabular-nums">
+                        {selectedProposal.rating.overall.toFixed(1)}
+                      </p>
                       <div className="flex justify-center mt-2">{renderStars(selectedProposal.rating.overall)}</div>
-                      <p className="text-sm text-muted-foreground mt-1">Avaliação Geral</p>
                     </div>
 
                     <div className="space-y-3">

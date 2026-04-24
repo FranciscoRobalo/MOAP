@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Mail, Send, UserPlus, Clock, CheckCircle, XCircle, Copy, Trash2, Users } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardPageHeader } from "@/components/dashboard/page-header"
+import { DashboardStatCard } from "@/components/dashboard/stat-card"
 
 interface Invitation {
   id: string
@@ -146,58 +147,10 @@ export default function ConvidarPage() {
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-primary/10">
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Convites</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-price-average/10">
-                <Clock className="h-5 w-5 text-price-average" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Pendentes</p>
-                <p className="text-2xl font-bold">{stats.pendente}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-price-below/10">
-                <CheckCircle className="h-5 w-5 text-price-below" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Aceites</p>
-                <p className="text-2xl font-bold">{stats.aceite}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-muted">
-                <XCircle className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Expirados</p>
-                <p className="text-2xl font-bold">{stats.expirado}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <DashboardStatCard eyebrow="Total Convites" value={stats.total} icon={Users} tone="primary" />
+        <DashboardStatCard eyebrow="Pendentes" value={stats.pendente} icon={Clock} tone="amber" />
+        <DashboardStatCard eyebrow="Aceites" value={stats.aceite} icon={CheckCircle} />
+        <DashboardStatCard eyebrow="Expirados" value={stats.expirado} icon={XCircle} tone="muted" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
 import { DashboardPageHeader } from "@/components/dashboard/page-header"
+import { DashboardStatCard } from "@/components/dashboard/stat-card"
 import { Calendar, Clock, User, Plus, Trash2, CheckCircle } from "lucide-react"
 import {
   Dialog,
@@ -238,45 +239,23 @@ export default function VisitasPage() {
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-primary/10">
-                <Calendar className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Próximas Visitas</p>
-                <p className="text-2xl font-bold">{upcomingVisits.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-price-below/10">
-                <CheckCircle className="h-5 w-5 text-price-below" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Realizadas</p>
-                <p className="text-2xl font-bold">{completedVisits.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-muted">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total de Visitas</p>
-                <p className="text-2xl font-bold">{visitas.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <DashboardStatCard
+          eyebrow="Próximas Visitas"
+          value={upcomingVisits.length}
+          icon={Calendar}
+          tone="primary"
+        />
+        <DashboardStatCard
+          eyebrow="Realizadas"
+          value={completedVisits.length}
+          icon={CheckCircle}
+        />
+        <DashboardStatCard
+          eyebrow="Total de Visitas"
+          value={visitas.length}
+          icon={Clock}
+          tone="muted"
+        />
       </div>
 
       {/* Upcoming Visits */}

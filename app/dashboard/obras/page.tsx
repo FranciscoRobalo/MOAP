@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useData } from "@/contexts/data-context"
 import { DashboardPageHeader } from "@/components/dashboard/page-header"
+import { DashboardStatCard } from "@/components/dashboard/stat-card"
 import { Building2, MapPin, Calendar, Euro, Search, Plus, Eye, Filter, ArrowUpDown, Clock } from "lucide-react"
 
 const statusConfig = {
@@ -121,60 +122,23 @@ export default function ObrasListPage() {
 
       {/* Stats Summary */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total de Obras</p>
-                <p className="text-2xl font-bold">{obras.length}</p>
-              </div>
-              <Building2 className="h-8 w-8 text-primary/50" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Aprovadas</p>
-                <p className="text-2xl font-bold text-price-below">
-                  {obras.filter((o) => o.status === "approved").length}
-                </p>
-              </div>
-              <div className="h-8 w-8 rounded-full bg-price-below/20 flex items-center justify-center">
-                <span className="text-price-below font-bold">
-                  {obras.length > 0 ? Math.round((obras.filter((o) => o.status === "approved").length / obras.length) * 100) : 0}%
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Em Análise</p>
-                <p className="text-2xl font-bold text-primary">
-                  {obras.filter((o) => o.status === "in-analysis" || o.status === "pending").length}
-                </p>
-              </div>
-              <Clock className="h-8 w-8 text-primary/50" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Orçamento Total</p>
-                <p className="text-2xl font-bold">
-                  €{(obras.reduce((sum, o) => sum + (o.budget || 0), 0) / 1000000).toFixed(1)}M
-                </p>
-              </div>
-              <Euro className="h-8 w-8 text-primary/50" />
-            </div>
-          </CardContent>
-        </Card>
+        <DashboardStatCard eyebrow="Total de Obras" value={obras.length} icon={Building2} />
+        <DashboardStatCard
+          eyebrow="Aprovadas"
+          value={obras.filter((o) => o.status === "approved").length}
+          description={`${obras.length > 0 ? Math.round((obras.filter((o) => o.status === "approved").length / obras.length) * 100) : 0}% do total`}
+        />
+        <DashboardStatCard
+          eyebrow="Em Análise"
+          value={obras.filter((o) => o.status === "in-analysis" || o.status === "pending").length}
+          icon={Clock}
+          tone="primary"
+        />
+        <DashboardStatCard
+          eyebrow="Orçamento Total"
+          value={`€${(obras.reduce((sum, o) => sum + (o.budget || 0), 0) / 1000000).toFixed(1)}M`}
+          icon={Euro}
+        />
       </div>
 
       {/* Obras Grid */}

@@ -1,26 +1,24 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, type CSSProperties } from "react"
 import { cn } from "@/lib/utils"
 
 interface BlueprintBackdropProps {
   className?: string
   variant?: "default" | "dense" | "minimal" | "subtle"
   auroras?: boolean
-  /** When true, renders an interactive canvas grid reacting to the cursor. */
+  /**
+   * Adds a cursor-following radial highlight over the existing grid.
+   * Pure CSS (custom properties) — no canvas, no mask, identical in light & dark.
+   */
   interactive?: boolean
   children?: React.ReactNode
 }
 
 /**
- * Architectural blueprint backdrop — subtle grid lines, optional aurora blobs,
- * and a radial mask so the grid fades at the edges. Intended to sit behind
- * landing-page sections.
- *
- * `interactive` swaps the static CSS grid for a canvas grid that pulses ambient
- * ripples, warms up under the cursor, and emits a ring on click. DPR-aware,
- * respects prefers-reduced-motion, stays behind content via pointer-events.
+ * Architectural blueprint backdrop — subtle grid lines, optional aurora blobs.
+ * `interactive` brightens the grid locally where the cursor moves via CSS vars.
  */
 export function BlueprintBackdrop({
   className,
@@ -29,19 +27,116 @@ export function BlueprintBackdrop({
   interactive = false,
   children,
 }: BlueprintBackdropProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null)
   const gridClass = variant === "dense" ? "bp-grid-sm" : "bp-grid"
-  const showStaticGrid = variant !== "minimal" && !interactive
+  const showGrid = variant !== "minimal"
+
+  useEffect(() => {
+    if (!interactive) return
+    const el = rootRef.current
+    if (!el) return
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return
+    }
+
+    let raf = 0
+    let targetX = 50
+    let targetY = 50
+    let currentX = 50
+    let currentY = 50
+    let active = false
+
+    const setVars = () => {
+      el.style.setProperty("--mx", `${currentX}%`)
+      el.style.setProperty("--my", `${currentY}%`)
+      el.style.setProperty("--mo", active ? "1" : "0")
+    }
+
+    const loop = () => {
+      currentX += (targetX - currentX) * 0.14
+      currentY += (targetY - currentY) * 0.14
+      setVars()
+      if (Math.abs(targetX - currentX) > 0.1 || Math.abs(targetY - currentY) > 0.1 || !active) {
+        raf = requestAnimationFrame(loop)
+      } else {
+        raf = 0
+      }
+    }
+
+    const onMove = (e: PointerEvent) => {
+      const rect = el.getBoundingClientRect()
+      if (
+        e.clientX < rect.left ||
+        e.clientX > rect.right ||
+        e.clientY < rect.top ||
+        e.clientY > rect.bottom
+      ) {
+        active = false
+      } else {
+        active = true
+        targetX = ((e.clientX - rect.left) / rect.width) * 100
+        targetY = ((e.clientY - rect.top) / rect.height) * 100
+      }
+      if (!raf) raf = requestAnimationFrame(loop)
+    }
+
+    const onLeave = () => {
+      active = false
+      if (!raf) raf = requestAnimationFrame(loop)
+    }
+
+    setVars()
+    window.addEventListener("pointermove", onMove, { passive: true })
+    window.addEventListener("pointerleave", onLeave)
+    return () => {
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerleave", onLeave)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [interactive])
+
+  const interactiveStyle: CSSProperties | undefined = interactive
+    ? ({
+        ["--mx" as any]: "50%",
+        ["--my" as any]: "50%",
+        ["--mo" as any]: "0",
+      } as CSSProperties)
+    : undefined
 
   return (
     <div
+      ref={rootRef}
+      style={interactiveStyle}
       className={cn("pointer-events-none absolute inset-0 overflow-hidden", className)}
       aria-hidden="true"
     >
-      {/* Static CSS grid */}
-      {showStaticGrid && <div className={cn("absolute inset-0 bp-grid-fade", gridClass)} />}
+      {/* Base grid */}
+      {showGrid && <div className={cn("absolute inset-0 bp-grid-fade", gridClass)} />}
 
-      {/* Interactive canvas grid */}
-      {interactive && <InteractiveGrid />}
+      {/* Cursor-following highlight — CSS-only, theme-agnostic */}
+      {interactive && showGrid && (
+        <>
+          <div
+            className={cn("absolute inset-0 transition-opacity duration-300", gridClass)}
+            style={{
+              opacity: "calc(var(--mo, 0) * 0.9)",
+              WebkitMaskImage:
+                "radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), rgba(0,0,0,0.9), rgba(0,0,0,0) 70%)",
+              maskImage:
+                "radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), rgba(0,0,0,0.9), rgba(0,0,0,0) 70%)",
+              filter: "brightness(1.8) saturate(1.3)",
+            }}
+          />
+          <div
+            className="absolute inset-0 transition-opacity duration-300"
+            style={{
+              opacity: "calc(var(--mo, 0) * 0.45)",
+              background:
+                "radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%), hsl(166 76% 47% / 0.18), transparent 70%)",
+            }}
+          />
+        </>
+      )}
 
       {/* Aurora blobs */}
       {auroras && (
@@ -86,233 +181,6 @@ export function BlueprintBackdrop({
       )}
 
       {children}
-    </div>
-  )
-}
-
-/**
- * Canvas-driven interactive grid. Mounted only when `interactive` is true.
- * Pointer events are re-enabled on this layer so the grid can follow the cursor,
- * but we forward the events via `pointer-events: auto` on the transparent overlay.
- */
-function InteractiveGrid() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const wrapRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    if (reduced) return
-
-    const canvas = canvasRef.current
-    const wrap = wrapRef.current
-    if (!canvas || !wrap) return
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    const state = {
-      width: 0,
-      height: 0,
-      dpr: Math.min(window.devicePixelRatio || 1, 2),
-      mouseX: -9999,
-      mouseY: -9999,
-      spacing: 48,
-      primary: [166, 76, 47] as [number, number, number],
-      amber: [38, 92, 58] as [number, number, number],
-      ripples: [] as {
-        x: number
-        y: number
-        r: number
-        maxR: number
-        start: number
-      }[],
-      beacons: [] as {
-        x: number
-        y: number
-        phase: number
-        speed: number
-      }[],
-    }
-
-    const readCssColor = (variable: string): [number, number, number] | null => {
-      const raw = getComputedStyle(document.documentElement)
-        .getPropertyValue(variable)
-        .trim()
-      const m = raw.match(/hsl\(([\d.]+)\s+([\d.]+)%\s+([\d.]+)%/)
-      if (!m) return null
-      return [Number(m[1]), Number(m[2]), Number(m[3])]
-    }
-
-    const refreshColors = () => {
-      const p = readCssColor("--primary")
-      const a = readCssColor("--amber")
-      if (p) state.primary = p
-      if (a) state.amber = a
-    }
-    refreshColors()
-
-    const themeObserver = new MutationObserver(() => refreshColors())
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    })
-
-    const resize = () => {
-      const rect = wrap.getBoundingClientRect()
-      state.width = rect.width
-      state.height = rect.height
-      canvas.width = Math.max(1, Math.round(state.width * state.dpr))
-      canvas.height = Math.max(1, Math.round(state.height * state.dpr))
-      canvas.style.width = `${state.width}px`
-      canvas.style.height = `${state.height}px`
-      ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0)
-
-      // Seed ambient beacons at grid intersections
-      const cellsX = Math.max(3, Math.floor(state.width / state.spacing))
-      const cellsY = Math.max(3, Math.floor(state.height / state.spacing))
-      const count = Math.max(6, Math.min(20, Math.floor((cellsX * cellsY) / 22)))
-      state.beacons = Array.from({ length: count }, () => ({
-        x: Math.round(Math.random() * cellsX) * state.spacing,
-        y: Math.round(Math.random() * cellsY) * state.spacing,
-        phase: Math.random() * Math.PI * 2,
-        speed: 0.0006 + Math.random() * 0.0008,
-      }))
-    }
-    resize()
-
-    const onResize = () => resize()
-    window.addEventListener("resize", onResize, { passive: true })
-
-    const onPointerMove = (e: PointerEvent) => {
-      const rect = wrap.getBoundingClientRect()
-      state.mouseX = e.clientX - rect.left
-      state.mouseY = e.clientY - rect.top
-    }
-    const onPointerLeave = () => {
-      state.mouseX = -9999
-      state.mouseY = -9999
-    }
-    const onPointerDown = (e: PointerEvent) => {
-      const rect = wrap.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-      state.ripples.push({
-        x,
-        y,
-        r: 0,
-        maxR: Math.max(state.width, state.height) * 0.45,
-        start: performance.now(),
-      })
-    }
-
-    wrap.addEventListener("pointermove", onPointerMove, { passive: true })
-    wrap.addEventListener("pointerleave", onPointerLeave, { passive: true })
-    wrap.addEventListener("pointerdown", onPointerDown, { passive: true })
-
-    let raf = 0
-    const render = (now: number) => {
-      ctx.clearRect(0, 0, state.width, state.height)
-
-      const { spacing, mouseX, mouseY, primary, amber } = state
-      const [ph, ps, pl] = primary
-      const influence = 200
-
-      // Vertical grid lines — warmer and brighter near the cursor
-      for (let x = 0; x <= state.width; x += spacing) {
-        const dx = Math.abs(x - mouseX)
-        const t = mouseX > -9000 ? Math.max(0, 1 - dx / influence) : 0
-        const alpha = 0.06 + t * 0.22
-        const hue = t > 0.15
-          ? `hsl(${ph + (amber[0] - ph) * t * 0.5} ${ps}% ${pl}% / ${alpha})`
-          : `hsl(${ph} ${ps}% ${pl}% / ${alpha})`
-        ctx.strokeStyle = hue
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.moveTo(x + 0.5, 0)
-        ctx.lineTo(x + 0.5, state.height)
-        ctx.stroke()
-      }
-
-      // Horizontal grid lines
-      for (let y = 0; y <= state.height; y += spacing) {
-        const dy = Math.abs(y - mouseY)
-        const t = mouseY > -9000 ? Math.max(0, 1 - dy / influence) : 0
-        const alpha = 0.06 + t * 0.22
-        const hue = t > 0.15
-          ? `hsl(${ph + (amber[0] - ph) * t * 0.5} ${ps}% ${pl}% / ${alpha})`
-          : `hsl(${ph} ${ps}% ${pl}% / ${alpha})`
-        ctx.strokeStyle = hue
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.moveTo(0, y + 0.5)
-        ctx.lineTo(state.width, y + 0.5)
-        ctx.stroke()
-      }
-
-      // Cursor glow
-      if (mouseX > -9000) {
-        const radius = 240
-        const grad = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, radius)
-        grad.addColorStop(0, `hsl(${ph} ${ps}% ${pl}% / 0.22)`)
-        grad.addColorStop(1, `hsl(${ph} ${ps}% ${pl}% / 0)`)
-        ctx.fillStyle = grad
-        ctx.fillRect(mouseX - radius, mouseY - radius, radius * 2, radius * 2)
-      }
-
-      // Ambient beacons — slow pulsing survey dots at grid intersections
-      for (const b of state.beacons) {
-        const pulse = 0.5 + 0.5 * Math.sin(now * b.speed + b.phase)
-        const r = 1.25 + pulse * 1.5
-        ctx.fillStyle = `hsl(${ph} ${ps}% ${pl}% / ${0.15 + pulse * 0.45})`
-        ctx.beginPath()
-        ctx.arc(b.x, b.y, r, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      // Click ripples
-      state.ripples = state.ripples.filter((rp) => {
-        const elapsed = now - rp.start
-        const t = Math.min(1, elapsed / 1200)
-        if (t >= 1) return false
-        rp.r = rp.maxR * t
-        const alpha = 0.45 * (1 - t)
-        ctx.strokeStyle = `hsl(${ph} ${ps}% ${pl}% / ${alpha})`
-        ctx.lineWidth = 1.5
-        ctx.beginPath()
-        ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2)
-        ctx.stroke()
-        return true
-      })
-
-      raf = requestAnimationFrame(render)
-    }
-    raf = requestAnimationFrame(render)
-
-    return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener("resize", onResize)
-      wrap.removeEventListener("pointermove", onPointerMove)
-      wrap.removeEventListener("pointerleave", onPointerLeave)
-      wrap.removeEventListener("pointerdown", onPointerDown)
-      themeObserver.disconnect()
-    }
-  }, [])
-
-  return (
-    <div
-      ref={wrapRef}
-      className="absolute inset-0"
-      style={{
-        pointerEvents: "auto",
-        maskImage:
-          "radial-gradient(ellipse at center, black 40%, transparent 78%)",
-        WebkitMaskImage:
-          "radial-gradient(ellipse at center, black 40%, transparent 78%)",
-      }}
-    >
-      {/* Static grid fallback for reduced motion + before the canvas paints */}
-      <div className="absolute inset-0 bp-grid opacity-70" aria-hidden="true" />
-      <canvas ref={canvasRef} className="absolute inset-0 motion-reduce:hidden" />
     </div>
   )
 }
