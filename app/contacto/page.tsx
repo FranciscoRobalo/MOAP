@@ -1,4 +1,7 @@
+import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
 import { ContactForm } from "@/components/contact-form"
+import { ContactPageClient } from "@/components/contact-page-client"
 
 export const metadata = {
   title: "Contacte-nos | MOAP",
@@ -6,5 +9,15 @@ export const metadata = {
 }
 
 export default function ContactPage() {
-  return <ContactForm />
+  return (
+    <main className="min-h-screen bg-background flex flex-col">
+      <Header />
+      <div className="flex-1">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <ContactPageClient />
+        </div>
+      </div>
+      <Footer />
+    </main>
+  )
 }

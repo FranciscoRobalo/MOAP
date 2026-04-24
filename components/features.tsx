@@ -94,27 +94,28 @@ export function Features() {
           {features.map((feature, index) => (
             <Card
               key={feature.title}
-              className={`border-border/40 bg-card/50 backdrop-blur-sm card-hover group cursor-pointer transition-all duration-500 relative overflow-hidden ${
+              className={`border-border/40 bg-gradient-to-br from-card/60 to-card/30 backdrop-blur-enhanced hover-neon group cursor-pointer transition-all duration-500 relative overflow-hidden ${
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
               }`}
               style={{ transitionDelay: `${200 + index * 75}ms` }}
             >
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute -right-10 -top-10 h-20 w-20 rounded-full bg-primary/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 transition-all duration-300 group-hover:bg-primary/20 group-hover:scale-110">
-                    <feature.icon className="h-6 w-6 text-primary transition-transform duration-300 group-hover:scale-110" />
+                <div className="flex items-start justify-between relative z-10">
+                  <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 transition-all duration-300 group-hover:from-primary/40 group-hover:to-primary/20 group-hover:scale-110 shadow-lg">
+                    <feature.icon className="h-6 w-6 text-primary transition-transform duration-300 group-hover:scale-125 group-hover:animate-float-rotate" />
                   </div>
                   {feature.badge && (
-                    <span className="text-xs font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary">
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 text-primary border border-primary/30 group-hover:from-primary/30 group-hover:to-accent/30 transition-all">
                       {feature.badge}
                     </span>
                   )}
                 </div>
-                <CardTitle className="text-lg">{feature.title}</CardTitle>
+                <CardTitle className="text-lg group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-primary group-hover:to-accent transition-all">{feature.title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <CardDescription className="text-muted-foreground">{feature.description}</CardDescription>
+                <CardDescription className="text-muted-foreground group-hover:text-foreground transition-colors">{feature.description}</CardDescription>
               </CardContent>
             </Card>
           ))}
