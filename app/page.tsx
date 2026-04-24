@@ -1,6 +1,7 @@
 import { Header } from "@/components/header"
 import { Hero } from "@/components/hero"
 import { Features } from "@/components/features"
+import { PlatformShowcase } from "@/components/platform-showcase"
 import { HowItWorks } from "@/components/how-it-works"
 import { ReportLegend } from "@/components/report-legend"
 import { UploadSection } from "@/components/upload-section"
@@ -13,6 +14,7 @@ export default function Home() {
       <Hero />
       <ReportLegend />
       <Features />
+      <PlatformShowcase />
       <HowItWorks />
       <UploadSection />
       <Footer />

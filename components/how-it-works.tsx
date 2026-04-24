@@ -35,9 +35,9 @@ export function HowItWorks() {
     },
     {
       icon: Cpu,
-      number: t("step2Number"),
-      title: t("step2Title"),
-      description: t("step2Desc"),
+      number: "02",
+      title: "Extração de Dados",
+      description: "Extração automática e precisa de todos os itens, quantidades e unidades do documento",
     },
     {
       icon: FileBarChart,
@@ -66,14 +66,14 @@ export function HowItWorks() {
               className={`relative transition-all duration-700 ${
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
               }`}
-              style={{ transitionDelay: `${300 + index * 200}ms` }}
+              style={{ transitionDelay: `${300 + index * 150}ms` }}
             >
               {index < steps.length - 1 && (
                 <div
-                  className={`absolute top-16 left-1/2 hidden h-0.5 w-full bg-border/60 lg:block transition-all duration-1000 origin-left ${
+                  className={`absolute top-16 left-1/2 hidden h-0.5 w-full bg-gradient-to-r from-border/60 to-transparent lg:block transition-all duration-1000 origin-left ${
                     isVisible ? "scale-x-100" : "scale-x-0"
                   }`}
-                  style={{ transitionDelay: `${800 + index * 200}ms` }}
+                  style={{ transitionDelay: `${1000 + index * 150}ms` }}
                 />
               )}
               <div className="relative flex flex-col items-center text-center group">
@@ -81,8 +81,8 @@ export function HowItWorks() {
                   <span className="text-xs font-medium text-primary">{step.number}</span>
                   <step.icon className="mt-1 h-10 w-10 text-foreground transition-transform duration-300 group-hover:scale-110" />
                 </div>
-                <h3 className="mt-6 text-xl font-semibold">{step.title}</h3>
-                <p className="mt-2 text-muted-foreground">{step.description}</p>
+                <h3 className="mt-6 text-lg font-semibold">{step.title}</h3>
+                <p className="mt-2 max-w-xs text-sm text-muted-foreground">{step.description}</p>
               </div>
             </div>
           ))}

@@ -22,13 +22,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { items, materials } = body as { items: BudgetItem[]; materials: MaterialRef[] }
     
+    console.log("[v0] match-items API called with", items?.length || 0, "items")
+    
     const apiKey = process.env.OPENAI_API_KEY
     
     if (!apiKey) {
+      console.log("[v0] match-items: No OPENAI_API_KEY configured")
+      // Return empty matches instead of error - allows fallback to local matching
       return NextResponse.json({ 
-        error: "OPENAI_API_KEY não configurada",
-        matches: {}
-      }, { status: 500 })
+        matches: {},
+        warning: "OPENAI_API_KEY não configurada - usando correspondência local"
+      })
     }
     
     if (!items || items.length === 0) {
