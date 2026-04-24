@@ -4175,6 +4175,23 @@ Pintura interior;m2;200;8.75`}
 
         </DialogContent>
       </Dialog>
+
+      {/* Notes Sheet — per-item annotations persisted to Supabase */}
+      <NotesSheet
+        open={Boolean(notesItem)}
+        onOpenChange={(open) => !open && setNotesItem(null)}
+        analysisId={workspace.analysisId}
+        item={notesItem}
+      />
+
+      {/* Negotiation AI — per-item script generation */}
+      <NegotiationDialog
+        open={Boolean(negotiationItem)}
+        onOpenChange={(open) => !open && setNegotiationItem(null)}
+        analysisId={workspace.analysisId}
+        item={negotiationItem}
+        region={analysisResult?.region ?? selectedRegion}
+      />
     </div>
   )
 }
