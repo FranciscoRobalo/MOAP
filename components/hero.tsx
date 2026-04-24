@@ -42,21 +42,12 @@ export function Hero() {
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-4xl text-center">
-          <div
-            className={`mb-6 inline-flex items-center gap-2 rounded-full border border-border/60 bg-secondary/50 px-4 py-1.5 text-sm text-muted-foreground transition-all duration-700 hover-neon ${
-              isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"
-            }`}
-          >
-            <BarChart3 className="h-4 w-4 text-primary animate-bounce-subtle" />
-            {t("heroBadge")}
-          </div>
-
           <h1
-            className={`text-balance text-4xl font-bold tracking-tight sm:text-5xl lg:text-7xl transition-all duration-700 delay-100 ${
+            className={`text-balance text-4xl font-bold tracking-tight sm:text-5xl lg:text-7xl transition-all duration-700 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
-            {t("heroTitle")} <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-accent to-primary animate-gradient-mesh">{t("heroTitleHighlight")}</span>
+            {t("heroTitle")} <span className="text-primary">{t("heroTitleHighlight")}</span>
           </h1>
 
           <p
