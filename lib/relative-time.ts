@@ -1,10 +1,27 @@
 /**
  * Compact relative-time helpers for chat UI.
  * All strings are pt-PT.
+ *
+ * Defensive input handling:
+ *   These helpers are fed timestamps coming from several sources (local cache,
+ *   Supabase rows, in-memory mock data). A missing/undefined timestamp must
+ *   NOT crash the app — we coerce anything falsy or non-Date/string to an
+ *   "invalid" Date and return "" from the formatter, matching the behaviour
+ *   of a NaN getTime().
  */
 
-export function formatRelativeTime(input: string | Date): string {
-  const date = typeof input === "string" ? new Date(input) : input
+type MaybeDateInput = string | number | Date | null | undefined
+
+function toDate(input: MaybeDateInput): Date {
+  if (input instanceof Date) return input
+  if (typeof input === "string" || typeof input === "number") return new Date(input)
+  // Return a Date object that reports NaN from getTime(), so the checks below
+  // short-circuit cleanly instead of throwing on undefined.getTime().
+  return new Date(Number.NaN)
+}
+
+export function formatRelativeTime(input: MaybeDateInput): string {
+  const date = toDate(input)
   if (Number.isNaN(date.getTime())) return ""
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
@@ -33,8 +50,8 @@ export function formatRelativeTime(input: string | Date): string {
 /**
  * Short HH:MM for individual message timestamps.
  */
-export function formatMessageTime(input: string | Date): string {
-  const date = typeof input === "string" ? new Date(input) : input
+export function formatMessageTime(input: MaybeDateInput): string {
+  const date = toDate(input)
   if (Number.isNaN(date.getTime())) return ""
   return date.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })
 }
@@ -42,8 +59,8 @@ export function formatMessageTime(input: string | Date): string {
 /**
  * Day-separator label: "Hoje", "Ontem" or a full date.
  */
-export function formatDaySeparator(input: string | Date): string {
-  const date = typeof input === "string" ? new Date(input) : input
+export function formatDaySeparator(input: MaybeDateInput): string {
+  const date = toDate(input)
   if (Number.isNaN(date.getTime())) return ""
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -63,8 +80,8 @@ export function formatDaySeparator(input: string | Date): string {
 /**
  * YYYY-MM-DD key to group messages by day.
  */
-export function dayKey(input: string | Date): string {
-  const date = typeof input === "string" ? new Date(input) : input
+export function dayKey(input: MaybeDateInput): string {
+  const date = toDate(input)
   if (Number.isNaN(date.getTime())) return ""
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, "0")
