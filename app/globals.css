@@ -770,10 +770,6 @@ html {
   .input-smooth {
     @apply bg-input border border-border rounded-md px-3 py-2 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20;
   }
-  
-  .button-smooth {
-    @apply transition-all duration-300 ease-out;
-  }
 }
 
 /* Smooth transitions */
@@ -782,7 +778,7 @@ html {
 }
 
 button, a, [role="button"] {
-  @apply button-smooth;
+  @apply transition-all duration-300 ease-out;
 }
 
 /* Custom scrollbar */
