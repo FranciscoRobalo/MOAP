@@ -14,11 +14,18 @@ export function Hero() {
   }, [])
 
   const stats = [
-    { value: t("heroStat1Value"), label: t("heroStat1Label") },
-    { value: t("heroStat2Value"), label: t("heroStat2Label") },
-    { value: t("heroStat3Value"), label: t("heroStat3Label") },
-    { value: t("heroStat4Value"), label: t("heroStat4Label") },
+    { value: "99.2%", label: "Precisão de Extração" },
+    { value: "< 10s", label: "Análise por Documento" },
+    { value: "15-30%", label: "Economia Identificada" },
+    { value: "50k+", label: "Materiais na BD" },
   ]
+
+  const scrollToUpload = () => {
+    const uploadSection = document.getElementById("carregar")
+    if (uploadSection) {
+      uploadSection.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }
 
   return (
     <section className="relative overflow-hidden pt-32 pb-20 lg:pt-40 lg:pb-32">
@@ -60,12 +67,14 @@ export function Hero() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
-            <a href="/login?force=1">
-              <Button size="lg" className="gap-2 btn-ripple hover-lift hover-glow h-16 px-10 text-xl font-semibold">
-                <FileUp className="h-7 w-7" />
-                {t("heroUploadButton")}
-              </Button>
-            </a>
+            <Button
+              size="lg"
+              onClick={scrollToUpload}
+              className="gap-2 btn-ripple hover-lift hover-glow h-16 px-10 text-xl font-semibold"
+            >
+              <FileUp className="h-7 w-7" />
+              {t("heroUploadButton")}
+            </Button>
           </div>
         </div>
 
