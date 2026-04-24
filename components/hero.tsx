@@ -71,7 +71,7 @@ export function Hero() {
               <span className="block font-sans text-5xl font-semibold tracking-tight text-foreground sm:text-6xl lg:text-7xl xl:text-[5.5rem] xl:leading-[0.95]">
                 {t("heroTitle")}
               </span>
-              <span className="mt-2 block font-display text-5xl italic tracking-tight text-primary sm:text-6xl lg:text-7xl xl:text-[5.5rem] xl:leading-[0.95]">
+              <span className="mt-2 block font-display text-5xl font-medium tracking-tight text-primary sm:text-6xl lg:text-7xl xl:text-[5.5rem] xl:leading-[0.95]">
                 {t("heroTitleHighlight")}
               </span>
             </h1>
@@ -161,12 +161,12 @@ function StatCell({
           <AnimatedCounter
             value={counter.value}
             suffix={counter.suffix}
-            className="font-display text-4xl italic text-foreground lg:text-5xl"
+            className="font-display text-4xl font-medium tracking-tight text-foreground lg:text-5xl"
           />
         ) : (
           <span
             className={`text-foreground ${
-              mono ? "font-mono text-xl lg:text-2xl tracking-tight" : "font-display text-4xl italic lg:text-5xl"
+              mono ? "font-mono text-xl lg:text-2xl tracking-tight" : "font-display text-4xl font-medium tracking-tight lg:text-5xl"
             }`}
           >
             {value}
@@ -219,7 +219,7 @@ function ReportPreviewCard() {
           <div className="flex items-baseline justify-between">
             <div>
               <p className="eyebrow">Total analisado</p>
-              <p className="mt-1 font-display text-3xl italic text-foreground">
+              <p className="mt-1 font-display text-3xl font-medium tracking-tight text-foreground">
                 € <AnimatedCounter value={248320} decimals={0} duration={2200} />
               </p>
             </div>

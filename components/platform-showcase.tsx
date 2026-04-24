@@ -59,7 +59,7 @@ export function PlatformShowcase() {
             <p className="eyebrow-strong">§ 04 — Plataforma</p>
             <h2 className="mt-4 max-w-3xl text-balance font-sans text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
               Tudo que precisa para{" "}
-              <span className="font-display italic text-primary">orçamentos precisos.</span>
+              <span className="font-display font-medium tracking-tight text-primary">orçamentos precisos.</span>
             </h2>
           </div>
           <p className="max-w-md text-pretty text-base text-muted-foreground md:text-right">
@@ -90,7 +90,7 @@ export function PlatformShowcase() {
                     </h3>
                   </div>
                 </div>
-                <span className="font-display text-5xl italic text-primary/20 group-hover:text-primary/40">
+                <span className="font-display text-5xl font-medium tracking-tight text-primary/20 group-hover:text-primary/40">
                   {cap.index}
                 </span>
               </div>

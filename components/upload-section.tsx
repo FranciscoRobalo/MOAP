@@ -164,7 +164,7 @@ export function UploadSection() {
             <p className="eyebrow-strong">§ 06 — Começar</p>
             <h2 className="mt-4 max-w-3xl text-balance font-sans text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
               {t("uploadTitle")}{" "}
-              <span className="font-display italic text-primary">em segundos.</span>
+              <span className="font-display font-medium tracking-tight text-primary">em segundos.</span>
             </h2>
           </div>
           <p className="max-w-md text-pretty text-base text-muted-foreground md:text-right">

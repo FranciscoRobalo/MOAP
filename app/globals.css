@@ -140,7 +140,7 @@
 @theme inline {
   --font-sans: "Inter", "Geist", "Geist Fallback";
   --font-mono: "Geist Mono", "Geist Mono Fallback";
-  --font-display: var(--font-instrument-serif), "Instrument Serif", "Times New Roman", serif;
+  --font-display: var(--font-bricolage), "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -1012,16 +1012,16 @@ button, a, [role="button"], input, textarea, select {
 /* Display / headline treatment */
 .display {
   font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: -0.02em;
+  font-weight: 500;
+  letter-spacing: -0.035em;
   line-height: 0.95;
 }
 
 /* Giant wordmark (footer / hero accents) */
 .wordmark-giant {
   font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: -0.04em;
+  font-weight: 500;
+  letter-spacing: -0.045em;
   line-height: 0.8;
   background: linear-gradient(180deg, var(--foreground) 0%, transparent 85%);
   -webkit-background-clip: text;

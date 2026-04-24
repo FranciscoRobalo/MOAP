@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter, Geist_Mono, Instrument_Serif } from "next/font/google"
+import { Inter, Geist_Mono, Bricolage_Grotesque } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/auth-context"
 import { DataProvider } from "@/contexts/data-context"
@@ -12,10 +12,9 @@ import "./globals.css"
 
 const _inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" })
 const _geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" })
-const instrumentSerif = Instrument_Serif({
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: "400",
-  variable: "--font-instrument-serif",
+  variable: "--font-bricolage",
   display: "swap",
 })
 
@@ -32,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt" suppressHydrationWarning className={`${instrumentSerif.variable}`}>
+    <html lang="pt" suppressHydrationWarning className={`${bricolage.variable}`}>
       <body className={`font-sans antialiased bg-background`}>
         <ThemeProvider>
           <LanguageProvider>

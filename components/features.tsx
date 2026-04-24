@@ -29,7 +29,7 @@ export function Features() {
             <p className="eyebrow-strong">§ 02 — Capacidades</p>
             <h2 className="mt-4 max-w-2xl text-balance font-sans text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
               {t("features")}{" "}
-              <span className="font-display italic text-primary">com método.</span>
+              <span className="font-display font-medium tracking-tight text-primary">com método.</span>
             </h2>
           </div>
           <p className="max-w-md text-pretty text-base text-muted-foreground md:text-right">
@@ -128,7 +128,7 @@ export function Features() {
             Icon={Scale}
             accent
           >
-            <p className="mt-4 font-display text-6xl italic text-foreground lg:text-7xl">
+            <p className="mt-4 font-display text-6xl font-medium tracking-tight text-foreground lg:text-7xl">
               <AnimatedCounter value={50000} suffix="+" />
             </p>
           </BentoCard>

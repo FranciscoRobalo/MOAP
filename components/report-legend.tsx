@@ -53,7 +53,7 @@ export function ReportLegend() {
             <p className="eyebrow-strong">§ 05 — Relatório</p>
             <h2 className="mt-4 max-w-3xl text-balance font-sans text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
               {t("reportTitle")}{" "}
-              <span className="font-display italic text-primary">leitura clara.</span>
+              <span className="font-display font-medium tracking-tight text-primary">leitura clara.</span>
             </h2>
           </div>
           <p className="max-w-md text-pretty text-base text-muted-foreground md:text-right">

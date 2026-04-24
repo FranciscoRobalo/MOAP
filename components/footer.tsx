@@ -22,7 +22,7 @@ export function Footer() {
             "MOAP · 2026",
           ].map((item, i) => (
             <div key={`${item}-${i}`} className="flex items-center gap-6 px-6">
-              <span className="font-display text-2xl italic text-foreground/80">{item}</span>
+              <span className="font-display text-2xl font-medium tracking-tight text-foreground/80">{item}</span>
               <span className="text-primary">◆</span>
             </div>
           ))}

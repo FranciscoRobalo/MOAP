@@ -54,7 +54,7 @@ export function HowItWorks() {
             <p className="eyebrow-strong">§ 03 — Fluxo</p>
             <h2 className="mt-4 max-w-2xl text-balance font-sans text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
               {t("howItWorksTitle")}{" "}
-              <span className="font-display italic text-primary">três passos.</span>
+              <span className="font-display font-medium tracking-tight text-primary">três passos.</span>
             </h2>
           </div>
           <p className="max-w-md text-pretty text-base text-muted-foreground md:text-right">
@@ -91,7 +91,7 @@ export function HowItWorks() {
                 {/* Text */}
                 <div className="md:col-span-5">
                   <div className="flex items-baseline gap-3">
-                    <span className="font-display text-6xl italic leading-none text-primary/80">
+                    <span className="font-display text-6xl font-medium leading-none tracking-tight text-primary/80">
                       {step.number}
                     </span>
                     <span className="eyebrow-strong">{step.label}</span>
