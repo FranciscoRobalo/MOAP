@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
 import { useLanguage } from "@/contexts/language-context"
-import { AlertTriangle, Building2, Calculator, MessageSquare, ArrowRight, Settings2, Plus, X, Check, BarChart3, DollarSign, Users, FileText, TrendingUp } from "lucide-react"
+import { AlertTriangle, Building2, Calculator, MessageSquare, ArrowRight, Settings2, Plus, X, Check, BarChart3, DollarSign, Users, FileText, TrendingUp, Command } from "lucide-react"
+import { ActivityFeed } from "@/components/dashboard/activity-feed"
 import { useEffect, useState } from "react"
 import {
   Dialog,
@@ -167,6 +168,26 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="hidden sm:inline-flex hover-lift bg-transparent gap-2"
+            onClick={() => {
+              // Trigger the existing command palette via keyboard event
+              document.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })
+              )
+            }}
+            aria-label={language === "pt" ? "Abrir paleta de comandos" : "Open command palette"}
+          >
+            <Command className="h-3.5 w-3.5" />
+            <span className="text-xs text-muted-foreground">
+              {language === "pt" ? "Procurar" : language === "es" ? "Buscar" : "Search"}
+            </span>
+            <kbd className="pointer-events-none ml-1 hidden items-center gap-1 rounded border border-border/60 bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
+              ⌘K
+            </kbd>
+          </Button>
           <Dialog open={showCustomizeDialog} onOpenChange={(open) => {
             setShowCustomizeDialog(open)
             if (open) setTempVisibleCards(visibleCards)
@@ -395,6 +416,16 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Activity Feed */}
+        <div
+          className={`transition-all duration-500 ${
+            isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8"
+          }`}
+          style={{ transitionDelay: "900ms" }}
+        >
+          <ActivityFeed limit={8} />
+        </div>
       </div>
     </div>
   )

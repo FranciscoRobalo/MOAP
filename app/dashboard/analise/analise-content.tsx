@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -212,6 +212,7 @@ export default function AnaliseContent() {
   const [isSaving, setIsSaving] = useState(false)
   const [selectedRegion, setSelectedRegion] = useState("Lisboa e Vale do Tejo")
   const [searchTerm, setSearchTerm] = useState("")
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
   const [filterRating, setFilterRating] = useState<string>("all")
   const [activeTab, setActiveTab] = useState("all")
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null)
@@ -2262,6 +2263,62 @@ www.moap.pt
     }
   })
 
+  // Keyboard shortcuts: ⌘F focus search, ⌘E export CSV, ⌘S save to history
+  useEffect(() => {
+    const isEditableTarget = (el: EventTarget | null): boolean => {
+      if (!(el instanceof HTMLElement)) return false
+      if (el.isContentEditable) return true
+      const tag = el.tagName
+      return tag === "TEXTAREA" || (tag === "INPUT" && el !== searchInputRef.current)
+    }
+
+    const onKey = (e: KeyboardEvent) => {
+      const meta = e.metaKey || e.ctrlKey
+      if (!meta) return
+      const key = e.key.toLowerCase()
+
+      if (key === "f") {
+        // Only hijack ⌘F when we actually have something to search
+        if (!analysisResult) return
+        e.preventDefault()
+        searchInputRef.current?.focus()
+        searchInputRef.current?.select()
+        return
+      }
+
+      if (isEditableTarget(e.target)) return
+
+      if (key === "e") {
+        if (!analysisResult) return
+        e.preventDefault()
+        try {
+          exportToCSV()
+          toast.success("Exportação iniciada")
+        } catch (err) {
+          toast.error("Erro ao exportar", {
+            description: err instanceof Error ? err.message : undefined,
+          })
+        }
+        return
+      }
+
+      if (key === "s") {
+        if (!analysisResult) return
+        e.preventDefault()
+        try {
+          saveToHistory()
+        } catch (err) {
+          toast.error("Erro ao guardar", {
+            description: err instanceof Error ? err.message : undefined,
+          })
+        }
+      }
+    }
+
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [analysisResult])
+
   return (
     <div className="space-y-6">
       <div>
@@ -2538,18 +2595,26 @@ www.moap.pt
                     variant="outline" 
                     className="gap-2"
                     onClick={saveToHistory}
+                    title="Guardar no histórico (⌘S)"
                   >
                     <Save className="h-4 w-4" />
                     Guardar
+                    <kbd className="pointer-events-none ml-1 hidden items-center gap-1 rounded border border-border/60 bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground md:inline-flex">
+                      ⌘S
+                    </kbd>
                   </Button>
                   <Button 
                     size="sm" 
                     variant="outline" 
                     className="gap-2"
                     onClick={exportToCSV}
+                    title="Exportar CSV (⌘E)"
                   >
                     <Download className="h-4 w-4" />
                     CSV
+                    <kbd className="pointer-events-none ml-1 hidden items-center gap-1 rounded border border-border/60 bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground md:inline-flex">
+                      ⌘E
+                    </kbd>
                   </Button>
                   <Button 
                     size="sm" 
@@ -2815,11 +2880,15 @@ www.moap.pt
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Pesquisar itens..."
+                      ref={searchInputRef}
+                      placeholder="Pesquisar itens... (⌘F)"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9 bg-input/50"
+                      className="pl-9 pr-16 bg-input/50"
                     />
+                    <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 hidden items-center gap-1 rounded border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
+                      ⌘F
+                    </kbd>
                   </div>
                   <Select value={filterRating} onValueChange={setFilterRating}>
                     <SelectTrigger className="w-[180px] bg-input/50">
