@@ -1,6 +1,6 @@
 "use client"
 
-import { FileUp, Cpu, FileBarChart, Sparkles, TrendingUp } from "lucide-react"
+import { FileUp, Cpu, FileBarChart } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 import { useEffect, useState, useRef } from "react"
 
@@ -34,22 +34,10 @@ export function HowItWorks() {
       description: t("step1Desc"),
     },
     {
-      icon: Sparkles,
-      number: "02",
-      title: "IA Extrai Dados",
-      description: "GPT-4 Turbo analisa e extrai com precisão 99%+ de todos os itens, quantidades e unidades",
-    },
-    {
       icon: Cpu,
-      number: "03",
-      title: "Análise Inteligente",
-      description: "NER matching com base de dados de 50k+ materiais. Identificação de outliers e riscos",
-    },
-    {
-      icon: TrendingUp,
-      number: "04",
-      title: "Comparação de Preços",
-      description: "Análise de mercado regional com previsão de tendências e potencial de poupança",
+      number: "02",
+      title: "Extração de Dados",
+      description: "Extração automática e precisa de todos os itens, quantidades e unidades do documento",
     },
     {
       icon: FileBarChart,
@@ -71,7 +59,7 @@ export function HowItWorks() {
           <p className="mt-4 text-muted-foreground">{t("howItWorksSubtitle")}</p>
         </div>
 
-        <div className="mt-16 grid gap-8 lg:grid-cols-5">
+        <div className="mt-16 grid gap-8 lg:grid-cols-3">
           {steps.map((step, index) => (
             <div
               key={step.title}

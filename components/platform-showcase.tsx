@@ -2,40 +2,40 @@
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Zap, Brain, Shield, TrendingUp, FileUp, BarChart3 } from "lucide-react"
+import { Shield, FileUp, BarChart3, Database } from "lucide-react"
 
 export function PlatformShowcase() {
   const capabilities = [
     {
-      category: "Análise Inteligente",
-      icon: Brain,
+      category: "Extração de Dados",
+      icon: FileUp,
       items: [
-        "Extração de dados com 99%+ precisão",
-        "Correspondência semântica com 50k+ materiais",
-        "Detecção de anomalias e outliers",
-        "Pontuação de confiança automática",
+        "Extração precisa de items e quantidades",
+        "Correspondência com base de dados de 50k+ materiais",
+        "Processamento de múltiplos formatos",
+        "Validação automática de dados",
       ],
       color: "from-blue-500 to-cyan-500",
     },
     {
-      category: "Previsões de Mercado",
-      icon: TrendingUp,
+      category: "Análise de Preços",
+      icon: BarChart3,
       items: [
-        "Análise de tendências de preços",
-        "Previsão de variações futuras",
-        "Identificação de oportunidades de poupança",
-        "Avaliação de risco por categoria",
+        "Comparação com preços de mercado regional",
+        "Histórico de preços por material",
+        "Análise de variações por região",
+        "Relatórios detalhados por categoria",
       ],
       color: "from-emerald-500 to-teal-500",
     },
     {
-      category: "Processamento Rápido",
-      icon: Zap,
+      category: "Base de Dados Completa",
+      icon: Database,
       items: [
-        "Análise em < 10 segundos",
-        "Processamento em lote até 50 documentos",
-        "Cache inteligente de resultados",
-        "API otimizada para integração",
+        "50.000+ materiais de construção",
+        "Preços atualizados regularmente",
+        "7 regiões do país cobertas",
+        "Categorias bem organizadas",
       ],
       color: "from-amber-500 to-orange-500",
     },
@@ -45,18 +45,18 @@ export function PlatformShowcase() {
       items: [
         "Criptografia end-to-end",
         "Conformidade GDPR completa",
-        "Autenticação de API avançada",
-        "Auditoria de todas as operações",
+        "Autenticação segura",
+        "Auditoria de operações",
       ],
       color: "from-rose-500 to-pink-500",
     },
   ]
 
   const metrics = [
-    { label: "Precisão de Extração", value: "99.2%", icon: FileUp },
-    { label: "Tempo Médio de Análise", value: "8.5s", icon: BarChart3 },
-    { label: "Taxa de Correspondência", value: "94.8%", icon: Brain },
-    { label: "Economia Identificada", value: "15-30%", icon: TrendingUp },
+    { label: "Materiais Base de Dados", value: "50k+", icon: Database },
+    { label: "Taxa de Correspondência", value: "Elevada", icon: FileUp },
+    { label: "Regiões Cobertas", value: "7", icon: BarChart3 },
+    { label: "Conformidade", value: "GDPR", icon: Shield },
   ]
 
   return (
@@ -64,10 +64,10 @@ export function PlatformShowcase() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mx-auto max-w-2xl text-center mb-16">
-          <Badge className="mb-4">Motor de Análise de Classe Mundial</Badge>
-          <h2 className="text-4xl font-bold tracking-tight">Tecnologia de Ponta ao Seu Alcance</h2>
+          <Badge className="mb-4">Plataforma Completa de Análise</Badge>
+          <h2 className="text-4xl font-bold tracking-tight">Tudo que Precisa para Orçamentos</h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Resultado de meses de desenvolvimento com os melhores algoritmos e IA mais avançada
+            Ferramentas integradas para analisar, comparar e otimizar seus orçamentos de construção
           </p>
         </div>
 

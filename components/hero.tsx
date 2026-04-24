@@ -14,10 +14,10 @@ export function Hero() {
   }, [])
 
   const stats = [
-    { value: "99.2%", label: "Precisão de Extração" },
-    { value: "< 10s", label: "Análise por Documento" },
-    { value: "15-30%", label: "Economia Identificada" },
+    { value: "Precisão Alta", label: "Extração de Dados" },
     { value: "50k+", label: "Materiais na BD" },
+    { value: "7", label: "Regiões Cobertas" },
+    { value: "Multi-Formato", label: "Suporte" },
   ]
 
   const scrollToUpload = () => {

@@ -1194,7 +1194,7 @@ www.moap.pt
         // If local parsing found few items, try API
         if (parsedItems.length < 3) {
           console.log("[v0] Local Excel parsing found few items, trying API...")
-          setAnalyzeStatus("A extrair itens via IA...")
+          setAnalyzeStatus("A extrair itens do documento...")
           try {
             const apiItems = await parsePDF(file)
             if (apiItems.length > parsedItems.length) {
@@ -1442,10 +1442,10 @@ www.moap.pt
             if (matchedMaterial) {
               material = matchedMaterial
               confidence = gptMatch.confidence
-              matchDetails = gptMatch.reason + " (IA)"
+              matchDetails = gptMatch.reason + " (correspondência)"
               finalMatchedName = matchedMaterial.name
               finalConfidence = gptMatch.confidence
-              finalMatchDetails = gptMatch.reason + " (correspondência IA)"
+              finalMatchDetails = gptMatch.reason + " (correspondência)"
               finalCategory = matchedMaterial.category
             }
           }
@@ -1457,10 +1457,10 @@ www.moap.pt
           refMin = gptPrice.minPrice
           refMax = gptPrice.maxPrice
           refAvg = gptPrice.avgPrice
-          finalMatchedName = item.name + " (estimativa IA)"
+            finalMatchedName = item.name + " (estimativa)"
           finalConfidence = gptPrice.confidence || 70
-          finalMatchDetails = "Preço estimado via IA (mercado PT)"
-          finalCategory = "Estimativa IA"
+            finalMatchDetails = "Preço estimado (mercado PT)"
+            finalCategory = "Estimativa"
           totalReference += item.quantity * refAvg
 
           if (refAvg > 0) {
@@ -2126,7 +2126,7 @@ www.moap.pt
                     referenceMinPrice: gptPrice.minPrice,
                     referenceMaxPrice: gptPrice.maxPrice,
                     referenceAvgPrice: gptPrice.avgPrice,
-                    matchedName: item.originalName + " (IA)",
+                    matchedName: item.originalName + " (correspondência)",
                     matchConfidence: gptPrice.confidence || 75,
                     variance,
                     rating
@@ -2174,7 +2174,7 @@ www.moap.pt
       })
       
       toast.success("Re-análise concluída", {
-        description: `${items.length} itens foram re-analisados com IA.`,
+        description: `${items.length} itens foram re-analisados.`,
       })
       
     } catch (err) {
@@ -2777,10 +2777,10 @@ www.moap.pt
                     <div className="flex-1">
                       <h4 className="font-medium text-sm flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-primary" />
-                        Re-analisar todos os itens com IA
+                        Re-analisar Todos os Itens
                       </h4>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Procura preços de referência atualizados para todos os {analysisResult.items.length} itens usando inteligência artificial
+                        Procura preços de referência atualizados para todos os {analysisResult.items.length} itens
                       </p>
                     </div>
                     <Button
@@ -3086,7 +3086,7 @@ www.moap.pt
                                           size="sm"
                                           onClick={() => reanalyzeItem(item)}
                                           disabled={isReanalyzing === item.id}
-                                          title="Re-analisar com IA"
+                                          title="Re-analisar Item"
                                           className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
                                         >
                                           {isReanalyzing === item.id ? (
@@ -3318,7 +3318,7 @@ www.moap.pt
               <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-3 text-sm">
                 <p className="text-yellow-500 font-medium mb-1">Item sem referência de preço</p>
                 <p className="text-muted-foreground">
-                  Ao guardar, a IA irá procurar preços de referência no mercado português para este item.
+                  Ao guardar, será procurado preços de referência no mercado português para este item.
                 </p>
               </div>
             )}

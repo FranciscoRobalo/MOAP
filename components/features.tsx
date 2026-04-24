@@ -1,6 +1,6 @@
 "use client"
 
-import { Brain, Database, MapPin, Layers, Scale, FileSearch, BarChart3, Zap, Shield, TrendingDown } from "lucide-react"
+import { Brain, Database, MapPin, Layers, Scale, FileSearch, BarChart3, Shield } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useLanguage } from "@/contexts/language-context"
 import { useEffect, useState, useRef } from "react"
@@ -32,13 +32,13 @@ export function Features() {
       icon: Brain,
       title: t("feature1Title"),
       description: t("feature1Desc"),
-      badge: "IA Avançada"
+      badge: "Inteligente"
     },
     {
       icon: FileSearch,
       title: t("feature5Title"),
       description: t("feature5Desc"),
-      badge: "Parsing IA"
+      badge: "Parsing Avançado"
     },
     {
       icon: MapPin,
@@ -55,26 +55,14 @@ export function Features() {
     {
       icon: BarChart3,
       title: "Análise de Preços",
-      description: "Comparação inteligente com base de dados de mercado em tempo real",
+      description: "Comparação detalhada com base de dados de mercado regional",
       badge: "Preços Atualizados"
-    },
-    {
-      icon: TrendingDown,
-      title: "Previsões de Mercado",
-      description: "Análise de tendências e previsão de variações de preços com IA",
-      badge: "Previsões IA"
     },
     {
       icon: Layers,
       title: t("feature2Title"),
       description: t("feature2Desc"),
       badge: "Multi-Formato"
-    },
-    {
-      icon: Zap,
-      title: "Processamento Ultra-Rápido",
-      description: "Análise de documentos com latência inferior a 10 segundos",
-      badge: "< 10s"
     },
     {
       icon: Shield,
