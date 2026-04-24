@@ -1,24 +1,23 @@
 "use client"
 
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Shield, FileUp, BarChart3, Database } from "lucide-react"
+import { Shield, FileUp, BarChart3, Database, Check } from "lucide-react"
 
 export function PlatformShowcase() {
   const capabilities = [
     {
-      category: "Extração de Dados",
+      index: "A",
+      category: "Extração de dados",
       icon: FileUp,
       items: [
-        "Extração precisa de items e quantidades",
-        "Correspondência com base de dados de 50k+ materiais",
+        "Extração precisa de itens e quantidades",
+        "Correspondência com base de 50k+ materiais",
         "Processamento de múltiplos formatos",
         "Validação automática de dados",
       ],
-      color: "from-blue-500 to-cyan-500",
     },
     {
-      category: "Análise de Preços",
+      index: "B",
+      category: "Análise de preços",
       icon: BarChart3,
       items: [
         "Comparação com preços de mercado regional",
@@ -26,10 +25,10 @@ export function PlatformShowcase() {
         "Análise de variações por região",
         "Relatórios detalhados por categoria",
       ],
-      color: "from-emerald-500 to-teal-500",
     },
     {
-      category: "Base de Dados Completa",
+      index: "C",
+      category: "Base de dados",
       icon: Database,
       items: [
         "50.000+ materiais de construção",
@@ -37,10 +36,10 @@ export function PlatformShowcase() {
         "Categorias bem organizadas",
         "Busca rápida e intuitiva",
       ],
-      color: "from-amber-500 to-orange-500",
     },
     {
-      category: "Segurança Empresarial",
+      index: "D",
+      category: "Segurança",
       icon: Shield,
       items: [
         "Criptografia end-to-end",
@@ -48,114 +47,65 @@ export function PlatformShowcase() {
         "Autenticação segura",
         "Auditoria de operações",
       ],
-      color: "from-rose-500 to-pink-500",
     },
   ]
 
-  const metrics = [
-    { label: "Materiais Base de Dados", value: "50k+", icon: Database },
-    { label: "Taxa de Correspondência", value: "Elevada", icon: FileUp },
-    { label: "Conformidade", value: "GDPR", icon: Shield },
-    { label: "Suporte", value: "Multi-formato", icon: BarChart3 },
-  ]
-
   return (
-    <section className="py-20 lg:py-32">
+    <section className="relative overflow-hidden border-t hairline py-24 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mx-auto max-w-2xl text-center mb-16">
-          <Badge className="mb-4">Plataforma Completa de Análise</Badge>
-          <h2 className="text-4xl font-bold tracking-tight">Tudo que Precisa para Orçamentos</h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Ferramentas integradas para analisar, comparar e otimizar seus orçamentos de construção
+        <div className="flex flex-col gap-6 border-b hairline pb-10 md:flex-row md:items-end md:justify-between reveal-up">
+          <div>
+            <p className="eyebrow-strong">§ 04 — Plataforma</p>
+            <h2 className="mt-4 max-w-3xl text-balance font-sans text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
+              Tudo que precisa para{" "}
+              <span className="font-display italic text-primary">orçamentos precisos.</span>
+            </h2>
+          </div>
+          <p className="max-w-md text-pretty text-base text-muted-foreground md:text-right">
+            Ferramentas integradas para analisar, comparar e otimizar os seus orçamentos de construção.
           </p>
         </div>
 
-        {/* Capabilities Grid */}
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4 mb-16">
-          {capabilities.map((capability) => {
-            const Icon = capability.icon
-            return (
-              <Card key={capability.category} className="border-border/40 bg-card/50 hover-lift">
-                <CardHeader>
-                  <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br ${capability.color}`}>
-                    <Icon className="h-6 w-6 text-white" />
-                  </div>
-                  <CardTitle className="text-lg">{capability.category}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {capability.items.map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+        {/* Capabilities — horizontal scroll-snap track on mobile, grid on desktop */}
+        <div className="mt-12 grid gap-5 lg:grid-cols-2">
+          {capabilities.map((cap, i) => (
+            <article
+              key={cap.category}
+              className="group relative overflow-hidden rounded-2xl border hairline bg-card p-8 transition-all duration-500 hover:border-primary/40 hover:bg-card/80 reveal-up"
+              style={{ animationDelay: `${i * 60}ms` }}
+            >
+              {/* hover accent */}
+              <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-primary/10 opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100" />
 
-        {/* Metrics */}
-        <div className="grid gap-4 md:grid-cols-4 mb-16">
-          {metrics.map((metric) => {
-            const Icon = metric.icon
-            return (
-              <Card key={metric.label} className="border-border/40 bg-card/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">{metric.label}</p>
-                      <p className="text-2xl font-bold text-primary mt-2">{metric.value}</p>
-                    </div>
-                    <Icon className="h-8 w-8 text-primary/50" />
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg border hairline bg-background">
+                    <cap.icon className="h-5 w-5 text-primary" />
                   </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                  <div>
+                    <p className="eyebrow">Capacidade · {cap.index}</p>
+                    <h3 className="mt-1 font-sans text-xl font-semibold tracking-tight text-foreground">
+                      {cap.category}
+                    </h3>
+                  </div>
+                </div>
+                <span className="font-display text-5xl italic text-primary/20 group-hover:text-primary/40">
+                  {cap.index}
+                </span>
+              </div>
 
-        {/* Features Summary */}
-        <Card className="border-border/40 bg-gradient-to-r from-card/50 to-card/30">
-          <CardHeader>
-            <CardTitle>Funcionalidades Principais</CardTitle>
-            <CardDescription>Tudo que precisa para analisar e otimizar seus orçamentos</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-6 md:grid-cols-3">
-              <div>
-                <h4 className="font-semibold mb-3">Análise de Dados</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>✓ Extração de PDFs</li>
-                  <li>✓ Parsing de Excel e CSV</li>
-                  <li>✓ Normalização de dados</li>
-                  <li>✓ Validação automática</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-3">Comparação</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>✓ Análise de preços</li>
-                  <li>✓ Comparação com mercado</li>
-                  <li>✓ Histórico de variações</li>
-                  <li>✓ Identificação de outliers</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-3">Gestão</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>✓ Aprovações de admin</li>
-                  <li>✓ Chat em tempo real</li>
-                  <li>✓ Relatórios detalhados</li>
-                  <li>✓ Multi-utilizador</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              <ul className="mt-6 space-y-2.5 border-t hairline pt-6">
+                {cap.items.map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm text-muted-foreground">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <span className="leading-relaxed">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
       </div>
     </section>
   )

@@ -1,6 +1,5 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingDown, Minus, TrendingUp, AlertTriangle, HelpCircle } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 
@@ -13,157 +12,208 @@ export function ReportLegend() {
       label: "< -10%",
       title: t("reportBelowAvg"),
       description: t("reportBelowAvgDesc"),
-      color: "bg-chart-1",
-      textColor: "text-chart-1",
+      colorVar: "--price-below",
     },
     {
       icon: Minus,
       label: "-9% a +10%",
       title: t("reportAvg"),
       description: t("reportAvgDesc"),
-      color: "bg-chart-2",
-      textColor: "text-chart-2",
+      colorVar: "--price-average",
     },
     {
       icon: TrendingUp,
       label: "+11% a +49%",
       title: t("reportAboveAvg"),
       description: t("reportAboveAvgDesc"),
-      color: "bg-chart-3",
-      textColor: "text-chart-3",
+      colorVar: "--price-above",
     },
     {
       icon: AlertTriangle,
       label: "> +50%",
       title: t("reportMuchAbove"),
       description: t("reportMuchAboveDesc"),
-      color: "bg-chart-4",
-      textColor: "text-chart-4",
+      colorVar: "--price-high",
     },
     {
       icon: HelpCircle,
       label: "N/A",
       title: t("reportNoData"),
       description: t("reportNoDataDesc"),
-      color: "bg-chart-5",
-      textColor: "text-chart-5",
+      colorVar: "--price-unknown",
     },
   ]
 
   return (
-    <section id="relatorio" className="border-t border-border/40 bg-card/30 py-20 lg:py-32">
+    <section id="relatorio" className="relative overflow-hidden border-t hairline py-24 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{t("reportTitle")}</h2>
-          <p className="mt-4 text-pretty text-muted-foreground">{t("reportSubtitle")}</p>
+        {/* Header */}
+        <div className="flex flex-col gap-6 border-b hairline pb-10 md:flex-row md:items-end md:justify-between reveal-up">
+          <div>
+            <p className="eyebrow-strong">§ 05 — Relatório</p>
+            <h2 className="mt-4 max-w-3xl text-balance font-sans text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
+              {t("reportTitle")}{" "}
+              <span className="font-display italic text-primary">leitura clara.</span>
+            </h2>
+          </div>
+          <p className="max-w-md text-pretty text-base text-muted-foreground md:text-right">
+            {t("reportSubtitle")}
+          </p>
         </div>
 
-        <div className="mt-16">
-          <Card className="border-border/40 bg-card/50">
-            <CardHeader className="text-center">
-              <CardTitle>{t("reportVarianceTitle")}</CardTitle>
-              <CardDescription>{t("reportVarianceSubtitle")}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                {priceIndicators.map((indicator) => (
-                  <div
-                    key={indicator.label}
-                    className="flex flex-col items-center rounded-xl border border-border/40 bg-background/50 p-4 text-center"
-                  >
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-full ${indicator.color}`}>
-                      <indicator.icon className="h-6 w-6 text-background" />
-                    </div>
-                    <span className={`mt-3 text-lg font-bold ${indicator.textColor}`}>{indicator.label}</span>
-                    <span className="mt-1 font-medium">{indicator.title}</span>
-                    <p className="mt-2 text-xs text-muted-foreground">{indicator.description}</p>
-                  </div>
-                ))}
+        {/* Legend */}
+        <div className="mt-12 reveal-up">
+          <p className="eyebrow mb-4">Classificação — {t("reportVarianceTitle")}</p>
+          <div className="grid gap-0 divide-y hairline overflow-hidden rounded-2xl border hairline bg-card sm:grid-cols-5 sm:divide-x sm:divide-y-0">
+            {priceIndicators.map((indicator, i) => (
+              <div
+                key={indicator.label}
+                className="group relative flex flex-col p-6 transition-colors hover:bg-secondary/20"
+                style={{ animationDelay: `${i * 60}ms` }}
+              >
+                <div
+                  className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg"
+                  style={{
+                    backgroundColor: `color-mix(in srgb, var(${indicator.colorVar}) 15%, transparent)`,
+                    color: `var(${indicator.colorVar})`,
+                  }}
+                >
+                  <indicator.icon className="h-5 w-5" />
+                </div>
+                <span
+                  className="font-mono text-xs uppercase tracking-wider"
+                  style={{ color: `var(${indicator.colorVar})` }}
+                >
+                  {indicator.label}
+                </span>
+                <h3 className="mt-1 text-sm font-semibold text-foreground">{indicator.title}</h3>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                  {indicator.description}
+                </p>
+                <div
+                  className="absolute bottom-0 left-0 h-[2px] w-0 transition-all duration-500 group-hover:w-full"
+                  style={{ backgroundColor: `var(${indicator.colorVar})` }}
+                />
               </div>
-            </CardContent>
-          </Card>
+            ))}
+          </div>
         </div>
 
         {/* Example Table */}
-        <div className="mt-12">
-          <Card className="border-border/40 bg-card/50">
-            <CardHeader>
-              <CardTitle>{t("reportExampleTitle")}</CardTitle>
-              <CardDescription>{t("reportExampleSubtitle")}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/60">
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t("reportTableNo")}</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t("reportTableDesc")}</th>
-                      <th className="px-4 py-3 text-center font-medium text-muted-foreground">{t("reportTableQty")}</th>
-                      <th className="px-4 py-3 text-center font-medium text-muted-foreground">
-                        {t("reportTableUnit")}
-                      </th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                        {t("reportTablePrice")}
-                      </th>
-                      <th className="px-4 py-3 text-center font-medium text-muted-foreground">
-                        {t("reportTableAnalysis")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-border/40">
-                      <td className="px-4 py-3">1</td>
-                      <td className="px-4 py-3">Fornecimento e instalação de nova clarabóia em vidro temperado</td>
-                      <td className="px-4 py-3 text-center">4</td>
-                      <td className="px-4 py-3 text-center">UN.</td>
-                      <td className="px-4 py-3 text-right">€44,99</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-chart-1">
-                          <TrendingDown className="h-4 w-4 text-background" />
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className="border-b border-border/40">
-                      <td className="px-4 py-3">2</td>
-                      <td className="px-4 py-3">Aplicação de tinta de esmalte aquoso acetinado em paredes</td>
-                      <td className="px-4 py-3 text-center">120</td>
-                      <td className="px-4 py-3 text-center">m²</td>
-                      <td className="px-4 py-3 text-right">€8,50</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-chart-2">
-                          <Minus className="h-4 w-4 text-background" />
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className="border-b border-border/40">
-                      <td className="px-4 py-3">3</td>
-                      <td className="px-4 py-3">Fornecimento e montagem de tubagem multicamadas</td>
-                      <td className="px-4 py-3 text-center">45</td>
-                      <td className="px-4 py-3 text-center">ml</td>
-                      <td className="px-4 py-3 text-right">€28,00</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-chart-3">
-                          <TrendingUp className="h-4 w-4 text-background" />
-                        </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-3">4</td>
-                      <td className="px-4 py-3">Estrutura metálica para cobertura</td>
-                      <td className="px-4 py-3 text-center">1</td>
-                      <td className="px-4 py-3 text-center">VG</td>
-                      <td className="px-4 py-3 text-right">€15.000,00</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-chart-5">
-                          <HelpCircle className="h-4 w-4 text-background" />
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+        <div className="mt-12 reveal-up">
+          <div className="mb-4 flex items-end justify-between">
+            <p className="eyebrow">{t("reportExampleTitle")}</p>
+            <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              MOAP / relatório — exemplo
+            </p>
+          </div>
+          <div className="relative overflow-hidden rounded-2xl border hairline bg-card">
+            {/* Terminal-style top bar */}
+            <div className="flex items-center justify-between border-b hairline bg-secondary/30 px-5 py-3">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber/60" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-primary/60" />
+                </div>
+                <span className="ml-3 font-mono text-xs text-muted-foreground">relatorio-moap.pdf</span>
               </div>
-            </CardContent>
-          </Card>
+              <span className="eyebrow">exemplo</span>
+            </div>
+
+            <div className="scan-sweep pointer-events-none absolute inset-x-0 top-12 bottom-0 overflow-hidden" />
+
+            <div className="overflow-x-auto p-2">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b hairline">
+                    <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {t("reportTableNo")}
+                    </th>
+                    <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {t("reportTableDesc")}
+                    </th>
+                    <th className="px-4 py-3 text-center font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {t("reportTableQty")}
+                    </th>
+                    <th className="px-4 py-3 text-center font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {t("reportTableUnit")}
+                    </th>
+                    <th className="px-4 py-3 text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {t("reportTablePrice")}
+                    </th>
+                    <th className="px-4 py-3 text-center font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {t("reportTableAnalysis")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    {
+                      n: 1,
+                      desc: "Fornecimento e instalação de nova clarabóia em vidro temperado",
+                      qty: 4,
+                      unit: "UN.",
+                      price: "€ 44,99",
+                      Icon: TrendingDown,
+                      color: "--price-below",
+                    },
+                    {
+                      n: 2,
+                      desc: "Aplicação de tinta de esmalte aquoso acetinado em paredes",
+                      qty: 120,
+                      unit: "m²",
+                      price: "€ 8,50",
+                      Icon: Minus,
+                      color: "--price-average",
+                    },
+                    {
+                      n: 3,
+                      desc: "Fornecimento e montagem de tubagem multicamadas",
+                      qty: 45,
+                      unit: "ml",
+                      price: "€ 28,00",
+                      Icon: TrendingUp,
+                      color: "--price-above",
+                    },
+                    {
+                      n: 4,
+                      desc: "Estrutura metálica para cobertura",
+                      qty: 1,
+                      unit: "VG",
+                      price: "€ 15.000,00",
+                      Icon: HelpCircle,
+                      color: "--price-unknown",
+                    },
+                  ].map((row) => {
+                    const RowIcon = row.Icon
+                    return (
+                      <tr key={row.n} className="border-b hairline transition-colors hover:bg-secondary/30 last:border-b-0">
+                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                          {String(row.n).padStart(2, "0")}
+                        </td>
+                        <td className="px-4 py-3 text-foreground">{row.desc}</td>
+                        <td className="px-4 py-3 text-center font-mono text-sm text-foreground">{row.qty}</td>
+                        <td className="px-4 py-3 text-center font-mono text-xs text-muted-foreground">{row.unit}</td>
+                        <td className="px-4 py-3 text-right font-mono text-sm text-foreground">{row.price}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full"
+                            style={{
+                              backgroundColor: `color-mix(in srgb, var(${row.color}) 18%, transparent)`,
+                              color: `var(${row.color})`,
+                            }}
+                          >
+                            <RowIcon className="h-4 w-4" />
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </section>
