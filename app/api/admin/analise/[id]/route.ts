@@ -200,5 +200,41 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       if (evErr) console.log("[v0] admin audit insert error:", evErr.message)
     })
 
+  // Notify the owning client whenever the submission reaches a terminal
+  // state (approved / changes_requested / rejected). The notification links
+  // straight to the detail page so the client can read the feedback.
+  if (
+    newStatus === "approved" ||
+    newStatus === "changes_requested" ||
+    newStatus === "rejected"
+  ) {
+    const notifTitle =
+      newStatus === "approved"
+        ? "Orçamento aprovado"
+        : newStatus === "changes_requested"
+          ? "Alterações pedidas no orçamento"
+          : "Orçamento rejeitado"
+    const notifDescription =
+      newStatus === "approved"
+        ? "A equipa MOAP aprovou o seu orçamento. Consulte o feedback detalhado."
+        : newStatus === "changes_requested"
+          ? "A equipa MOAP pediu ajustes. Reveja os comentários e resubmeta quando estiver pronto."
+          : "A equipa MOAP rejeitou a submissão. Consulte a justificação detalhada."
+
+    await supabase
+      .from("notifications")
+      .insert({
+        user_id: current.user_id,
+        type: "budget",
+        title: notifTitle,
+        description: notifDescription,
+        link: `/dashboard/meus-orcamentos/${id}`,
+        read: false,
+      })
+      .then(({ error: nErr }) => {
+        if (nErr) console.log("[v0] client notification insert error:", nErr.message)
+      })
+  }
+
   return NextResponse.json({ ok: true, submissionStatus: newStatus })
 }

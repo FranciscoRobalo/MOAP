@@ -108,13 +108,15 @@ export async function POST(req: Request) {
 
   // Best-effort audit log — failure to log should never break the save.
   if (shouldSubmit) {
+    const actorName = user.user_metadata?.full_name ?? user.email ?? null
+
     await supabase
       .from("analise_admin_events")
       .insert({
         analysis_id: data.id,
         owner_id: user.id,
         actor_id: user.id,
-        actor_name: user.user_metadata?.full_name ?? user.email ?? null,
+        actor_name: actorName,
         action: "submitted",
         old_status: "draft",
         new_status: "submitted",
@@ -123,6 +125,31 @@ export async function POST(req: Request) {
       .then(({ error: evErr }) => {
         if (evErr) console.log("[v0] audit insert error:", evErr.message)
       })
+
+    // Fan-out notification to every admin so the queue is visible instantly.
+    // We only include admins with completed profiles.
+    const { data: admins } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("role", "admin")
+    if (admins && admins.length > 0) {
+      const fileLabel = s.fileName ?? "Orçamento sem nome"
+      await supabase
+        .from("notifications")
+        .insert(
+          admins.map((a) => ({
+            user_id: a.id,
+            type: "budget" as const,
+            title: "Nova submissão para revisão",
+            description: `${actorName ?? "Um cliente"} submeteu “${fileLabel}” para análise.`,
+            link: `/dashboard/revisoes?focus=${data.id}`,
+            read: false,
+          })),
+        )
+        .then(({ error: nErr }) => {
+          if (nErr) console.log("[v0] admin notifications insert error:", nErr.message)
+        })
+    }
   }
 
   return NextResponse.json({

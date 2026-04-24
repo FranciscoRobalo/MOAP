@@ -134,6 +134,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: updErr.message }, { status: 500 })
   }
 
+  const actorName = user.user_metadata?.full_name ?? user.email ?? null
+
   // Audit log — best effort.
   await supabase
     .from("analise_admin_events")
@@ -141,7 +143,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       analysis_id: id,
       owner_id: user.id,
       actor_id: user.id,
-      actor_name: user.user_metadata?.full_name ?? user.email ?? null,
+      actor_name: actorName,
       action,
       old_status: current.submission_status,
       new_status: newStatus,
@@ -149,6 +151,31 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     .then(({ error: evErr }) => {
       if (evErr) console.log("[v0] audit insert error:", evErr.message)
     })
+
+  // Notify admins when a client submits or resubmits — both transitions end
+  // up in the admin review queue, so admins need to see them.
+  if (action === "submit" || action === "resubmit") {
+    const { data: admins } = await supabase.from("profiles").select("id").eq("role", "admin")
+    if (admins && admins.length > 0) {
+      await supabase
+        .from("notifications")
+        .insert(
+          admins.map((a) => ({
+            user_id: a.id,
+            type: "budget" as const,
+            title: action === "resubmit" ? "Orçamento resubmetido" : "Nova submissão para revisão",
+            description: `${actorName ?? "Um cliente"} ${
+              action === "resubmit" ? "resubmeteu" : "submeteu"
+            } um orçamento para análise.`,
+            link: `/dashboard/revisoes?focus=${id}`,
+            read: false,
+          })),
+        )
+        .then(({ error: nErr }) => {
+          if (nErr) console.log("[v0] admin notifications insert error:", nErr.message)
+        })
+    }
+  }
 
   return NextResponse.json({ ok: true, submissionStatus: newStatus })
 }

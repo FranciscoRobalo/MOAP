@@ -966,6 +966,23 @@ export default function AnaliseContent() {
     await analyzeFile(file, lineLimit)
   }
 
+  // On mount: if the URL has `?load=<id>`, open that saved analysis. This is
+  // how `/dashboard/meus-orcamentos/:id → Abrir na Análise` deep-links back
+  // into the workspace after an approval.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    const loadId = params.get("load")
+    if (loadId) {
+      loadSavedAnalysis(loadId)
+      // Drop the param so a refresh doesn't re-load it endlessly.
+      const url = new URL(window.location.href)
+      url.searchParams.delete("load")
+      window.history.replaceState({}, "", url.toString())
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // On mount: check if there's a pending file stored from the landing page upload
   useEffect(() => {
     const base64 = sessionStorage.getItem("pending_budget_file")

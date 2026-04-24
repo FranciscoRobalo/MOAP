@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import {
   AlertTriangle,
   ArrowRight,
@@ -108,6 +109,16 @@ export function RevisoesContent() {
   useEffect(() => {
     if (isAdmin) fetchQueue()
   }, [fetchQueue, isAdmin])
+
+  // Deep-link support: when the admin arrives via a notification like
+  // `/dashboard/revisoes?focus=<id>`, auto-open that submission's sheet.
+  const searchParams = useSearchParams()
+  useEffect(() => {
+    const focus = searchParams.get("focus")
+    if (focus && items.some((it) => it.id === focus)) {
+      setOpenId(focus)
+    }
+  }, [items, searchParams])
 
   const counts = useMemo(() => {
     const by = { submitted: 0, in_review: 0, approved: 0, changes_requested: 0, rejected: 0 }
