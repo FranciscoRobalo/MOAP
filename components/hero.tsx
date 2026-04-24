@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowUpRight, FileUp, TrendingDown, Minus, TrendingUp } from "lucide-react"
+import { ArrowUpRight, FileUp, TrendingUp } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 import { BlueprintBackdrop } from "@/components/landing/blueprint-backdrop"
 import { Marquee } from "@/components/landing/marquee"
@@ -34,31 +34,10 @@ export function Hero() {
   ]
 
   return (
-    <section className="relative overflow-hidden pt-28 pb-24 lg:pt-36 lg:pb-32">
+    <section className="relative overflow-hidden pt-32 pb-24 lg:pt-40 lg:pb-32">
       <BlueprintBackdrop />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Top eyebrow row */}
-        <div
-          className={`mb-10 flex items-center justify-between gap-4 border-b hairline pb-4 transition-all duration-700 ${
-            mounted ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <span className="eyebrow-strong">Nº 001 / MOAP</span>
-            <span className="hidden sm:inline eyebrow">—</span>
-            <span className="hidden sm:inline eyebrow">Edição 2026</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="eyebrow hidden md:inline">Mercado PT</span>
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-            </span>
-            <span className="eyebrow">Ao vivo</span>
-          </div>
-        </div>
-
         {/* Main editorial split */}
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-8">
           {/* Headline block */}
@@ -178,18 +157,58 @@ function StatCell({
   )
 }
 
+/**
+ * Honest preview of a MOAP analysis report.
+ *
+ * Everything mirrors the real tool at /dashboard/analise:
+ * - Metric labels: "Total do Orçamento", "Total de Referência",
+ *   "Variação Global", "Classificação Geral" are the exact same strings.
+ * - Items ("Demolição de paredes", "Betão C25/30", "Pintura interior")
+ *   come from the real CSV example shown in the upload dialog.
+ * - Rating vocabulary uses the real labels (Abaixo / Na média / Acima / Muito acima)
+ *   and the shared --price-* color tokens from the analysis UI.
+ */
 function ReportPreviewCard() {
-  const rows = [
-    { code: "A.01.02", name: "Betão C25/30", unit: "m³", price: "€ 98.40", delta: -12, status: "below" as const },
-    { code: "A.03.11", name: "Aço A500 NR", unit: "kg", price: "€ 1.24", delta: 3, status: "avg" as const },
-    { code: "B.02.04", name: "Alvenaria 15cm", unit: "m²", price: "€ 22.80", delta: 18, status: "above" as const },
-    { code: "C.01.07", name: "Caixilharia AL", unit: "un", price: "€ 340.00", delta: 34, status: "high" as const },
+  // Real CSV example items + realistic market deltas
+  const items = [
+    {
+      name: "Demolição de paredes",
+      unit: "m²",
+      qty: 50,
+      unitPrice: 12.5,
+      refPrice: 14.0,
+      variance: -10.7,
+      rating: "below" as const,
+    },
+    {
+      name: "Betão C25/30",
+      unit: "m³",
+      qty: 10,
+      unitPrice: 95.0,
+      refPrice: 98.0,
+      variance: -3.1,
+      rating: "average" as const,
+    },
+    {
+      name: "Pintura interior",
+      unit: "m²",
+      qty: 200,
+      unitPrice: 8.75,
+      refPrice: 11.0,
+      variance: -20.5,
+      rating: "critical" as const,
+    },
   ]
+
+  // Totals match what the real tool computes
+  const totalBudget = items.reduce((s, i) => s + i.qty * i.unitPrice, 0)
+  const totalReference = items.reduce((s, i) => s + i.qty * i.refPrice, 0)
+  const globalVariance = ((totalBudget - totalReference) / totalReference) * 100
 
   return (
     <div className="relative">
-      {/* Floating corner badge */}
-      <div className="absolute -top-3 -left-3 z-10 flex items-center gap-2 rounded-full border hairline bg-background px-3 py-1.5 shadow-lg">
+      {/* Floating label */}
+      <div className="absolute -top-3 left-6 z-10 flex items-center gap-2 rounded-full border hairline bg-background px-3 py-1.5 shadow-lg">
         <span className="relative flex h-1.5 w-1.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
           <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
@@ -201,100 +220,101 @@ function ReportPreviewCard() {
         {/* Scan sweep */}
         <div className="scan-sweep pointer-events-none absolute inset-0 overflow-hidden" />
 
-        {/* Header */}
+        {/* Header — clean editorial strip, no macOS chrome */}
         <div className="flex items-center justify-between border-b hairline bg-secondary/30 px-5 py-3">
-          <div className="flex items-center gap-2">
-            <div className="flex gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
-              <span className="h-2.5 w-2.5 rounded-full bg-amber/60" />
-              <span className="h-2.5 w-2.5 rounded-full bg-primary/60" />
-            </div>
-            <span className="ml-3 font-mono text-xs text-muted-foreground">obra_lisboa_2026.pdf</span>
-          </div>
-          <span className="eyebrow">v1.2</span>
+          <span className="font-mono text-xs text-muted-foreground">orcamento.csv</span>
+          <span className="eyebrow">3 itens</span>
         </div>
 
-        {/* Report body */}
-        <div className="space-y-4 p-5">
-          <div className="flex items-baseline justify-between">
-            <div>
-              <p className="eyebrow">Total analisado</p>
-              <p className="mt-1 font-display text-3xl font-medium tracking-tight text-foreground">
-                € <AnimatedCounter value={248320} decimals={0} duration={2200} />
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="eyebrow">Poupança potencial</p>
-              <p className="mt-1 font-mono text-xl text-primary">
-                − € <AnimatedCounter value={37240} decimals={0} duration={2400} />
-              </p>
-            </div>
+        {/* Top metrics — real labels */}
+        <div className="grid grid-cols-2 divide-x hairline border-b hairline">
+          <div className="p-4">
+            <p className="eyebrow">Total do Orçamento</p>
+            <p className="mt-1 font-display text-2xl font-medium tracking-tight text-foreground">
+              € <AnimatedCounter value={Math.round(totalBudget)} decimals={0} duration={2000} />
+            </p>
           </div>
+          <div className="p-4">
+            <p className="eyebrow">Total de Referência</p>
+            <p className="mt-1 font-display text-2xl font-medium tracking-tight text-muted-foreground">
+              € <AnimatedCounter value={Math.round(totalReference)} decimals={0} duration={2200} />
+            </p>
+          </div>
+          <div className="border-t hairline p-4">
+            <p className="eyebrow">Variação Global</p>
+            <p className="mt-1 font-mono text-xl text-price-below">
+              {globalVariance.toFixed(1)}%
+            </p>
+          </div>
+          <div className="border-t hairline bg-price-below/5 p-4">
+            <p className="eyebrow">Classificação Geral</p>
+            <p className="mt-1 font-mono text-sm font-semibold text-price-below">
+              Abaixo da Média
+            </p>
+          </div>
+        </div>
 
-          <div className="divide-y hairline overflow-hidden rounded-lg border hairline">
-            <div className="grid grid-cols-[1fr_auto] items-center gap-4 bg-secondary/40 px-4 py-2">
-              <span className="eyebrow">Artigo</span>
-              <span className="eyebrow text-right">Δ Mercado</span>
-            </div>
-            {rows.map((r, i) => (
-              <div
-                key={r.code}
-                className="grid grid-cols-[1fr_auto] items-center gap-4 px-4 py-3"
-                style={{ animation: `fade-in 0.6s ease-out ${0.6 + i * 0.15}s backwards` }}
-              >
-                <div className="min-w-0">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {r.code} · {r.unit}
-                  </p>
-                  <p className="truncate text-sm font-medium text-foreground">{r.name}</p>
-                </div>
-                <DeltaChip delta={r.delta} status={r.status} />
-              </div>
-            ))}
+        {/* Items table — real items from CSV example */}
+        <div className="divide-y hairline">
+          <div className="grid grid-cols-[1fr_auto] items-center gap-4 bg-secondary/40 px-4 py-2">
+            <span className="eyebrow">Artigo</span>
+            <span className="eyebrow text-right">Δ vs. mercado</span>
           </div>
+          {items.map((r, i) => (
+            <div
+              key={r.name}
+              className="grid grid-cols-[1fr_auto] items-center gap-4 px-4 py-3"
+              style={{ animation: `fade-in 0.6s ease-out ${0.6 + i * 0.15}s backwards` }}
+            >
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {r.qty} {r.unit} · € {r.unitPrice.toFixed(2)}/{r.unit}
+                </p>
+                <p className="truncate text-sm font-medium text-foreground">{r.name}</p>
+              </div>
+              <RatingChip variance={r.variance} rating={r.rating} />
+            </div>
+          ))}
+        </div>
 
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 w-24 overflow-hidden rounded-full bg-secondary">
-                <div className="h-full w-3/4 rounded-full bg-gradient-to-r from-primary to-amber" />
-              </div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                74% processado
-              </span>
-            </div>
-            <span className="eyebrow-strong">TEMPO REAL</span>
+        {/* Footer progress */}
+        <div className="flex items-center justify-between border-t hairline px-4 py-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-3.5 w-3.5 text-primary" />
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              Pontuação de qualidade 92/100
+            </span>
           </div>
+          <span className="eyebrow-strong">EXEMPLO</span>
         </div>
       </div>
     </div>
   )
 }
 
-function DeltaChip({
-  delta,
-  status,
+function RatingChip({
+  variance,
+  rating,
 }: {
-  delta: number
-  status: "below" | "avg" | "above" | "high"
+  variance: number
+  rating: "below" | "average" | "above" | "critical"
 }) {
-  const Icon = delta < -2 ? TrendingDown : Math.abs(delta) <= 10 ? Minus : TrendingUp
   const colorClass =
-    status === "below"
+    rating === "below"
       ? "text-price-below bg-price-below/10 border-price-below/30"
-      : status === "avg"
+      : rating === "average"
         ? "text-price-average bg-price-average/10 border-price-average/30"
-        : status === "above"
+        : rating === "above"
           ? "text-price-above bg-price-above/10 border-price-above/30"
           : "text-price-high bg-price-high/10 border-price-high/30"
 
-  const sign = delta > 0 ? "+" : ""
+  const sign = variance > 0 ? "+" : ""
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-mono text-xs ${colorClass}`}
     >
-      <Icon className="h-3 w-3" />
       {sign}
-      {delta}%
+      {variance.toFixed(1)}%
     </span>
   )
 }
