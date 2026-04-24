@@ -52,7 +52,8 @@ function normalizeUnit(unit: string): string {
 async function parseWithGPT(text: string, debugInfo: string[]): Promise<ParsedItem[]> {
   const openai = getOpenAIClient()
   if (!openai) {
-    debugInfo.push("OpenAI API key not configured")
+    debugInfo.push("OpenAI API key not configured - using regex fallback")
+    console.log("[v0] parse-pdf: No OPENAI_API_KEY, skipping GPT parsing")
     return []
   }
   

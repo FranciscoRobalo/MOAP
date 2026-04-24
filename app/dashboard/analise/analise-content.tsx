@@ -68,6 +68,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { cn } from "@/lib/utils"
 import { useData } from "@/contexts/data-context"
 import { useAuth } from "@/contexts/auth-context"
+import * as XLSX from "xlsx"
 import { toast } from "sonner"
 
 interface BudgetItem {
@@ -517,6 +518,106 @@ export default function AnaliseContent() {
     [materials],
   )
 
+  // Parse Excel files locally (fallback when API fails)
+  const parseExcelLocal = async (file: File): Promise<Array<{ name: string; unit: string; quantity: number; price: number }>> => {
+    console.log("[v0] parseExcelLocal called")
+    const items: Array<{ name: string; unit: string; quantity: number; price: number }> = []
+    
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const workbook = XLSX.read(arrayBuffer, { type: "array" })
+      console.log("[v0] Excel sheets:", workbook.SheetNames)
+      
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName]
+        const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][]
+        
+        // Find header row
+        let headerRow = -1
+        let descCol = -1, unitCol = -1, qtyCol = -1, priceCol = -1
+        
+        for (let i = 0; i < Math.min(data.length, 15); i++) {
+          const row = data[i]
+          if (!row || !Array.isArray(row)) continue
+          
+          for (let j = 0; j < row.length; j++) {
+            const cell = String(row[j] || "").toLowerCase().trim()
+            if (cell.includes("descrição") || cell.includes("designação") || cell.includes("nome")) {
+              descCol = j; headerRow = i
+            } else if (cell.includes("unid") || cell === "un") {
+              unitCol = j; headerRow = i
+            } else if (cell.includes("quant") || cell === "qt") {
+              qtyCol = j; headerRow = i
+            } else if (cell.includes("preço") && cell.includes("unit")) {
+              priceCol = j; headerRow = i
+            }
+          }
+          if (descCol >= 0) break
+        }
+        
+        console.log("[v0] Excel columns found: desc=", descCol, "unit=", unitCol, "qty=", qtyCol, "price=", priceCol)
+        
+        // Parse data rows
+        for (let i = headerRow + 1; i < data.length; i++) {
+          const row = data[i]
+          if (!row || !Array.isArray(row)) continue
+          
+          let name = "", unit = "un", quantity = 1, price = 0
+          
+          // Extract description (find longest text)
+          if (descCol >= 0 && row[descCol]) {
+            name = String(row[descCol]).trim()
+          } else {
+            for (let j = 0; j < row.length; j++) {
+              const cell = String(row[j] || "")
+              if (cell.length > name.length && cell.length > 10 && !/^[\d.,€\s]+$/.test(cell)) {
+                name = cell.trim()
+              }
+            }
+          }
+          
+          // Extract unit
+          if (unitCol >= 0 && row[unitCol]) {
+            unit = String(row[unitCol]).toLowerCase().replace(/\./g, "")
+          }
+          
+          // Extract quantity
+          if (qtyCol >= 0 && row[qtyCol] != null) {
+            const q = typeof row[qtyCol] === "number" ? row[qtyCol] : parseFloat(String(row[qtyCol]).replace(",", "."))
+            if (q > 0 && q < 100000) quantity = q
+          }
+          
+          // Extract price
+          if (priceCol >= 0 && row[priceCol] != null) {
+            price = typeof row[priceCol] === "number" ? row[priceCol] : parseFloat(String(row[priceCol]).replace(/[€\s]/g, "").replace(",", "."))
+          }
+          
+          // Fallback: find numbers that look like prices
+          if (price === 0) {
+            for (let j = row.length - 1; j >= 0; j--) {
+              const val = row[j]
+              const num = typeof val === "number" ? val : parseFloat(String(val || "").replace(/[€\s]/g, "").replace(",", "."))
+              if (num > 0 && num < 10000000 && !isNaN(num)) {
+                price = num
+                break
+              }
+            }
+          }
+          
+          if (name && name.length > 5 && !/^(total|subtotal|iva)/i.test(name)) {
+            items.push({ name, unit, quantity, price })
+          }
+        }
+      }
+      
+      console.log("[v0] parseExcelLocal found", items.length, "items")
+    } catch (error) {
+      console.log("[v0] parseExcelLocal error:", error)
+    }
+    
+    return items
+  }
+
   const parseCSV = (content: string): Array<{ name: string; unit: string; quantity: number; price: number }> => {
     const lines = content.split("\n").filter((line) => line.trim())
     const items: Array<{ name: string; unit: string; quantity: number; price: number }> = []
@@ -745,22 +846,39 @@ export default function AnaliseContent() {
   
   // Read PDF file - use API route for server-side parsing or fallback to client-side
   const parsePDF = async (file: File): Promise<Array<{ name: string; unit: string; quantity: number; price: number }>> => {
+    console.log("[v0] parsePDF called for file:", file.name)
+    
     // First try the API route (uses GPT for intelligent parsing)
     try {
       const formData = new FormData()
       formData.append("file", file)
       
+      console.log("[v0] Calling /api/parse-pdf...")
+      
+      // Add timeout for API call
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        console.log("[v0] /api/parse-pdf timeout after 20s")
+        controller.abort()
+      }, 20000) // 20 second timeout
+      
       const response = await fetch("/api/parse-pdf", {
         method: "POST",
-        body: formData
+        body: formData,
+        signal: controller.signal
       })
       
+      clearTimeout(timeoutId)
+      console.log("[v0] /api/parse-pdf response status:", response.status)
+      
       const data = await response.json()
+      console.log("[v0] /api/parse-pdf data:", data.items?.length || 0, "items")
       
       if (data.items && data.items.length > 0) {
         return data.items
       }
-    } catch {
+    } catch (apiError) {
+      console.log("[v0] /api/parse-pdf error:", apiError)
       // API failed, continue to fallback
     }
     
@@ -1046,6 +1164,16 @@ www.moap.pt
   }
 
   const analyzeFile = async (file: File, lineLimit: number | null = null) => {
+    console.log("[v0] Starting file analysis:", file.name)
+    console.log("[v0] Materials available:", materials.length)
+    
+    if (materials.length === 0) {
+      console.log("[v0] WARNING: No materials loaded! Analysis may fail.")
+      toast.warning("Base de dados a carregar", {
+        description: "Aguarde enquanto carregamos a base de dados de materiais..."
+      })
+    }
+    
     setIsAnalyzing(true)
     setAnalyzeProgress(0)
     setAnalyzeStatus("A ler ficheiro...")
@@ -1054,25 +1182,66 @@ www.moap.pt
       let parsedItems: Array<{ name: string; unit: string; quantity: number; price: number }> = []
       const fileName = file.name.toLowerCase()
       
-      // PDF and Excel files go through the API (which uses GPT)
-      if (fileName.endsWith(".pdf") || fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
-        setAnalyzeStatus("A extrair itens do documento (IA)...")
+      // Excel files - try local parsing first (faster), then API as fallback
+      if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+        setAnalyzeStatus("A processar Excel...")
         setAnalyzeProgress(2)
+        console.log("[v0] Processing Excel file locally first...")
+        
+        // Try local Excel parsing first (much faster)
+        parsedItems = await parseExcelLocal(file)
+        
+        // If local parsing found few items, try API
+        if (parsedItems.length < 3) {
+          console.log("[v0] Local Excel parsing found few items, trying API...")
+          setAnalyzeStatus("A extrair itens via IA...")
+          try {
+            const apiItems = await parsePDF(file)
+            if (apiItems.length > parsedItems.length) {
+              parsedItems = apiItems
+            }
+          } catch (apiError) {
+            console.log("[v0] API parsing failed, using local results:", apiError)
+          }
+        }
+        console.log("[v0] Excel parsing completed, items:", parsedItems.length)
+      }
+      // PDF files - try API first, then local text extraction
+      else if (fileName.endsWith(".pdf")) {
+        setAnalyzeStatus("A extrair itens do PDF...")
+        setAnalyzeProgress(2)
+        console.log("[v0] Processing PDF file...")
         try {
+          // Add timeout for PDF parsing
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => {
+            console.log("[v0] PDF parsing timeout, aborting...")
+            controller.abort()
+          }, 15000) // 15 second timeout
+          
           parsedItems = await parsePDF(file)
-        } catch {
-          // For PDF, try fallback
-          if (fileName.endsWith(".pdf")) {
-            setAnalyzeStatus("A processar PDF localmente...")
+          clearTimeout(timeoutId)
+          console.log("[v0] PDF parsing completed, items:", parsedItems.length)
+        } catch (pdfError) {
+          console.log("[v0] PDF parsing failed:", pdfError)
+          setAnalyzeStatus("A processar PDF localmente...")
+          console.log("[v0] Trying local PDF text parsing...")
+          try {
             const content = await file.text()
             parsedItems = parsePDFText(content)
+            console.log("[v0] Local PDF parsing found items:", parsedItems.length)
+          } catch (localError) {
+            console.log("[v0] Local PDF parsing also failed:", localError)
+            parsedItems = []
           }
         }
       } else {
         // CSV/TXT files parsed locally
         setAnalyzeStatus("A processar CSV...")
+        console.log("[v0] Processing CSV/TXT file...")
         const content = await file.text()
         parsedItems = parseCSV(content)
+        console.log("[v0] CSV parsing found items:", parsedItems.length)
       }
       
       setAnalyzeStatus(`${parsedItems.length} itens encontrados. A validar preços...`)
@@ -1152,11 +1321,12 @@ www.moap.pt
       
       if (itemsNeedingGPT.length > 0) {
         setAnalyzeProgress(5)
-        setAnalyzeStatus(`A procurar correspondências IA para ${itemsNeedingGPT.length} itens...`)
+        console.log("[v0] Items needing GPT matching:", itemsNeedingGPT.length)
+        setAnalyzeStatus(`A procurar correspondências para ${itemsNeedingGPT.length} itens...`)
         
-        // First try GPT matching against our database
+        // First try GPT matching against our database (optional - skip if taking too long)
         try {
-          const materialRefs = materials.map(m => ({
+          const materialRefs = materials.slice(0, 200).map(m => ({
             id: m.id,
             name: m.name,
             unit: m.unit,
@@ -1165,71 +1335,48 @@ www.moap.pt
             category: m.category
           }))
           
-          // Add timeout for API call (5 seconds max)
+          // Add timeout for API call (8 seconds max)
           const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 5000)
+          const timeoutId = setTimeout(() => {
+            console.log("[v0] GPT match API timeout")
+            controller.abort()
+          }, 8000)
           
+          console.log("[v0] Calling /api/match-items...")
           const matchResponse = await fetch("/api/match-items", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
-              items: itemsNeedingGPT.map(i => ({ name: i.name, unit: i.unit, quantity: i.quantity, price: i.price })),
+              items: itemsNeedingGPT.slice(0, 20).map(i => ({ name: i.name, unit: i.unit, quantity: i.quantity, price: i.price })),
               materials: materialRefs 
             }),
             signal: controller.signal
           })
           
           clearTimeout(timeoutId)
+          console.log("[v0] /api/match-items response:", matchResponse.status)
           
           if (matchResponse.ok) {
             const matchData = await matchResponse.json()
+            console.log("[v0] GPT matches received:", Object.keys(matchData.matches || {}).length)
             if (matchData.matches) {
               gptMatches = matchData.matches
             }
           }
         } catch (err) {
           // Continue without GPT matching (timeout or error)
-          console.log("[v0] GPT matching skipped or timed out, continuing with local matches")
+          console.log("[v0] GPT matching skipped:", err instanceof Error ? err.message : "timeout/error")
         }
         
         setAnalyzeProgress(8)
+        console.log("[v0] Progress at 8%, continuing with price comparison...")
         
-        // For items still without good matches, get price estimates
-        const itemsStillNeedingPrices = itemsNeedingGPT.filter((item, idx) => {
-          const gptMatch = gptMatches[String(idx + 1)]
-          return !gptMatch || !gptMatch.materialId || gptMatch.confidence < CONFIDENCE_THRESHOLD
-        })
-        
-        if (itemsStillNeedingPrices.length > 0) {
-          setAnalyzeStatus(`A consultar preços de mercado para ${itemsStillNeedingPrices.length} itens...`)
-          try {
-            // Add timeout for price lookup API (5 seconds max)
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 5000)
-            
-            const response = await fetch("/api/lookup-prices", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ items: itemsStillNeedingPrices }),
-              signal: controller.signal
-            })
-            
-            clearTimeout(timeoutId)
-            
-            if (response.ok) {
-              const data = await response.json()
-              if (data.prices) {
-                gptPrices = data.prices
-              }
-            }
-          } catch (err) {
-            // Continue without GPT prices (timeout or error)
-            console.log("[v0] Price lookup skipped or timed out, continuing with local estimates")
-          }
-        }
+        // Skip GPT price lookup to speed up analysis - use local matching only
+        // Price estimates from GPT are optional and slow
       }
       
       setAnalyzeStatus("A comparar preços e calcular variâncias...")
+      console.log("[v0] Starting main analysis loop with", itemsToAnalyze.length, "items")
 
       // Map itemsNeedingGPT indices for quick lookup
       const gptItemIndexMap = new Map<number, number>()
@@ -1513,6 +1660,7 @@ www.moap.pt
       
       setAnalyzeProgress(95)
       setAnalyzeStatus("A gerar relatório final...")
+      console.log("[v0] Analysis complete! Items analyzed:", analyzedItems.length, "Total budget:", totalBudget)
 
       setAnalysisResult({
         id: `analysis-${Date.now()}`,
@@ -1541,14 +1689,17 @@ www.moap.pt
         recommendations,
       })
     } catch (error) {
-      console.error("Error analyzing file:", error)
+      console.error("[v0] Error analyzing file:", error)
+      const errorMsg = error instanceof Error ? error.message : "Unknown error"
+      console.log("[v0] Error details:", errorMsg)
       setIsAnalyzing(false)
       setAnalyzeProgress(0)
       setAnalyzeStatus("")
       toast.error("Erro na análise", {
-        description: "Ocorreu um erro ao analisar o ficheiro. Tente novamente ou com outro ficheiro.",
+        description: `Ocorreu um erro: ${errorMsg.substring(0, 100)}. Tente novamente.`,
       })
     } finally {
+      console.log("[v0] Analysis function completed (finally block)")
       setIsAnalyzing(false)
       setAnalyzeStatus("")
     }

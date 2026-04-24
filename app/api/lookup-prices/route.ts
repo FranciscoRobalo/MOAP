@@ -27,7 +27,12 @@ export async function POST(request: NextRequest) {
 
     const openai = getOpenAIClient()
     if (!openai) {
-      return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 })
+      console.log("[v0] lookup-prices: No OPENAI_API_KEY configured")
+      // Return empty prices instead of error - allows fallback to local matching
+      return NextResponse.json({ 
+        prices: {},
+        warning: "OPENAI_API_KEY não configurada - usando correspondência local"
+      })
     }
 
     // Batch items for efficient API usage (max 10 items per request)
