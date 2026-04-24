@@ -5,12 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { Mail, Phone, MapPin, Loader2 } from "lucide-react"
 
 export function ContactForm() {
   const [isLoading, setIsLoading] = useState(false)
-  const { toast } = useToast()
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -38,8 +37,7 @@ export function ContactForm() {
 
       if (!response.ok) throw new Error("Failed to send message")
 
-      toast({
-        title: "Mensagem Enviada",
+      toast.success("Mensagem Enviada", {
         description: "Obrigado por contactar-nos. Responderemos em breve.",
       })
 
@@ -52,10 +50,8 @@ export function ContactForm() {
         message: "",
       })
     } catch (error) {
-      toast({
-        title: "Erro",
+      toast.error("Erro", {
         description: "Falha ao enviar a mensagem. Tente novamente.",
-        variant: "destructive",
       })
     } finally {
       setIsLoading(false)
