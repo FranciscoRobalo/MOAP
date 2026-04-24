@@ -2562,6 +2562,7 @@ Pintura interior;m2;200;8.75`}
             isLoadingSaved={workspace.isLoadingSaved}
             decisions={workspace.decisions}
             onSave={() => workspace.saveCurrent()}
+            onSubmitForReview={() => workspace.submitCurrent()}
             onRefreshSaved={workspace.refreshSaved}
             onLoadSaved={loadSavedAnalysis}
             onDeleteSaved={workspace.deleteSaved}

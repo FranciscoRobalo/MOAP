@@ -63,22 +63,34 @@ export function useAnaliseWorkspace(analysisResult: AnalysisResult | null) {
   }, [])
 
   const saveCurrent = useCallback(
-    async (obraId?: string) => {
+    async (opts?: { obraId?: string; submit?: boolean }) => {
       if (!analysisResult) return null
       setIsSaving(true)
       try {
         const res = await fetch("/api/analise/saved", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ snapshot: analysisResult, obraId }),
+          body: JSON.stringify({
+            snapshot: analysisResult,
+            obraId: opts?.obraId,
+            submit: opts?.submit === true,
+          }),
         })
-        const json = (await res.json()) as { id?: string; error?: string }
+        const json = (await res.json()) as {
+          id?: string
+          submissionStatus?: string
+          error?: string
+        }
         if (!res.ok || !json.id) {
           toast.error(json.error ?? "Erro ao guardar análise")
           return null
         }
         setAnalysisId(json.id)
-        toast.success("Análise guardada")
+        toast.success(
+          opts?.submit
+            ? "Orçamento submetido para revisão do administrador"
+            : "Análise guardada",
+        )
         refreshSaved()
         return json.id
       } catch (err) {
@@ -91,6 +103,40 @@ export function useAnaliseWorkspace(analysisResult: AnalysisResult | null) {
     },
     [analysisResult, refreshSaved],
   )
+
+  /**
+   * submitCurrent — submits the current analysis for admin review.
+   *
+   *   If it hasn't been saved yet, we save + submit in a single POST.
+   *   Otherwise we flip the existing draft row to `submitted` via PATCH,
+   *   which triggers the admin queue.
+   */
+  const submitCurrent = useCallback(async () => {
+    if (!analysisResult) return false
+    if (!analysisId) {
+      const newId = await saveCurrent({ submit: true })
+      return !!newId
+    }
+    try {
+      const res = await fetch(`/api/analise/saved/${analysisId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "submit" }),
+      })
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        toast.error(json.error ?? "Erro ao submeter")
+        return false
+      }
+      toast.success("Orçamento submetido para revisão do administrador")
+      refreshSaved()
+      return true
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido"
+      toast.error(message)
+      return false
+    }
+  }, [analysisId, analysisResult, refreshSaved, saveCurrent])
 
   const setDecision = useCallback(
     async (itemId: string, decision: DecisionValue, targetPrice: number | null = null) => {
@@ -146,6 +192,7 @@ export function useAnaliseWorkspace(analysisResult: AnalysisResult | null) {
     decisions,
     setDecision,
     saveCurrent,
+    submitCurrent,
     isSaving,
     saved,
     refreshSaved,

@@ -67,6 +67,30 @@ export interface AnaliseNote {
   created_at: string
 }
 
+/**
+ * Submission lifecycle for an analysis:
+ *   draft             — created by the client, not yet sent
+ *   submitted         — client pushed it to the admin queue
+ *   in_review         — an admin picked it up (self-assigned)
+ *   approved          — admin signed off (with optional revisions + feedback)
+ *   changes_requested — admin sent it back for the client to fix
+ *   rejected          — admin rejected it entirely
+ */
+export type SubmissionStatus =
+  | "draft"
+  | "submitted"
+  | "in_review"
+  | "approved"
+  | "changes_requested"
+  | "rejected"
+
+export interface AdminRevisedItem {
+  id: string
+  quantity?: number
+  unitPrice?: number
+  note?: string
+}
+
 export interface SavedAnalysisSummary {
   id: string
   obra_id: string | null
@@ -82,6 +106,16 @@ export interface SavedAnalysisSummary {
   risk_items: number | null
   created_at: string
   updated_at: string
+  // Submission workflow
+  submission_status: SubmissionStatus
+  submitted_at: string | null
+  reviewer_id: string | null
+  reviewer_name: string | null
+  reviewed_at: string | null
+  admin_summary: string | null
+  admin_feedback: string | null
+  admin_revised_total: number | null
+  client_seen_at: string | null
 }
 
 export interface SavedAnalysisFull extends SavedAnalysisSummary {
@@ -89,4 +123,31 @@ export interface SavedAnalysisFull extends SavedAnalysisSummary {
   category_breakdown: AnalysisResult["categoryBreakdown"] | null
   recommendations: string[] | null
   items: BudgetItem[]
+  admin_revised_items: AdminRevisedItem[] | null
+  admin_ai_notes: {
+    summary?: string
+    feedback?: string
+    keyFindings?: string[]
+    suggestedRevisions?: AdminRevisedItem[]
+    modelUsed?: string
+    generatedAt?: string
+  } | null
+}
+
+export interface AdminQueueEntry extends SavedAnalysisSummary {
+  owner_name: string | null
+  owner_email: string | null
+}
+
+export interface AdminAuditEvent {
+  id: string
+  analysis_id: string
+  actor_id: string | null
+  actor_name: string | null
+  action: string
+  old_status: string | null
+  new_status: string | null
+  note: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
 }
