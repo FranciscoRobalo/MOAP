@@ -59,10 +59,16 @@ async function parseWithGPT(text: string, debugInfo: string[]): Promise<ParsedIt
   
   debugInfo.push("Using GPT to parse budget text...")
   
-  // Limit text to avoid token limits
-  const maxChars = 12000
+  // Limit text to avoid token limits - be more conservative
+  const maxChars = 8000
   const truncatedText = text.length > maxChars ? text.substring(0, maxChars) : text
   debugInfo.push(`Text length for GPT: ${truncatedText.length} chars`)
+  
+  // Skip GPT if text is too short or looks invalid
+  if (truncatedText.length < 100) {
+    debugInfo.push("Text too short for GPT parsing")
+    return []
+  }
   
   const systemPrompt = `You are an expert Portuguese construction budget parser. Your task is to extract ALL budget line items from the provided text.
 
@@ -100,6 +106,13 @@ Return ONLY a valid JSON array. Example:
 If no valid items found, return: []`
 
   try {
+    // Add timeout for OpenAI call - 15 seconds max
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => {
+      debugInfo.push("GPT call timeout after 15s")
+      controller.abort()
+    }, 15000)
+    
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -107,8 +120,10 @@ If no valid items found, return: []`
         { role: "user", content: `Extract all budget items from this Portuguese construction budget:\n\n${truncatedText}` }
       ],
       temperature: 0.1,
-      max_tokens: 4000,
+      max_tokens: 3000, // Reduced to speed up response
     })
+    
+    clearTimeout(timeoutId)
 
     const content = response.choices[0]?.message?.content || "[]"
     debugInfo.push(`GPT response received, length: ${content.length}`)
@@ -405,16 +420,36 @@ export async function POST(request: NextRequest) {
     else if (fileName.endsWith(".pdf")) {
       debugInfo.push("Detected PDF file")
       try {
-        const result = await extractText(arrayBuffer, { mergePages: true })
+        // Add timeout for PDF extraction - some PDFs can hang
+        const extractPromise = extractText(arrayBuffer, { mergePages: true })
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error("PDF extraction timeout")), 10000)
+        )
+        
+        const result = await Promise.race([extractPromise, timeoutPromise])
         text = result.text
         debugInfo.push(`PDF text extracted: ${text.length} chars`)
       } catch (extractError) {
-        debugInfo.push(`PDF extract error: ${extractError instanceof Error ? extractError.message : "Unknown"}`)
+        const errorMsg = extractError instanceof Error ? extractError.message : "Unknown"
+        debugInfo.push(`PDF extract error: ${errorMsg}`)
+        
+        // Don't fail completely - try to return empty items so client can use fallback
+        if (errorMsg.includes("timeout")) {
+          debugInfo.push("PDF extraction timed out - client should try local parsing")
+          return NextResponse.json({ 
+            error: "PDF extraction timed out. Please try a smaller file or convert to Excel/CSV.",
+            debug: debugInfo,
+            items: []
+          }, { status: 408 }) // Request Timeout
+        }
+        
+        // For other errors, return 200 with empty items so client can try local parsing
         return NextResponse.json({ 
-          error: "Failed to extract text from PDF",
+          success: false,
+          error: "Could not extract text from this PDF format",
           debug: debugInfo,
           items: []
-        }, { status: 500 })
+        })
       }
     }
     // Handle CSV/TXT files

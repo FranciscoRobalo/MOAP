@@ -3,7 +3,7 @@
 import type React from "react"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
   FileText,
@@ -104,6 +104,7 @@ const ROLE_LABELS: Record<string, { pt: string; en: string; es: string }> = {
 
 export function DashboardSidebar() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { user, logout, pendingRegistrations } = useAuth()
   const { notifications } = useData()
   const { t, language } = useLanguage()
@@ -180,10 +181,17 @@ export function DashboardSidebar() {
                 </p>
                 <div className="space-y-0.5">
                   {section.items.map((item) => {
+                    // For links with query params (e.g. /dashboard/users?type=cliente),
+                    // we must compare the full href including the query string to avoid
+                    // multiple items lighting up at once.
+                    const currentSearch = searchParams.toString()
+                    const fullUrl = pathname + (currentSearch ? `?${currentSearch}` : "")
                     const isActive =
                       !item.external &&
-                      (pathname === item.href ||
-                        (item.href !== "/dashboard" && pathname.startsWith(item.href.split("?")[0])))
+                      (item.href.includes("?")
+                        ? fullUrl === item.href
+                        : pathname === item.href ||
+                          (item.href !== "/dashboard" && pathname.startsWith(item.href.split("?")[0])))
                     const showNotificationBadge =
                       item.href === "/dashboard/notificacoes" && unreadCount > 0
                     const showRegBadge = item.href === "/dashboard/registos" && pendingRegCount > 0
