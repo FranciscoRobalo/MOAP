@@ -1322,6 +1322,18 @@ www.moap.pt
         console.log("[v0] CSV parsing found items:", parsedItems.length)
       }
       
+      // If no items found after all parsing attempts, show helpful error
+      if (parsedItems.length === 0) {
+        setIsAnalyzing(false)
+        setAnalyzeProgress(0)
+        setAnalyzeStatus("")
+        toast.error("Não foi possível extrair itens do ficheiro", {
+          description: "Verifique se o ficheiro contém um orçamento válido com descrição, unidade, quantidade e preço. Tente converter para Excel (.xlsx) ou CSV.",
+          duration: 8000,
+        })
+        return
+      }
+      
       setAnalyzeStatus(`${parsedItems.length} itens encontrados. A validar preços...`)
       setAnalyzeProgress(4)
       
