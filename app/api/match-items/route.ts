@@ -67,63 +67,49 @@ EXEMPLOS DE CORRESPONDÊNCIAS CORRETAS:
 BASE DE DADOS DE MATERIAIS/SERVIÇOS:
 ${materialSummary}
 
-Responda APENAS com um JSON object onde cada chave é o índice do item (1, 2, 3...) e o valor é um objeto com:
+Responda com um JSON object com chave "matches" contendo um objeto onde cada chave é o índice do item (1, 2, 3...) e o valor é:
 - materialId: ID do material correspondente (ou null se não houver correspondência boa)
 - confidence: 0-100 (sua confiança na correspondência)
 - reason: breve explicação em português
 
-Exemplo de resposta:
-{
+Exemplo:
+{"matches": {
   "1": {"materialId": "work-pt-001", "confidence": 85, "reason": "Isolamento térmico exterior ETICS"},
-  "2": {"materialId": null, "confidence": 0, "reason": "Sem correspondência adequada na base de dados"},
-  "3": {"materialId": "work-pt-044", "confidence": 78, "reason": "Alvenaria de tijolo cerâmico"}
-}`
+  "2": {"materialId": null, "confidence": 0, "reason": "Sem correspondência"},
+  "3": {"materialId": "work-pt-044", "confidence": 78, "reason": "Alvenaria de tijolo"}
+}}`
 
     const userPrompt = `Faça correspondência para estes itens de orçamento:
 
 ${itemsList}`
 
-    let response
-    try {
-      response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 2000,
-      })
-    } catch {
-      try {
-        response = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-          ],
-          temperature: 0.3,
-          max_tokens: 2000,
-        })
-      } catch (err) {
-        return NextResponse.json({ 
-          error: "Erro na API OpenAI",
-          matches: {}
-        }, { status: 500 })
-      }
-    }
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.2,
+      max_tokens: 4000,
+      response_format: { type: "json_object" },
+    })
 
     const content = response.choices[0]?.message?.content || "{}"
     
     // Parse GPT response
     let matches: Record<string, { materialId: string | null; confidence: number; reason: string }> = {}
     try {
+      const parsed = JSON.parse(content)
+      matches = parsed.matches || parsed || {}
+    } catch {
+      // If parsing fails, try to extract matches object
       const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
-        matches = JSON.parse(jsonMatch[0])
+        try {
+          const parsed = JSON.parse(jsonMatch[0])
+          matches = parsed.matches || parsed || {}
+        } catch { /* ignore */ }
       }
-    } catch {
-      // If parsing fails, return empty matches
     }
 
     return NextResponse.json({

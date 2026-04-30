@@ -750,9 +750,9 @@ export default function AnaliseContent() {
       const formData = new FormData()
       formData.append("file", file)
       
-      // Add timeout of 30 seconds for PDF parsing (can be slow with GPT)
+      // Add timeout of 60 seconds for PDF parsing (AI processing can take time)
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
+      const timeoutId = setTimeout(() => controller.abort(), 60000)
       
       const response = await fetch("/api/parse-pdf", {
         method: "POST",
@@ -1186,81 +1186,78 @@ www.moap.pt
       
       if (itemsNeedingGPT.length > 0) {
         setAnalyzeProgress(5)
-        setAnalyzeStatus(`A procurar correspondências IA para ${itemsNeedingGPT.length} itens...`)
+        setAnalyzeStatus(`A processar ${itemsNeedingGPT.length} itens com IA (correspondencias e precos em paralelo)...`)
         
-        // First try GPT matching against our database
-        try {
-          const materialRefs = materials.map(m => ({
-            id: m.id,
-            name: m.name,
-            unit: m.unit,
-            price: m.price,
-            priceMax: m.priceMax,
-            category: m.category
-          }))
-          
-          // Add timeout for API call (5 seconds max)
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 5000)
-          
-          const matchResponse = await fetch("/api/match-items", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-              items: itemsNeedingGPT.map(i => ({ name: i.name, unit: i.unit, quantity: i.quantity, price: i.price })),
-              materials: materialRefs 
-            }),
-            signal: controller.signal
-          })
-          
-          clearTimeout(timeoutId)
-          
-          if (matchResponse.ok) {
-            const matchData = await matchResponse.json()
-            if (matchData.matches) {
-              gptMatches = matchData.matches
+        const materialRefs = materials.map(m => ({
+          id: m.id,
+          name: m.name,
+          unit: m.unit,
+          price: m.price,
+          priceMax: m.priceMax,
+          category: m.category
+        }))
+        
+        // Run BOTH API calls in PARALLEL for speed
+        const [matchResult, priceResult] = await Promise.allSettled([
+          // GPT matching against our database
+          (async () => {
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 45000)
+            try {
+              const response = await fetch("/api/match-items", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                  items: itemsNeedingGPT.map(i => ({ name: i.name, unit: i.unit, quantity: i.quantity, price: i.price })),
+                  materials: materialRefs 
+                }),
+                signal: controller.signal
+              })
+              clearTimeout(timeoutId)
+              if (response.ok) {
+                const data = await response.json()
+                return data.matches || {}
+              }
+              return {}
+            } catch {
+              clearTimeout(timeoutId)
+              return {}
             }
-          }
-        } catch (err) {
-          // Continue without GPT matching (timeout or error)
-          console.log("[v0] GPT matching skipped or timed out, continuing with local matches")
+          })(),
+          
+          // GPT price lookup (runs in parallel)
+          (async () => {
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 45000)
+            try {
+              const response = await fetch("/api/lookup-prices", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ items: itemsNeedingGPT }),
+                signal: controller.signal
+              })
+              clearTimeout(timeoutId)
+              if (response.ok) {
+                const data = await response.json()
+                return data.prices || {}
+              }
+              return {}
+            } catch {
+              clearTimeout(timeoutId)
+              return {}
+            }
+          })()
+        ])
+        
+        // Extract results from Promise.allSettled
+        if (matchResult.status === "fulfilled") {
+          gptMatches = matchResult.value
+        }
+        if (priceResult.status === "fulfilled") {
+          gptPrices = priceResult.value
         }
         
         setAnalyzeProgress(8)
-        
-        // For items still without good matches, get price estimates
-        const itemsStillNeedingPrices = itemsNeedingGPT.filter((item, idx) => {
-          const gptMatch = gptMatches[String(idx + 1)]
-          return !gptMatch || !gptMatch.materialId || gptMatch.confidence < CONFIDENCE_THRESHOLD
-        })
-        
-        if (itemsStillNeedingPrices.length > 0) {
-          setAnalyzeStatus(`A consultar preços de mercado para ${itemsStillNeedingPrices.length} itens...`)
-          try {
-            // Add timeout for price lookup API (5 seconds max)
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 5000)
-            
-            const response = await fetch("/api/lookup-prices", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ items: itemsStillNeedingPrices }),
-              signal: controller.signal
-            })
-            
-            clearTimeout(timeoutId)
-            
-            if (response.ok) {
-              const data = await response.json()
-              if (data.prices) {
-                gptPrices = data.prices
-              }
-            }
-          } catch (err) {
-            // Continue without GPT prices (timeout or error)
-            console.log("[v0] Price lookup skipped or timed out, continuing with local estimates")
-          }
-        }
       }
       
       setAnalyzeStatus("A comparar preços e calcular variâncias...")
