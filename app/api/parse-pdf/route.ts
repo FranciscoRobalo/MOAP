@@ -250,13 +250,15 @@ function parseExcelFile(buffer: ArrayBuffer, debugInfo: string[]): ParsedItem[] 
         
         // Extract quantity
         if (qtyCol >= 0 && row[qtyCol] != null) {
-          const q = typeof row[qtyCol] === "number" ? row[qtyCol] : parsePortugueseNumber(String(row[qtyCol]))
+          const rawQ = row[qtyCol]
+          const q: number = typeof rawQ === "number" ? rawQ : parsePortugueseNumber(String(rawQ))
           if (q > 0 && q < 100000) quantity = q
         }
         
         // Extract price
         if (priceCol >= 0 && row[priceCol] != null) {
-          price = typeof row[priceCol] === "number" ? row[priceCol] : parsePortugueseNumber(String(row[priceCol]))
+          const rawP = row[priceCol]
+          price = typeof rawP === "number" ? rawP : parsePortugueseNumber(String(rawP))
         }
         
         // If no specific columns, try to find numbers that look like prices

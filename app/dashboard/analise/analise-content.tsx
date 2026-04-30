@@ -1713,7 +1713,7 @@ www.moap.pt
           confidence = gptPrice.confidence || 70
           
           const budgetPrice = parseFloat(editForm.price) || 0
-          if (refAvg > 0) {
+          if (refAvg && refAvg > 0) {
             variance = ((budgetPrice - refAvg) / refAvg) * 100
             
             if (variance <= -10) rating = "below"
