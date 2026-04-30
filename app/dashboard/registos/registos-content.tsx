@@ -597,11 +597,11 @@ export default function RegistosContent() {
     const myRejectedBudgets = clientBudgets.filter(b => b.status === "rejeitado" && b.userId === user?.id)
     
     return (
-      <div className="space-y-6 animate-fade-in-up">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div className="space-y-4 animate-fade-in-up overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Meus Orcamentos</h1>
-            <p className="text-muted-foreground text-sm sm:text-base">Submeta orcamentos para aprovacao e acompanhe o estado.</p>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Meus Orcamentos</h1>
+            <p className="text-muted-foreground text-xs sm:text-sm">Submeta orcamentos para aprovacao.</p>
           </div>
         </div>
         
@@ -773,99 +773,80 @@ export default function RegistosContent() {
   
   // ADMIN VIEW - Full analysis tools, AI prices, percentages
   return (
-    <div className="space-y-6 animate-fade-in-up">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+    <div className="space-y-4 animate-fade-in-up overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Aprovacoes (Admin)</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">Gerir orcamentos e registos de utilizadores pendentes de aprovacao.</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Aprovacoes</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm">Gerir orcamentos e registos pendentes.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {pendingBudgets.length > 0 && (
-            <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-xs sm:text-sm">
-              <Calculator className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-              {pendingBudgets.length} orcamento{pendingBudgets.length !== 1 ? "s" : ""} pendente{pendingBudgets.length !== 1 ? "s" : ""}
+            <Badge className="bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 gap-1 px-2 py-0.5 text-[10px]">
+              <Calculator className="h-3 w-3" />
+              {pendingBudgets.length} orc.
             </Badge>
           )}
           {pendingRegCount > 0 && (
-            <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-xs sm:text-sm">
-              <User className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-              {pendingRegCount} registo{pendingRegCount !== 1 ? "s" : ""} pendente{pendingRegCount !== 1 ? "s" : ""}
+            <Badge className="bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 gap-1 px-2 py-0.5 text-[10px]">
+              <User className="h-3 w-3" />
+              {pendingRegCount} reg.
             </Badge>
           )}
         </div>
       </div>
 
       {/* Main Tabs: Budgets vs Users */}
-      <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 max-w-md h-auto">
-          <TabsTrigger value="budgets" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-2 sm:px-4">
-            <Calculator className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-            <span className="truncate">Aprovacao de Orcamentos</span>
+      <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 max-w-sm h-auto">
+          <TabsTrigger value="budgets" className="gap-1 text-xs py-1.5 px-2">
+            <Calculator className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">Orcamentos</span>
             {pendingBudgets.length > 0 && (
-              <Badge className="ml-1 bg-yellow-500 text-white animate-pulse text-[10px] sm:text-xs">{pendingBudgets.length}</Badge>
+              <Badge className="ml-1 bg-yellow-500/20 text-yellow-500 text-[10px]">{pendingBudgets.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="users" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-2 sm:px-4">
-            <User className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-            <span className="truncate">Registos de Utilizadores</span>
+          <TabsTrigger value="users" className="gap-1 text-xs py-1.5 px-2">
+            <User className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">Utilizadores</span>
             {pendingRegCount > 0 && (
-              <Badge className="ml-1 bg-yellow-500 text-white animate-pulse text-[10px] sm:text-xs">{pendingRegCount}</Badge>
+              <Badge className="ml-1 bg-yellow-500/20 text-yellow-500 text-[10px]">{pendingRegCount}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
 
         {/* BUDGETS TAB */}
-        <TabsContent value="budgets" className="space-y-6">
-          {/* Budget Stats */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card className="hover-lift">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
-                <Clock className="h-4 w-4 text-yellow-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-yellow-500">{pendingBudgets.length}</div>
-              </CardContent>
-            </Card>
-            <Card className="hover-lift">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Aprovados</CardTitle>
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-500">{approvedBudgets.length}</div>
-              </CardContent>
-            </Card>
-            <Card className="hover-lift">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Rejeitados</CardTitle>
-                <XCircle className="h-4 w-4 text-red-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-500">{rejectedBudgets.length}</div>
-              </CardContent>
-            </Card>
+        <TabsContent value="budgets" className="space-y-3">
+          {/* Budget Stats - Compact inline */}
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="px-2 py-1 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/30">
+              <Clock className="h-3 w-3 inline mr-1" />{pendingBudgets.length} pend.
+            </span>
+            <span className="px-2 py-1 rounded bg-green-500/10 text-green-500 border border-green-500/30">
+              <CheckCircle2 className="h-3 w-3 inline mr-1" />{approvedBudgets.length} aprov.
+            </span>
+            <span className="px-2 py-1 rounded bg-destructive/10 text-destructive border border-destructive/30">
+              <XCircle className="h-3 w-3 inline mr-1" />{rejectedBudgets.length} rej.
+            </span>
           </div>
 
           {/* Budget List */}
           <Card>
-            <CardHeader>
-              <CardTitle>Orçamentos para Aprovação</CardTitle>
-              <CardDescription>Orçamentos submetidos por utilizadores aguardando aprovação.</CardDescription>
+            <CardHeader className="pb-2 pt-3 px-3">
+              <CardTitle className="text-sm">Orcamentos</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-2 px-3 pb-3">
               {budgets.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Nenhum orçamento submetido.</p>
+                <div className="text-center py-6 text-muted-foreground text-sm">
+                  <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Nenhum orcamento submetido.</p>
                 </div>
               ) : (
-                <Tabs defaultValue="pendente" className="space-y-4">
-                  <TabsList className="flex-wrap h-auto gap-1">
-                    <TabsTrigger value="pendente" className="text-xs sm:text-sm">Pendentes ({pendingBudgets.length})</TabsTrigger>
-                    <TabsTrigger value="aprovado" className="text-xs sm:text-sm">Aprovados ({approvedBudgets.length})</TabsTrigger>
-                    <TabsTrigger value="rejeitado" className="text-xs sm:text-sm">Rejeitados ({rejectedBudgets.length})</TabsTrigger>
-                    <TabsTrigger value="todos" className="text-xs sm:text-sm">Todos ({budgets.length})</TabsTrigger>
+                <Tabs defaultValue="pendente" className="space-y-2">
+                  <TabsList className="flex-wrap h-auto gap-0.5 p-1">
+                    <TabsTrigger value="pendente" className="text-[10px] px-2 py-1">Pend. ({pendingBudgets.length})</TabsTrigger>
+                    <TabsTrigger value="aprovado" className="text-[10px] px-2 py-1">Aprov. ({approvedBudgets.length})</TabsTrigger>
+                    <TabsTrigger value="rejeitado" className="text-[10px] px-2 py-1">Rej. ({rejectedBudgets.length})</TabsTrigger>
+                    <TabsTrigger value="todos" className="text-[10px] px-2 py-1">Todos ({budgets.length})</TabsTrigger>
                   </TabsList>
 
                   {["pendente", "aprovado", "rejeitado", "todos"].map((tabValue) => (
@@ -916,53 +897,48 @@ export default function RegistosContent() {
                               </CardHeader>
                               
                               {isExpanded && (
-                                <CardContent className="border-t bg-muted/30 space-y-4 px-3 sm:px-6 py-4">
+                                <CardContent className="border-t bg-muted/30 space-y-3 px-2 sm:px-4 py-3 overflow-hidden">
                                   {/* ========== COMPACT SUMMARY ROW ========== */}
-                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                                    <div className="p-2 sm:p-3 rounded-lg bg-card border text-center">
-                                      <p className="text-lg sm:text-xl font-bold">{totalValue.toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })}</p>
-                                      <p className="text-[10px] sm:text-xs text-muted-foreground">Total Orcamento</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="p-2 rounded-lg bg-card border text-center">
+                                      <p className="text-base font-bold">{totalValue.toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })}</p>
+                                      <p className="text-[10px] text-muted-foreground">Total Orc.</p>
                                     </div>
-                                    <div className="p-2 sm:p-3 rounded-lg bg-blue-50 border border-blue-200 text-center">
-                                      <p className="text-lg sm:text-xl font-bold text-blue-600">
+                                    <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 text-center">
+                                      <p className="text-base font-bold text-primary">
                                         {(budget.totalReference || totalValue / (1 + (budget.analysisVariance || 0) / 100)).toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })}
                                       </p>
-                                      <p className="text-[10px] sm:text-xs text-muted-foreground">Ref. Mercado</p>
+                                      <p className="text-[10px] text-muted-foreground">Ref. Mercado</p>
                                     </div>
-                                    <div className={cn("p-2 sm:p-3 rounded-lg border text-center",
-                                      (budget.analysisVariance || 0) > 10 ? "bg-red-50 border-red-200" : 
-                                      (budget.analysisVariance || 0) < -10 ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"
+                                    <div className={cn("p-2 rounded-lg border text-center",
+                                      (budget.analysisVariance || 0) > 10 ? "bg-destructive/10 border-destructive/30" : 
+                                      (budget.analysisVariance || 0) < -10 ? "bg-green-500/10 border-green-500/30" : "bg-yellow-500/10 border-yellow-500/30"
                                     )}>
-                                      <p className={cn("text-lg sm:text-xl font-bold flex items-center justify-center gap-1",
-                                        (budget.analysisVariance || 0) > 10 ? "text-red-600" : 
-                                        (budget.analysisVariance || 0) < -10 ? "text-green-600" : "text-yellow-600"
+                                      <p className={cn("text-base font-bold",
+                                        (budget.analysisVariance || 0) > 10 ? "text-destructive" : 
+                                        (budget.analysisVariance || 0) < -10 ? "text-green-500" : "text-yellow-500"
                                       )}>
                                         {(budget.analysisVariance || 0) > 0 ? "+" : ""}{(budget.analysisVariance || 0).toFixed(1)}%
                                       </p>
-                                      <p className="text-[10px] sm:text-xs text-muted-foreground">Variacao</p>
+                                      <p className="text-[10px] text-muted-foreground">Variacao</p>
                                     </div>
-                                    <div className="p-2 sm:p-3 rounded-lg bg-primary/10 border border-primary/20 text-center">
-                                      <p className="text-lg sm:text-xl font-bold text-primary">{budget.qualityScore || 0}/100</p>
-                                      <p className="text-[10px] sm:text-xs text-muted-foreground">Qualidade</p>
+                                    <div className="p-2 rounded-lg bg-card border text-center">
+                                      <p className="text-base font-bold">{budget.qualityScore || 0}/100</p>
+                                      <p className="text-[10px] text-muted-foreground">Qualidade</p>
                                     </div>
                                   </div>
 
                                   {/* ========== COMPACT STATS ROW ========== */}
-                                  <div className="flex flex-wrap gap-2 text-xs">
-                                    <span className="px-2 py-1 rounded bg-primary/10 text-primary">
-                                      {budget.analysisStats?.matchRate?.toFixed(0) || 0}% correspondencia
+                                  <div className="flex flex-wrap gap-1.5 text-[10px]">
+                                    <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                                      {budget.analysisStats?.matchRate?.toFixed(0) || 0}% corresp.
                                     </span>
-                                    <span className="px-2 py-1 rounded bg-orange-100 text-orange-700">
-                                      {(budget.analysisStats?.potentialSavings || 0).toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })} poupanca potencial
+                                    <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-500">
+                                      {(budget.analysisStats?.potentialSavings || 0).toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })} poupanca
                                     </span>
-                                    <span className="px-2 py-1 rounded bg-red-100 text-red-700">
-                                      {budget.analysisStats?.riskItems || 0} itens risco
+                                    <span className="px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
+                                      {budget.analysisStats?.riskItems || 0} risco
                                     </span>
-                                    {budget.region && (
-                                      <span className="px-2 py-1 rounded bg-muted text-muted-foreground">
-                                        <MapPin className="h-3 w-3 inline mr-1" />{budget.region}
-                                      </span>
-                                    )}
                                   </div>
 
                                   {/* ========== ITEM DISTRIBUTION BAR ========== */}
@@ -995,8 +971,8 @@ export default function RegistosContent() {
                                     if (highVarianceItems.length === 0) return null
                                     
                                     return (
-                                      <div className="p-2 rounded-lg bg-orange-50 border border-orange-300 text-sm">
-                                        <div className="flex items-center gap-2 text-orange-700 font-medium">
+                                      <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/30 text-sm">
+                                        <div className="flex items-center gap-2 text-destructive font-medium">
                                           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                                           <span>{highVarianceItems.length} itens com variacao {">"}65%</span>
                                         </div>
@@ -1006,11 +982,11 @@ export default function RegistosContent() {
 
                                   {/* ========== AI RECOMMENDATIONS (Compact) ========== */}
                                   {budget.recommendations && budget.recommendations.length > 0 && (
-                                    <div className="p-2 rounded-lg bg-blue-50 border border-blue-200">
-                                      <p className="text-xs font-medium text-blue-700 mb-1 flex items-center gap-1">
+                                    <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+                                      <p className="text-xs font-medium text-primary mb-1 flex items-center gap-1">
                                         <Lightbulb className="h-3 w-3" /> Recomendacoes IA
                                       </p>
-                                      <ul className="text-xs text-blue-800 space-y-0.5">
+                                      <ul className="text-xs text-muted-foreground space-y-0.5">
                                         {budget.recommendations.slice(0, 3).map((rec, idx) => (
                                           <li key={idx} className="truncate">• {rec}</li>
                                         ))}
@@ -1064,13 +1040,13 @@ export default function RegistosContent() {
                                     </div>
                                   )}
 
-                                  {/* ========== ITEMS LIST (Mobile-friendly cards instead of table) ========== */}
-                                  <div className="space-y-2">
-                                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                  {/* ========== ITEMS LIST (Compact) ========== */}
+                                  <div className="space-y-1.5">
+                                    <p className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
                                       <FileText className="h-3 w-3" />
-                                      {budget.items.length} itens no orcamento
+                                      {budget.items.length} itens
                                     </p>
-                                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                                    <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
                                       {budget.items.map((item, idx) => {
                                         const analysis = budget.itemAnalysis?.find(a => a.id === item.id || a.originalName === item.materialName)
                                         const margin = item.adminMarginPercent || 0
@@ -1083,109 +1059,34 @@ export default function RegistosContent() {
                                           <div 
                                             key={idx} 
                                             className={cn(
-                                              "p-2 sm:p-3 rounded-lg border bg-card text-sm",
-                                              analysis?.variance && Math.abs(analysis.variance) > 65 && "border-orange-300 bg-orange-50"
+                                              "p-2 rounded-lg border bg-card text-xs",
+                                              analysis?.variance && Math.abs(analysis.variance) > 65 && "border-destructive/50 bg-destructive/5"
                                             )}
                                           >
-                                            {/* Row 1: Name + Status Badge + Actions */}
-                                            <div className="flex items-start justify-between gap-2 mb-2">
-                                              <div className="flex-1 min-w-0">
-                                                <p className="font-medium text-sm truncate" title={item.materialName}>{item.materialName}</p>
-                                                {analysis?.matchedName && (
-                                                  <p className="text-[10px] text-muted-foreground truncate">
-                                                    Ref: {analysis.matchedName} ({analysis.matchConfidence?.toFixed(0)}%)
-                                                  </p>
-                                                )}
-                                              </div>
-                                              <div className="flex items-center gap-1 flex-shrink-0">
-                                                <Badge className={cn("text-[10px] px-1.5 py-0.5", ratingConfig[rating]?.bg, ratingConfig[rating]?.color)}>
-                                                  <RatingIcon className="h-2.5 w-2.5 mr-0.5" />
+                                            {/* Row 1: Name + Badge + Actions */}
+                                            <div className="flex items-center justify-between gap-1 mb-1.5">
+                                              <p className="font-medium truncate flex-1 text-sm" title={item.materialName}>{item.materialName}</p>
+                                              <div className="flex items-center gap-0.5 flex-shrink-0">
+                                                <Badge className={cn("text-[9px] px-1 py-0", ratingConfig[rating]?.bg, ratingConfig[rating]?.color)}>
                                                   {ratingConfig[rating]?.shortLabel}
                                                 </Badge>
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  className="h-6 w-6 p-0"
-                                                  onClick={() => setEditingItem({ budgetId: budget.id, itemIndex: idx, item })}
-                                                  title="Editar"
-                                                >
-                                                  <Pencil className="h-3 w-3" />
+                                                <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => setEditingItem({ budgetId: budget.id, itemIndex: idx, item })}>
+                                                  <Pencil className="h-2.5 w-2.5" />
                                                 </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  className="h-6 w-6 p-0 text-purple-600"
-                                                  onClick={() => handleAnalyzeItem(budget.id, item)}
-                                                  disabled={analyzingItemId === `${budget.id}-${item.id}`}
-                                                  title="Analisar IA"
-                                                >
-                                                  {analyzingItemId === `${budget.id}-${item.id}` ? (
-                                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                                  ) : (
-                                                    <Sparkles className="h-3 w-3" />
-                                                  )}
+                                                <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-primary" onClick={() => handleAnalyzeItem(budget.id, item)} disabled={analyzingItemId === `${budget.id}-${item.id}`}>
+                                                  {analyzingItemId === `${budget.id}-${item.id}` ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Sparkles className="h-2.5 w-2.5" />}
                                                 </Button>
                                               </div>
                                             </div>
                                             
-                                            {/* Row 2: Price details */}
-                                            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 text-xs">
-                                              <div>
-                                                <p className="text-muted-foreground text-[10px]">Qtd/Un</p>
-                                                <p className="font-medium">{item.quantity} {item.unit}</p>
-                                              </div>
-                                              <div>
-                                                <p className="text-muted-foreground text-[10px]">P. Unit.</p>
-                                                <p className="font-medium">€{item.unitPrice.toFixed(2)}</p>
-                                              </div>
-                                              <div>
-                                                <p className="text-muted-foreground text-[10px]">P. Ref.</p>
-                                                <p className="font-medium text-blue-600">
-                                                  {analysis?.referenceAvgPrice ? `€${analysis.referenceAvgPrice.toFixed(2)}` : "-"}
-                                                </p>
-                                              </div>
-                                              <div>
-                                                <p className="text-muted-foreground text-[10px]">Variacao</p>
-                                                <p className={cn("font-medium", ratingConfig[rating]?.color)}>
-                                                  {analysis?.variance !== null && analysis?.variance !== undefined
-                                                    ? `${analysis.variance > 0 ? "+" : ""}${analysis.variance.toFixed(0)}%`
-                                                    : "-"
-                                                  }
-                                                </p>
-                                              </div>
-                                              <div className="hidden sm:block">
-                                                <p className="text-muted-foreground text-[10px]">Total</p>
-                                                <p className="font-medium">€{baseTotal.toFixed(2)}</p>
-                                              </div>
-                                            </div>
-                                            
-                                            {/* Row 3: Margin input (collapsed on mobile) */}
-                                            <div className="mt-2 pt-2 border-t flex items-center justify-between gap-2">
-                                              <div className="flex items-center gap-2">
-                                                <span className="text-[10px] text-muted-foreground">Margem:</span>
-                                                <Input
-                                                  type="number"
-                                                  min="0"
-                                                  max="100"
-                                                  step="0.5"
-                                                  defaultValue={margin}
-                                                  onChange={(e) => {
-                                                    const newMargin = parseFloat(e.target.value) || 0
-                                                    const updatedItems = budget.items.map((i, index) => 
-                                                      index === idx 
-                                                        ? { ...i, adminMarginPercent: newMargin, adminMarginValue: baseTotal * (newMargin / 100) }
-                                                        : i
-                                                    )
-                                                    updateBudget(budget.id, { items: updatedItems })
-                                                  }}
-                                                  className="w-14 h-6 text-right text-xs bg-primary/10 border-primary/30"
-                                                />
-                                                <span className="text-[10px] text-muted-foreground">%</span>
-                                              </div>
-                                              <div className="text-right">
-                                                <span className="text-[10px] text-muted-foreground mr-1">c/ margem:</span>
-                                                <span className="font-medium text-primary text-sm">€{totalWithMargin.toFixed(2)}</span>
-                                              </div>
+                                            {/* Row 2: Compact price info */}
+                                            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                              <span>{item.quantity} {item.unit} × €{item.unitPrice.toFixed(2)}</span>
+                                              <span>Ref: {analysis?.referenceAvgPrice ? `€${analysis.referenceAvgPrice.toFixed(2)}` : "-"}</span>
+                                              <span className={cn("font-medium", ratingConfig[rating]?.color)}>
+                                                {analysis?.variance !== null && analysis?.variance !== undefined ? `${analysis.variance > 0 ? "+" : ""}${analysis.variance.toFixed(0)}%` : "-"}
+                                              </span>
+                                              <span className="font-medium text-primary">€{totalWithMargin.toFixed(2)}</span>
                                             </div>
                                           </div>
                                         )
@@ -1570,10 +1471,10 @@ export default function RegistosContent() {
       
       {/* Item AI Analysis Result Dialog */}
       <Dialog open={!!itemAnalysisResult} onOpenChange={() => setItemAnalysisResult(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-600" />
+              <Sparkles className="h-5 w-5 text-primary" />
               Analise IA do Item
             </DialogTitle>
             <DialogDescription>
@@ -1581,30 +1482,30 @@ export default function RegistosContent() {
             </DialogDescription>
           </DialogHeader>
           {itemAnalysisResult && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Item Name */}
-              <div className="p-3 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">Item analisado:</p>
-                <p className="font-semibold">{itemAnalysisResult.originalName}</p>
+              <div className="p-2 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground">Item analisado:</p>
+                <p className="font-semibold text-sm">{itemAnalysisResult.originalName}</p>
               </div>
               
               {/* Variance Summary */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2">
                 <Card className={cn(
-                  "p-4",
-                  itemAnalysisResult.variance === null ? "bg-gray-50" :
-                  itemAnalysisResult.variance < -10 ? "bg-green-50 border-green-200" :
-                  itemAnalysisResult.variance < 10 ? "bg-yellow-50 border-yellow-200" :
-                  itemAnalysisResult.variance < 50 ? "bg-orange-50 border-orange-200" :
-                  "bg-red-50 border-red-200"
+                  "p-3",
+                  itemAnalysisResult.variance === null ? "bg-muted" :
+                  itemAnalysisResult.variance < -10 ? "bg-green-500/10 border-green-500/30" :
+                  itemAnalysisResult.variance < 10 ? "bg-yellow-500/10 border-yellow-500/30" :
+                  itemAnalysisResult.variance < 50 ? "bg-orange-500/10 border-orange-500/30" :
+                  "bg-destructive/10 border-destructive/30"
                 )}>
-                  <p className="text-xs text-muted-foreground mb-1">Variacao vs Mercado</p>
-                  <p className={cn("text-2xl font-bold",
-                    itemAnalysisResult.variance === null ? "text-gray-500" :
-                    itemAnalysisResult.variance < -10 ? "text-green-600" :
-                    itemAnalysisResult.variance < 10 ? "text-yellow-600" :
-                    itemAnalysisResult.variance < 50 ? "text-orange-600" :
-                    "text-red-600"
+                  <p className="text-[10px] text-muted-foreground mb-1">Variacao vs Mercado</p>
+                  <p className={cn("text-xl font-bold",
+                    itemAnalysisResult.variance === null ? "text-muted-foreground" :
+                    itemAnalysisResult.variance < -10 ? "text-green-500" :
+                    itemAnalysisResult.variance < 10 ? "text-yellow-500" :
+                    itemAnalysisResult.variance < 50 ? "text-orange-500" :
+                    "text-destructive"
                   )}>
                     {itemAnalysisResult.variance !== null 
                       ? `${itemAnalysisResult.variance > 0 ? "+" : ""}${itemAnalysisResult.variance.toFixed(1)}%`
@@ -1612,9 +1513,9 @@ export default function RegistosContent() {
                     }
                   </p>
                 </Card>
-                <Card className="p-4 bg-blue-50 border-blue-200">
-                  <p className="text-xs text-muted-foreground mb-1">Preco Referencia Mercado</p>
-                  <p className="text-2xl font-bold text-blue-600">
+                <Card className="p-3 bg-primary/10 border-primary/30">
+                  <p className="text-[10px] text-muted-foreground mb-1">Preco Referencia</p>
+                  <p className="text-xl font-bold text-primary">
                     {itemAnalysisResult.referencePrice !== null
                       ? `€${itemAnalysisResult.referencePrice.toFixed(2)}`
                       : "Sem dados"
@@ -1624,22 +1525,22 @@ export default function RegistosContent() {
               </div>
               
               {/* Recommendation */}
-              <Card className={cn("p-4",
-                itemAnalysisResult.variance === null ? "bg-gray-50" :
-                itemAnalysisResult.variance > 50 ? "bg-red-50 border-red-300" :
-                itemAnalysisResult.variance > 10 ? "bg-orange-50 border-orange-200" :
-                "bg-green-50 border-green-200"
+              <Card className={cn("p-3",
+                itemAnalysisResult.variance === null ? "bg-muted" :
+                itemAnalysisResult.variance > 50 ? "bg-destructive/10 border-destructive/30" :
+                itemAnalysisResult.variance > 10 ? "bg-orange-500/10 border-orange-500/30" :
+                "bg-green-500/10 border-green-500/30"
               )}>
                 <div className="flex items-start gap-2">
-                  <Lightbulb className={cn("h-5 w-5 mt-0.5",
-                    itemAnalysisResult.variance === null ? "text-gray-500" :
-                    itemAnalysisResult.variance > 50 ? "text-red-600" :
-                    itemAnalysisResult.variance > 10 ? "text-orange-600" :
-                    "text-green-600"
+                  <Lightbulb className={cn("h-4 w-4 mt-0.5",
+                    itemAnalysisResult.variance === null ? "text-muted-foreground" :
+                    itemAnalysisResult.variance > 50 ? "text-destructive" :
+                    itemAnalysisResult.variance > 10 ? "text-orange-500" :
+                    "text-green-500"
                   )} />
                   <div>
-                    <p className="font-medium text-sm">Recomendacao</p>
-                    <p className="text-sm text-muted-foreground">{itemAnalysisResult.recommendation}</p>
+                    <p className="font-medium text-xs">Recomendacao</p>
+                    <p className="text-xs text-muted-foreground">{itemAnalysisResult.recommendation}</p>
                   </div>
                 </div>
               </Card>
@@ -1647,21 +1548,18 @@ export default function RegistosContent() {
               {/* Matched Materials */}
               {itemAnalysisResult.matchedMaterials.length > 0 && (
                 <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Materiais Correspondentes na Base de Dados</CardTitle>
+                  <CardHeader className="pb-1 pt-2 px-3">
+                    <CardTitle className="text-xs font-medium">Materiais Correspondentes</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <CardContent className="px-3 pb-2">
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
                       {itemAnalysisResult.matchedMaterials.map((mat, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
+                        <div key={idx} className="flex items-center justify-between p-1.5 bg-muted/50 rounded text-xs">
                           <div>
                             <p className="font-medium">{mat.name}</p>
-                            <p className="text-xs text-muted-foreground">{mat.category} • {mat.confidence.toFixed(0)}% confianca</p>
+                            <p className="text-[10px] text-muted-foreground">{mat.category}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="font-medium">€{mat.price.toFixed(2)}</p>
-                            {mat.priceMax && <p className="text-xs text-muted-foreground">ate €{mat.priceMax.toFixed(2)}</p>}
-                          </div>
+                          <p className="font-medium">€{mat.price.toFixed(2)}</p>
                         </div>
                       ))}
                     </div>
@@ -1670,10 +1568,10 @@ export default function RegistosContent() {
               )}
               
               {itemAnalysisResult.matchedMaterials.length === 0 && (
-                <Card className="p-4 bg-yellow-50 border-yellow-200">
-                  <div className="flex items-center gap-2 text-yellow-800">
-                    <AlertTriangle className="h-5 w-5" />
-                    <p className="text-sm">Nenhum material correspondente encontrado na base de dados.</p>
+                <Card className="p-3 bg-yellow-500/10 border-yellow-500/30">
+                  <div className="flex items-center gap-2 text-yellow-500">
+                    <AlertTriangle className="h-4 w-4" />
+                    <p className="text-xs">Nenhum material correspondente encontrado.</p>
                   </div>
                 </Card>
               )}
