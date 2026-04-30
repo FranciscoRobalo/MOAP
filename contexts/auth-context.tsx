@@ -304,14 +304,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
   
-  // Function to load pending registrations from database
+  // Function to load ALL registrations from database (pending, approved, rejected)
   const loadPendingRegistrationsFromDb = async () => {
     try {
-      const { data: dbPending } = await supabase
+      const { data: dbPending, error } = await supabase
         .from("pending_registrations")
         .select("*")
-        .eq("status", "pending")
         .order("created_at", { ascending: false })
+      
+      if (error) {
+        console.error("[v0] Error loading registrations:", error)
+        // Fallback to localStorage
+        const stored = localStorage.getItem("moap_pending_registrations")
+        if (stored) {
+          setPendingRegistrations(JSON.parse(stored))
+        }
+        return
+      }
       
       if (dbPending && dbPending.length > 0) {
         const mapped: PendingRegistration[] = dbPending.map(p => ({
@@ -328,6 +337,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           createdAt: p.created_at,
         }))
         setPendingRegistrations(mapped)
+        // Also sync to localStorage for backup
+        localStorage.setItem("moap_pending_registrations", JSON.stringify(mapped))
       } else {
         // Fallback to localStorage
         const stored = localStorage.getItem("moap_pending_registrations")
@@ -335,7 +346,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setPendingRegistrations(JSON.parse(stored))
         }
       }
-    } catch {
+    } catch (err) {
+      console.error("[v0] Exception loading registrations:", err)
       // Fallback to localStorage
       const stored = localStorage.getItem("moap_pending_registrations")
       if (stored) {
@@ -439,34 +451,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       // Update pending registration status in database
-      await supabase
+      const { error: updateError } = await supabase
         .from("pending_registrations")
         .update({ status: "approved" })
         .eq("id", id)
+      
+      if (updateError) {
+        console.error("[v0] Error updating registration status:", updateError)
+      }
 
-      // Update local state
-      const newPending = pendingRegistrations.filter((r) => r.id !== id)
+      // Update local state - keep record with updated status
+      const newPending = pendingRegistrations.map((r) => 
+        r.id === id ? { ...r, status: "approved" as const } : r
+      )
       setPendingRegistrations(newPending)
       localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
     } catch (error) {
-      console.error("Approval error:", error)
+      console.error("[v0] Approval error:", error)
+      throw error // Re-throw so caller can handle
     }
   }
 
   const rejectRegistration = async (id: string) => {
     try {
       // Update pending registration status in database
-      await supabase
+      const { error: updateError } = await supabase
         .from("pending_registrations")
         .update({ status: "rejected" })
         .eq("id", id)
       
-      // Update local state
-      const newPending = pendingRegistrations.filter((r) => r.id !== id)
+      if (updateError) {
+        console.error("[v0] Error updating registration status:", updateError)
+      }
+      
+      // Update local state - keep record with updated status
+      const newPending = pendingRegistrations.map((r) => 
+        r.id === id ? { ...r, status: "rejected" as const } : r
+      )
       setPendingRegistrations(newPending)
       localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
     } catch (error) {
-      console.error("Rejection error:", error)
+      console.error("[v0] Rejection error:", error)
+      throw error // Re-throw so caller can handle
     }
   }
 
