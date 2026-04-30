@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,12 +23,13 @@ import { useLanguage } from "@/contexts/language-context"
 import { toast } from "sonner"
 import { 
   Search, CheckCircle2, XCircle, Clock, User, Mail, Building2, Phone, Calendar, 
-  FileText, Calculator, Database, Sparkles, Loader2, ChevronDown, ChevronUp, Euro
+  FileText, Calculator, Database, Sparkles, Loader2, ChevronDown, ChevronUp, Euro,
+  Upload, AlertTriangle, Eye, TrendingUp, TrendingDown
 } from "lucide-react"
 
 export default function RegistosContent() {
   const { pendingRegistrations, approveRegistration, rejectRegistration, user } = useAuth()
-  const { budgets, updateBudget, importBudgetItems } = useData()
+  const { budgets, updateBudget, importBudgetItems, addBudget } = useData()
   const { t } = useLanguage()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedRegistration, setSelectedRegistration] = useState<string | null>(null)
@@ -38,21 +39,15 @@ export default function RegistosContent() {
   const [isReanalyzing, setIsReanalyzing] = useState<string | null>(null)
   const [selectedBudget, setSelectedBudget] = useState<string | null>(null)
   const [budgetActionType, setBudgetActionType] = useState<"approve" | "reject" | null>(null)
-
-  // Only admin can access this page
-  if (user?.role !== "admin") {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Card className="max-w-md">
-          <CardContent className="pt-6 text-center">
-            <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">Acesso Restrito</h2>
-            <p className="text-muted-foreground">Apenas administradores podem aceder a esta página.</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  const isAdmin = user?.role === "admin"
+  
+  // Filter budgets for clients - only show their own budgets that are visible
+  const clientBudgets = budgets.filter(b => 
+    b.userId === user?.id || b.visibleToClient === true
+  )
 
   // Filter registrations
   const filteredRegistrations = pendingRegistrations.filter((reg) => {
@@ -126,8 +121,73 @@ export default function RegistosContent() {
     setIsReanalyzing(budgetId)
     // Simulate AI analysis
     await new Promise(resolve => setTimeout(resolve, 2000))
-    toast.success("Análise IA concluída!")
+    toast.success("Analise IA concluida!")
     setIsReanalyzing(null)
+  }
+  
+  // Client file upload handler
+  const handleClientUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    setIsUploading(true)
+    
+    try {
+      // Parse the file (simplified - in production would use the full parser)
+      const formData = new FormData()
+      formData.append("file", file)
+      
+      // Call the parse API
+      const response = await fetch("/api/parse-pdf", {
+        method: "POST",
+        body: formData
+      })
+      
+      let items: Array<{ name: string; unit: string; quantity: number; price: number }> = []
+      
+      if (response.ok) {
+        const data = await response.json()
+        items = data.items || []
+      }
+      
+      // Create a new budget submission
+      const budgetItems = items.map((item, idx) => ({
+        id: `item-${Date.now()}-${idx}`,
+        materialId: "",
+        materialName: item.name,
+        unit: item.unit || "un",
+        quantity: item.quantity || 1,
+        unitPrice: item.price || 0,
+        category: "Geral"
+      }))
+      
+      addBudget({
+        name: file.name.replace(/\.(pdf|xlsx|xls|csv)$/i, ""),
+        obraId: "",
+        obraName: "Submissao Cliente",
+        userId: user?.id,
+        createdDate: new Date().toISOString().split("T")[0],
+        status: "pendente",
+        items: budgetItems,
+        totalValue: budgetItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+        visibleToClient: false // Will be visible after admin approval
+      })
+      
+      toast.success("Orcamento submetido com sucesso!", {
+        description: "O seu orcamento foi enviado para aprovacao. Sera notificado quando for analisado."
+      })
+      
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast.error("Erro ao submeter orcamento", {
+        description: "Por favor tente novamente ou contacte o suporte."
+      })
+    } finally {
+      setIsUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -193,18 +253,200 @@ export default function RegistosContent() {
     }
   }
 
+  // CLIENT VIEW - Simplified upload and status view
+  if (!isAdmin) {
+    const myPendingBudgets = clientBudgets.filter(b => b.status === "pendente" && b.userId === user?.id)
+    const myApprovedBudgets = clientBudgets.filter(b => b.status === "aprovado")
+    const myRejectedBudgets = clientBudgets.filter(b => b.status === "rejeitado" && b.userId === user?.id)
+    
+    return (
+      <div className="space-y-6 animate-fade-in-up">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Meus Orcamentos</h1>
+            <p className="text-muted-foreground text-sm sm:text-base">Submeta orcamentos para aprovacao e acompanhe o estado.</p>
+          </div>
+        </div>
+        
+        {/* Upload Section for Clients */}
+        <Card className="border-2 border-dashed border-primary/30 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5 text-primary" />
+              Submeter Novo Orcamento
+            </CardTitle>
+            <CardDescription>
+              Carregue o seu orcamento em PDF, Excel ou CSV para ser analisado e aprovado.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.xlsx,.xls,.csv"
+              onChange={handleClientUpload}
+              className="hidden"
+              id="client-upload"
+            />
+            <label htmlFor="client-upload">
+              <Button
+                asChild
+                size="lg"
+                className="w-full h-20 text-lg cursor-pointer"
+                disabled={isUploading}
+              >
+                <span>
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-6 w-6 mr-2 animate-spin" />
+                      A processar...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-6 w-6 mr-2" />
+                      Carregar Orcamento
+                    </>
+                  )}
+                </span>
+              </Button>
+            </label>
+            <p className="text-xs text-muted-foreground mt-3 text-center">
+              Formatos aceites: PDF, Excel (.xlsx, .xls), CSV
+            </p>
+          </CardContent>
+        </Card>
+        
+        {/* Status Cards */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="hover-lift">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Em Analise</CardTitle>
+              <Clock className="h-4 w-4 text-yellow-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-500">{myPendingBudgets.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Aguardando aprovacao</p>
+            </CardContent>
+          </Card>
+          <Card className="hover-lift">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Aprovados</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-500">{myApprovedBudgets.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Prontos para pagamento</p>
+            </CardContent>
+          </Card>
+          <Card className="hover-lift">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rejeitados</CardTitle>
+              <XCircle className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-500">{myRejectedBudgets.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Necessitam revisao</p>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* My Budgets List */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Historico de Orcamentos</CardTitle>
+            <CardDescription>Acompanhe o estado dos seus orcamentos submetidos.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {clientBudgets.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Ainda nao submeteu nenhum orcamento.</p>
+                <p className="text-sm mt-2">Utilize o botao acima para submeter o seu primeiro orcamento.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {clientBudgets.map((budget) => {
+                  const totalValue = budget.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+                  
+                  return (
+                    <Card key={budget.id} className="overflow-hidden">
+                      <CardContent className="p-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-5 w-5 text-primary" />
+                            <div>
+                              <h4 className="font-medium">{budget.name}</h4>
+                              <p className="text-xs text-muted-foreground">
+                                {budget.createdDate} • {budget.items.length} itens
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <p className="font-semibold">{totalValue.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</p>
+                            </div>
+                            {getBudgetStatusBadge(budget.status)}
+                          </div>
+                        </div>
+                        
+                        {/* Status Messages */}
+                        {budget.status === "pendente" && (
+                          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
+                            <Clock className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                            <div className="text-sm text-yellow-800">
+                              <p className="font-medium">Em analise</p>
+                              <p className="text-xs mt-0.5">O seu orcamento esta a ser analisado pela nossa equipa. Sera notificado quando houver uma decisao.</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {budget.status === "aprovado" && (
+                          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                            <div className="text-sm text-green-800">
+                              <p className="font-medium">Aprovado</p>
+                              <p className="text-xs mt-0.5">O seu orcamento foi aprovado! Pode agora proceder ao pagamento.</p>
+                              <Button size="sm" className="mt-2 bg-green-600 hover:bg-green-700">
+                                Proceder ao Pagamento
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {budget.status === "rejeitado" && (
+                          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                            <XCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                            <div className="text-sm text-red-800">
+                              <p className="font-medium">Rejeitado</p>
+                              <p className="text-xs mt-0.5">{budget.adminNotes || "O seu orcamento foi rejeitado. Por favor reveja e submeta novamente."}</p>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+  
+  // ADMIN VIEW - Full analysis tools, AI prices, percentages
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Aprovações</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">Gerir orçamentos e registos de utilizadores pendentes de aprovação.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Aprovacoes (Admin)</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Gerir orcamentos e registos de utilizadores pendentes de aprovacao.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {pendingBudgets.length > 0 && (
             <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-xs sm:text-sm">
               <Calculator className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-              {pendingBudgets.length} orçamento{pendingBudgets.length !== 1 ? "s" : ""} pendente{pendingBudgets.length !== 1 ? "s" : ""}
+              {pendingBudgets.length} orcamento{pendingBudgets.length !== 1 ? "s" : ""} pendente{pendingBudgets.length !== 1 ? "s" : ""}
             </Badge>
           )}
           {pendingRegCount > 0 && (
@@ -338,6 +580,55 @@ export default function RegistosContent() {
                               
                               {isExpanded && (
                                 <CardContent className="border-t bg-muted/30 space-y-4 px-3 sm:px-6">
+                                  {/* AI Analysis Summary - Admin Only */}
+                                  <div className="p-4 rounded-lg bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200">
+                                    <div className="flex items-center gap-2 mb-3">
+                                      <Sparkles className="h-5 w-5 text-purple-600" />
+                                      <h4 className="font-semibold text-purple-800">Analise IA (Visivel apenas para Admin)</h4>
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                      <div className="text-center p-2 bg-white rounded border">
+                                        <p className="text-xs text-muted-foreground">Variacao vs Mercado</p>
+                                        <p className={`text-lg font-bold ${
+                                          (budget.analysisVariance || 0) > 10 ? "text-red-500" : 
+                                          (budget.analysisVariance || 0) < -10 ? "text-green-500" : 
+                                          "text-yellow-500"
+                                        }`}>
+                                          {budget.analysisVariance !== undefined ? (
+                                            <span className="flex items-center justify-center gap-1">
+                                              {budget.analysisVariance > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                                              {budget.analysisVariance > 0 ? "+" : ""}{budget.analysisVariance.toFixed(1)}%
+                                            </span>
+                                          ) : "N/A"}
+                                        </p>
+                                      </div>
+                                      <div className="text-center p-2 bg-white rounded border">
+                                        <p className="text-xs text-muted-foreground">Preco Ref. Mercado</p>
+                                        <p className="text-lg font-bold text-blue-600">
+                                          {budget.analysisVariance !== undefined ? (
+                                            `€${(totalValue / (1 + (budget.analysisVariance || 0) / 100)).toLocaleString("pt-PT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                                          ) : "N/A"}
+                                        </p>
+                                      </div>
+                                      <div className="text-center p-2 bg-white rounded border">
+                                        <p className="text-xs text-muted-foreground">Itens Analisados</p>
+                                        <p className="text-lg font-bold">{budget.items.length}</p>
+                                      </div>
+                                      <div className="text-center p-2 bg-white rounded border">
+                                        <p className="text-xs text-muted-foreground">Itens com Alerta</p>
+                                        <p className="text-lg font-bold text-orange-500">
+                                          {budget.items.filter(i => Math.abs(((i.adminMarginPercent || 0) - 15)) > 50).length}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {(budget.analysisVariance || 0) > 65 && (
+                                      <div className="mt-3 p-2 bg-orange-100 border border-orange-300 rounded flex items-center gap-2 text-orange-800">
+                                        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                                        <span className="text-sm font-medium">Alerta: Variacao superior a 65% - Recomendada re-analise com IA</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  
                                   {/* Action Buttons for Pending Budgets */}
                                   {budget.status === "pendente" && (
                                     <div className="grid grid-cols-2 gap-2">
