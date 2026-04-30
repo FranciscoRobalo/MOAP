@@ -60,12 +60,19 @@ export function Hero() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
-            <a href="/dashboard/analise#upload-section">
-              <Button size="lg" className="gap-2 btn-ripple hover-lift hover-glow h-16 px-10 text-xl font-semibold">
-                <FileUp className="h-7 w-7" />
-                {t("heroUploadButton")}
-              </Button>
-            </a>
+            <Button 
+              size="lg" 
+              className="gap-2 btn-ripple hover-lift hover-glow h-16 px-10 text-xl font-semibold"
+              onClick={() => {
+                const element = document.getElementById("carregar")
+                if (element) {
+                  element.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+              }}
+            >
+              <FileUp className="h-7 w-7" />
+              {t("heroUploadButton")}
+            </Button>
           </div>
         </div>
 

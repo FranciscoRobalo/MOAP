@@ -852,16 +852,59 @@ export default function AnaliseContent() {
   }, [])
   
   // Load analysis history from localStorage on mount
+  // Load history from both Supabase and localStorage, merge them
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(ANALYSIS_HISTORY_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored) as AnalysisHistoryEntry[]
-        setAnalysisHistory(parsed)
+    const loadHistory = async () => {
+      let localHistory: AnalysisHistoryEntry[] = []
+      let supabaseHistory: AnalysisHistoryEntry[] = []
+      
+      // Load from localStorage first (instant)
+      try {
+        const stored = localStorage.getItem(ANALYSIS_HISTORY_KEY)
+        if (stored) {
+          localHistory = JSON.parse(stored) as AnalysisHistoryEntry[]
+          setAnalysisHistory(localHistory)
+        }
+      } catch {
+        // Invalid data, ignore
       }
-    } catch {
-      // Invalid data, ignore
+      
+      // Then load from Supabase and merge
+      try {
+        const response = await fetch("/api/data/sync")
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.data?.analises) {
+            supabaseHistory = result.data.analises.map((a: any) => ({
+              id: a.id,
+              fileName: a.fileName,
+              savedAt: a.uploadDate,
+              region: a.region,
+              totalBudget: a.totalBudget,
+              itemCount: a.items?.length || 0,
+              matchRate: a.stats?.matchRate || 0,
+              overallRating: a.overallRating,
+              qualityScore: a.qualityScore,
+              result: a
+            }))
+            
+            // Merge: Supabase entries not in local, then local entries
+            const localIds = new Set(localHistory.map(h => h.id))
+            const mergedHistory = [
+              ...supabaseHistory.filter(h => !localIds.has(h.id)),
+              ...localHistory
+            ].slice(0, MAX_HISTORY_ENTRIES)
+            
+            setAnalysisHistory(mergedHistory)
+            localStorage.setItem(ANALYSIS_HISTORY_KEY, JSON.stringify(mergedHistory))
+          }
+        }
+      } catch (error) {
+        console.log("[v0] Supabase history sync failed, using local only")
+      }
     }
+    
+    loadHistory()
   }, [])
   
   // Calculate quality score for an analysis
@@ -873,8 +916,8 @@ export default function AnaliseContent() {
     return Math.round(matchRateScore + confidenceScore + coverageScore + lowRiskScore)
   }
   
-  // Save current analysis to history
-  const saveToHistory = () => {
+  // Save current analysis to history (both localStorage and Supabase)
+  const saveToHistory = async () => {
     if (!analysisResult) return
     
     const qualityScore = calculateQualityScore(analysisResult)
@@ -894,6 +937,34 @@ export default function AnaliseContent() {
     const updatedHistory = [entry, ...analysisHistory].slice(0, MAX_HISTORY_ENTRIES)
     setAnalysisHistory(updatedHistory)
     localStorage.setItem(ANALYSIS_HISTORY_KEY, JSON.stringify(updatedHistory))
+    
+    // Sync to Supabase for cross-browser persistence
+    try {
+      await fetch("/api/data/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "analysis",
+          data: {
+            id: entry.id,
+            fileName: entry.fileName,
+            region: entry.region,
+            totalBudget: entry.totalBudget,
+            totalReference: analysisResult.totalReference,
+            overallVariance: analysisResult.overallVariance,
+            overallRating: entry.overallRating,
+            qualityScore,
+            stats: analysisResult.stats,
+            categoryBreakdown: analysisResult.categoryBreakdown,
+            recommendations: analysisResult.recommendations,
+            items: analysisResult.items
+          }
+        })
+      })
+    } catch (error) {
+      console.error("[v0] Failed to sync analysis to Supabase:", error)
+    }
+    
     toast.success("Analise guardada no historico!")
   }
   
@@ -2412,15 +2483,88 @@ www.moap.pt
             </Card>
           </div>
 
+          {/* High Variance Warning Banner */}
+          {(() => {
+            const highVarianceItems = analysisResult.items.filter(i => i.variance !== null && Math.abs(i.variance) > 65)
+            if (highVarianceItems.length === 0) return null
+            
+            return (
+              <Card className="bg-orange-50 border-orange-300 border-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-orange-700">
+                    <AlertTriangle className="h-5 w-5 animate-pulse" />
+                    Alerta: {highVarianceItems.length} {highVarianceItems.length === 1 ? 'item' : 'itens'} com variacao superior a 65%
+                  </CardTitle>
+                  <CardDescription className="text-orange-600">
+                    Estes itens requerem atencao especial. Recomendamos re-analisar com IA para validar os precos.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="space-y-2">
+                    {highVarianceItems.slice(0, 5).map((item) => (
+                      <div key={item.id} className="flex items-center justify-between p-2 bg-white rounded border border-orange-200">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.originalName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Variacao: <span className="font-semibold text-orange-600">{item.variance && item.variance > 0 ? "+" : ""}{item.variance?.toFixed(1)}%</span>
+                          </p>
+                        </div>
+                        {isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => reanalyzeItem(item)}
+                            disabled={isReanalyzing === item.id}
+                            className="ml-2 text-orange-600 border-orange-400 hover:bg-orange-100"
+                          >
+                            {isReanalyzing === item.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Sparkles className="h-4 w-4 mr-1" />
+                                Re-analisar
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    {highVarianceItems.length > 5 && (
+                      <p className="text-xs text-orange-600 text-center mt-2">
+                        E mais {highVarianceItems.length - 5} {highVarianceItems.length - 5 === 1 ? 'item' : 'itens'}...
+                      </p>
+                    )}
+                  </div>
+                  {isAdmin && highVarianceItems.length > 1 && (
+                    <div className="mt-4 pt-3 border-t border-orange-200">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          // Re-analyze all high variance items
+                          highVarianceItems.forEach(item => reanalyzeItem(item))
+                        }}
+                        disabled={isBulkReanalyzing}
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                      >
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Re-analisar todos os {highVarianceItems.length} itens com IA
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })()}
+
           {/* Recommendations Card */}
           {analysisResult.recommendations && analysisResult.recommendations.length > 0 && (
             <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Info className="h-5 w-5 text-primary" />
-                  Recomendações da Análise
+                  Recomendacoes da Analise
                 </CardTitle>
-                <CardDescription>Insights automáticos baseados na análise do orçamento</CardDescription>
+                <CardDescription>Insights automaticos baseados na analise do orcamento</CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3">
@@ -2844,10 +2988,15 @@ www.moap.pt
                                   </td>
                                   <td className={cn("px-4 py-3 text-right text-sm font-medium", config.color)}>
                                     {item.variance !== null && !isNaN(item.variance) ? (
-                                      <>
-                                        {item.variance > 0 ? "+" : ""}
-                                        {item.variance.toFixed(1)}%
-                                      </>
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <span>
+                                          {item.variance > 0 ? "+" : ""}
+                                          {item.variance.toFixed(1)}%
+                                        </span>
+                                        {Math.abs(item.variance) > 65 && (
+                                          <AlertTriangle className="h-4 w-4 text-orange-500 animate-pulse" title="Variacao superior a 65%" />
+                                        )}
+                                      </div>
                                     ) : (
                                       "N/A"
                                     )}
@@ -2872,20 +3021,42 @@ www.moap.pt
                                         <Pencil className="h-4 w-4" />
                                       </Button>
                                       {isAdmin && (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => reanalyzeItem(item)}
-                                          disabled={isReanalyzing === item.id}
-                                          title="Re-analisar com IA"
-                                          className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
-                                        >
-                                          {isReanalyzing === item.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        <>
+                                          {Math.abs(item.variance || 0) > 65 ? (
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => reanalyzeItem(item)}
+                                              disabled={isReanalyzing === item.id}
+                                              title="ALERTA: Variacao > 65%! Clique para re-analisar com IA"
+                                              className="text-orange-500 border-orange-500 hover:bg-orange-50 hover:text-orange-600 animate-pulse"
+                                            >
+                                              {isReanalyzing === item.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                              ) : (
+                                                <>
+                                                  <AlertTriangle className="h-4 w-4 mr-1" />
+                                                  <Sparkles className="h-4 w-4" />
+                                                </>
+                                              )}
+                                            </Button>
                                           ) : (
-                                            <Sparkles className="h-4 w-4" />
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => reanalyzeItem(item)}
+                                              disabled={isReanalyzing === item.id}
+                                              title="Re-analisar com IA"
+                                              className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
+                                            >
+                                              {isReanalyzing === item.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                              ) : (
+                                                <Sparkles className="h-4 w-4" />
+                                              )}
+                                            </Button>
                                           )}
-                                        </Button>
+                                        </>
                                       )}
                                     </div>
                                   </td>
@@ -2945,22 +3116,32 @@ www.moap.pt
                       const Icon = config.icon
                       const isSelected = selectedItems.has(item.id)
                       
+                      const hasHighVariance = item.variance !== null && Math.abs(item.variance) > 65
+                      
                       return (
                         <Card 
                           key={item.id} 
                           className={cn(
                             "relative overflow-hidden transition-all hover:shadow-md",
                             isSelected && "ring-2 ring-primary",
-                            highlightRisks && item.rating === "critical" && "ring-2 ring-price-critical"
+                            highlightRisks && item.rating === "critical" && "ring-2 ring-price-critical",
+                            hasHighVariance && "ring-2 ring-orange-500 bg-orange-50/50"
                           )}
                         >
+                          {/* High variance warning banner */}
+                          {hasHighVariance && (
+                            <div className="bg-orange-500 text-white text-xs font-medium px-3 py-1.5 flex items-center gap-2">
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                              Variacao superior a 65% - Recomendada re-analise
+                            </div>
+                          )}
                           <CardContent className="p-4">
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-medium text-sm truncate">{item.originalName}</h4>
                                 {item.matchedName && (
                                   <p className="text-xs text-muted-foreground truncate mt-0.5">
-                                    Correspondência: {item.matchedName}
+                                    Correspondencia: {item.matchedName}
                                   </p>
                                 )}
                               </div>
@@ -2972,20 +3153,23 @@ www.moap.pt
                             
                             <div className="space-y-2 text-sm">
                               <div className="flex justify-between">
-                                <span className="text-muted-foreground">Preço Orç.</span>
+                                <span className="text-muted-foreground">Preco Orc.</span>
                                 <span className="font-medium">{item.budgetPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</span>
                               </div>
                               {item.referenceAvgPrice && (
                                 <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Preço Ref.</span>
+                                  <span className="text-muted-foreground">Preco Ref.</span>
                                   <span>{item.referenceAvgPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</span>
                                 </div>
                               )}
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Variação</span>
-                                <span className={cn("font-medium", config.color)}>
+                              <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">Variacao</span>
+                                <span className={cn("font-medium flex items-center gap-1", hasHighVariance ? "text-orange-500" : config.color)}>
                                   {item.variance !== null && !isNaN(item.variance) ? (
-                                    <>{item.variance > 0 ? "+" : ""}{item.variance.toFixed(1)}%</>
+                                    <>
+                                      {item.variance > 0 ? "+" : ""}{item.variance.toFixed(1)}%
+                                      {hasHighVariance && <AlertTriangle className="h-3.5 w-3.5 animate-pulse" />}
+                                    </>
                                   ) : "N/A"}
                                 </span>
                               </div>
