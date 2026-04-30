@@ -39,7 +39,43 @@ export interface Budget {
   status: "rascunho" | "pendente" | "aprovado" | "rejeitado" | "finalizado" | "enviado"
   items: BudgetItem[]
   totalValue?: number
+  // Full analysis data for admin view
   analysisVariance?: number
+  totalReference?: number // Reference market total
+  overallRating?: "below" | "average" | "above" | "critical" | "unknown"
+  region?: string // Regional price adjustment
+  qualityScore?: number // 0-100 quality score
+  // Analysis stats
+  analysisStats?: {
+    totalItems: number
+    matchedItems: number
+    belowAverage: number
+    average: number
+    aboveAverage: number
+    critical: number
+    unknown: number
+    matchRate: number
+    avgConfidence: number
+    potentialSavings: number
+    riskItems: number
+  }
+  // Category breakdown
+  categoryBreakdown?: { category: string; total: number; count: number; variance: number }[]
+  // AI recommendations
+  recommendations?: string[]
+  // Per-item analysis data
+  itemAnalysis?: {
+    id: string
+    originalName: string
+    matchedName: string | null
+    referenceMinPrice: number | null
+    referenceMaxPrice: number | null
+    referenceAvgPrice: number | null
+    variance: number | null
+    rating: "below" | "average" | "above" | "critical" | "unknown"
+    matchConfidence: number
+    matchDetails?: string
+  }[]
   // Admin approval fields
   approvedBy?: string
   approvedAt?: string
