@@ -87,7 +87,7 @@ const ratingConfig = {
 const CHART_COLORS = ["#22c55e", "#eab308", "#f97316", "#ef4444", "#6b7280"]
 
 export default function RegistosContent() {
-  const { pendingRegistrations, approveRegistration, rejectRegistration, user } = useAuth()
+  const { pendingRegistrations, approveRegistration, rejectRegistration, user, refreshPendingRegistrations } = useAuth()
   const { budgets, updateBudget, importBudgetItems, addBudget, materials } = useData()
   const { t } = useLanguage()
   const [searchQuery, setSearchQuery] = useState("")
@@ -143,24 +143,35 @@ export default function RegistosContent() {
   const rejectedRegCount = pendingRegistrations.filter((r) => r.status === "rejected").length
 
   const handleRegistrationAction = async () => {
-    if (!selectedRegistration || !actionType) return
+    console.log("[v0] handleRegistrationAction called", { selectedRegistration, actionType })
+    if (!selectedRegistration || !actionType) {
+      console.log("[v0] Missing selectedRegistration or actionType")
+      return
+    }
     
     try {
       if (actionType === "approve") {
+        console.log("[v0] Calling approveRegistration with id:", selectedRegistration)
         await approveRegistration(selectedRegistration)
+        console.log("[v0] approveRegistration completed successfully")
         toast.success("Registo aprovado com sucesso!", {
           description: "O utilizador pode agora aceder a plataforma."
         })
       } else {
+        console.log("[v0] Calling rejectRegistration with id:", selectedRegistration)
         await rejectRegistration(selectedRegistration)
+        console.log("[v0] rejectRegistration completed successfully")
         toast.success("Registo rejeitado.", {
           description: "O utilizador foi notificado."
         })
       }
+      // Refresh registrations from database after action
+      console.log("[v0] Refreshing pending registrations...")
+      await refreshPendingRegistrations()
     } catch (error) {
       console.error("[v0] Registration action error:", error)
       toast.error("Erro ao processar registo", {
-        description: "Por favor tente novamente."
+        description: error instanceof Error ? error.message : "Por favor tente novamente."
       })
     }
     
