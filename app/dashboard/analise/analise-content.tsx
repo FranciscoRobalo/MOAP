@@ -852,16 +852,59 @@ export default function AnaliseContent() {
   }, [])
   
   // Load analysis history from localStorage on mount
+  // Load history from both Supabase and localStorage, merge them
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(ANALYSIS_HISTORY_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored) as AnalysisHistoryEntry[]
-        setAnalysisHistory(parsed)
+    const loadHistory = async () => {
+      let localHistory: AnalysisHistoryEntry[] = []
+      let supabaseHistory: AnalysisHistoryEntry[] = []
+      
+      // Load from localStorage first (instant)
+      try {
+        const stored = localStorage.getItem(ANALYSIS_HISTORY_KEY)
+        if (stored) {
+          localHistory = JSON.parse(stored) as AnalysisHistoryEntry[]
+          setAnalysisHistory(localHistory)
+        }
+      } catch {
+        // Invalid data, ignore
       }
-    } catch {
-      // Invalid data, ignore
+      
+      // Then load from Supabase and merge
+      try {
+        const response = await fetch("/api/data/sync")
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.data?.analises) {
+            supabaseHistory = result.data.analises.map((a: any) => ({
+              id: a.id,
+              fileName: a.fileName,
+              savedAt: a.uploadDate,
+              region: a.region,
+              totalBudget: a.totalBudget,
+              itemCount: a.items?.length || 0,
+              matchRate: a.stats?.matchRate || 0,
+              overallRating: a.overallRating,
+              qualityScore: a.qualityScore,
+              result: a
+            }))
+            
+            // Merge: Supabase entries not in local, then local entries
+            const localIds = new Set(localHistory.map(h => h.id))
+            const mergedHistory = [
+              ...supabaseHistory.filter(h => !localIds.has(h.id)),
+              ...localHistory
+            ].slice(0, MAX_HISTORY_ENTRIES)
+            
+            setAnalysisHistory(mergedHistory)
+            localStorage.setItem(ANALYSIS_HISTORY_KEY, JSON.stringify(mergedHistory))
+          }
+        }
+      } catch (error) {
+        console.log("[v0] Supabase history sync failed, using local only")
+      }
     }
+    
+    loadHistory()
   }, [])
   
   // Calculate quality score for an analysis
@@ -873,8 +916,8 @@ export default function AnaliseContent() {
     return Math.round(matchRateScore + confidenceScore + coverageScore + lowRiskScore)
   }
   
-  // Save current analysis to history
-  const saveToHistory = () => {
+  // Save current analysis to history (both localStorage and Supabase)
+  const saveToHistory = async () => {
     if (!analysisResult) return
     
     const qualityScore = calculateQualityScore(analysisResult)
@@ -894,6 +937,34 @@ export default function AnaliseContent() {
     const updatedHistory = [entry, ...analysisHistory].slice(0, MAX_HISTORY_ENTRIES)
     setAnalysisHistory(updatedHistory)
     localStorage.setItem(ANALYSIS_HISTORY_KEY, JSON.stringify(updatedHistory))
+    
+    // Sync to Supabase for cross-browser persistence
+    try {
+      await fetch("/api/data/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "analysis",
+          data: {
+            id: entry.id,
+            fileName: entry.fileName,
+            region: entry.region,
+            totalBudget: entry.totalBudget,
+            totalReference: analysisResult.totalReference,
+            overallVariance: analysisResult.overallVariance,
+            overallRating: entry.overallRating,
+            qualityScore,
+            stats: analysisResult.stats,
+            categoryBreakdown: analysisResult.categoryBreakdown,
+            recommendations: analysisResult.recommendations,
+            items: analysisResult.items
+          }
+        })
+      })
+    } catch (error) {
+      console.error("[v0] Failed to sync analysis to Supabase:", error)
+    }
+    
     toast.success("Analise guardada no historico!")
   }
   
