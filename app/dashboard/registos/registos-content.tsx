@@ -20,8 +20,6 @@ import {
 import { useAuth } from "@/contexts/auth-context"
 import { useData } from "@/contexts/data-context"
 import { useLanguage } from "@/contexts/language-context"
-import { DashboardPageHeader } from "@/components/dashboard/page-header"
-import { DashboardStatCard } from "@/components/dashboard/stat-card"
 import { toast } from "sonner"
 import { 
   Search, CheckCircle2, XCircle, Clock, User, Mail, Building2, Phone, Calendar, 
@@ -136,7 +134,7 @@ export default function RegistosContent() {
     switch (status) {
       case "pending":
         return (
-          <Badge variant="outline" className="bg-amber/10 text-amber border-amber/30">
+          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
             <Clock className="h-3 w-3 mr-1" /> Pendente
           </Badge>
         )
@@ -161,7 +159,7 @@ export default function RegistosContent() {
     switch (status) {
       case "pendente":
         return (
-          <Badge className="bg-amber text-background">
+          <Badge className="bg-yellow-500 text-white">
             <Clock className="h-3 w-3 mr-1" /> Pendente
           </Badge>
         )
@@ -197,27 +195,26 @@ export default function RegistosContent() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <DashboardPageHeader
-        eyebrow="Administração / Aprovações"
-        title="Aprovações"
-        description="Gerir orçamentos e registos de utilizadores pendentes de aprovação."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            {pendingBudgets.length > 0 && (
-              <Badge variant="outline" className="gap-1.5 rounded-full border-amber/40 bg-amber/10 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-amber">
-                <Calculator className="h-3 w-3" />
-                {pendingBudgets.length} orçamento{pendingBudgets.length !== 1 ? "s" : ""} pendente{pendingBudgets.length !== 1 ? "s" : ""}
-              </Badge>
-            )}
-            {pendingRegCount > 0 && (
-              <Badge variant="outline" className="gap-1.5 rounded-full border-amber/40 bg-amber/10 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-amber">
-                <User className="h-3 w-3" />
-                {pendingRegCount} registo{pendingRegCount !== 1 ? "s" : ""} pendente{pendingRegCount !== 1 ? "s" : ""}
-              </Badge>
-            )}
-          </div>
-        }
-      />
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Aprovações</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Gerir orçamentos e registos de utilizadores pendentes de aprovação.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {pendingBudgets.length > 0 && (
+            <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-xs sm:text-sm">
+              <Calculator className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              {pendingBudgets.length} orçamento{pendingBudgets.length !== 1 ? "s" : ""} pendente{pendingBudgets.length !== 1 ? "s" : ""}
+            </Badge>
+          )}
+          {pendingRegCount > 0 && (
+            <Badge className="bg-yellow-500 text-white gap-1 px-3 py-1 text-xs sm:text-sm">
+              <User className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              {pendingRegCount} registo{pendingRegCount !== 1 ? "s" : ""} pendente{pendingRegCount !== 1 ? "s" : ""}
+            </Badge>
+          )}
+        </div>
+      </div>
 
       {/* Main Tabs: Budgets vs Users */}
       <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
@@ -226,18 +223,14 @@ export default function RegistosContent() {
             <Calculator className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
             <span className="truncate">Aprovacao de Orcamentos</span>
             {pendingBudgets.length > 0 && (
-              <Badge variant="outline" className="ml-1 border-amber/40 bg-amber/10 text-amber font-mono text-[10px] sm:text-xs">
-                {pendingBudgets.length}
-              </Badge>
+              <Badge className="ml-1 bg-yellow-500 text-white animate-pulse text-[10px] sm:text-xs">{pendingBudgets.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="users" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 px-2 sm:px-4">
             <User className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
             <span className="truncate">Registos de Utilizadores</span>
             {pendingRegCount > 0 && (
-              <Badge variant="outline" className="ml-1 border-amber/40 bg-amber/10 text-amber font-mono text-[10px] sm:text-xs">
-                {pendingRegCount}
-              </Badge>
+              <Badge className="ml-1 bg-yellow-500 text-white animate-pulse text-[10px] sm:text-xs">{pendingRegCount}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -246,9 +239,33 @@ export default function RegistosContent() {
         <TabsContent value="budgets" className="space-y-6">
           {/* Budget Stats */}
           <div className="grid gap-4 md:grid-cols-3">
-            <DashboardStatCard eyebrow="Pendentes" value={pendingBudgets.length} icon={Clock} tone="amber" />
-            <DashboardStatCard eyebrow="Aprovados" value={approvedBudgets.length} icon={CheckCircle2} />
-            <DashboardStatCard eyebrow="Rejeitados" value={rejectedBudgets.length} icon={XCircle} tone="muted" />
+            <Card className="hover-lift">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
+                <Clock className="h-4 w-4 text-yellow-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-yellow-500">{pendingBudgets.length}</div>
+              </CardContent>
+            </Card>
+            <Card className="hover-lift">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Aprovados</CardTitle>
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-500">{approvedBudgets.length}</div>
+              </CardContent>
+            </Card>
+            <Card className="hover-lift">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Rejeitados</CardTitle>
+                <XCircle className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-500">{rejectedBudgets.length}</div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Budget List */}
@@ -303,9 +320,9 @@ export default function RegistosContent() {
                                       <p className="font-semibold text-base sm:text-lg">€{totalValue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}</p>
                                       {budget.analysisVariance !== undefined && (
                                         <p className={`text-xs ${
-                                          budget.analysisVariance > 10 ? "text-price-high" : 
-                                          budget.analysisVariance < -10 ? "text-price-below" : 
-                                          "text-amber"
+                                          budget.analysisVariance > 10 ? "text-red-500" : 
+                                          budget.analysisVariance < -10 ? "text-green-500" : 
+                                          "text-yellow-500"
                                         }`}>
                                           {budget.analysisVariance > 0 ? "+" : ""}{budget.analysisVariance.toFixed(1)}% vs mercado
                                         </p>
@@ -478,9 +495,33 @@ export default function RegistosContent() {
         <TabsContent value="users" className="space-y-6">
           {/* User Registration Stats */}
           <div className="grid gap-4 md:grid-cols-3">
-            <DashboardStatCard eyebrow="Pendentes" value={pendingRegCount} icon={Clock} tone="amber" />
-            <DashboardStatCard eyebrow="Aprovados" value={approvedRegCount} icon={CheckCircle2} />
-            <DashboardStatCard eyebrow="Rejeitados" value={rejectedRegCount} icon={XCircle} tone="muted" />
+            <Card className="hover-lift">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
+                <Clock className="h-4 w-4 text-yellow-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-yellow-500">{pendingRegCount}</div>
+              </CardContent>
+            </Card>
+            <Card className="hover-lift">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Aprovados</CardTitle>
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-500">{approvedRegCount}</div>
+              </CardContent>
+            </Card>
+            <Card className="hover-lift">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Rejeitados</CardTitle>
+                <XCircle className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-500">{rejectedRegCount}</div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Search */}

@@ -1,24 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useMemo, useRef, type ReactNode } from "react"
-import { useAuth } from "@/contexts/auth-context"
-import {
-  isUuid,
-  hydrateFromSupabase,
-  upsertObra as remoteUpsertObra,
-  deleteObra as remoteDeleteObra,
-  upsertMaterial as remoteUpsertMaterial,
-  deleteMaterial as remoteDeleteMaterial,
-  upsertVisita as remoteUpsertVisita,
-  deleteVisita as remoteDeleteVisita,
-  upsertBudget as remoteUpsertBudget,
-  deleteBudget as remoteDeleteBudget,
-  upsertNotification as remoteUpsertNotification,
-  markNotificationRead as remoteMarkNotificationRead,
-  markAllNotificationsRead as remoteMarkAllNotificationsRead,
-  deleteNotification as remoteDeleteNotification,
-  clearAllNotifications as remoteClearAllNotifications,
-} from "@/lib/supabase/sync"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
 // Types
 export interface Material {
@@ -6390,49 +6372,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Renamed invites to invitations
   const [invitations, setInvitations] = useState<Invite[]>(initialInvitations)
 
-  // --- Supabase bridge -----------------------------------------------------
-  // Real Supabase users are identified by a UUID-shaped id; dev/fallback
-  // users (id="dev-admin-1" etc.) continue to use localStorage only.
-  const { user } = useAuth()
-  const supabaseUserId = useMemo(
-    () => (isUuid(user?.id) ? (user!.id as string) : null),
-    [user?.id],
-  )
-  // Ref so CRUD handlers can read the current user id without re-creating
-  // function identities or re-wiring effect deps.
-  const supabaseUserIdRef = useRef<string | null>(null)
+  // Load from localStorage on mount, but always use initialMaterials as base
   useEffect(() => {
-    supabaseUserIdRef.current = supabaseUserId
-  }, [supabaseUserId])
-
-  // Hydrate from Supabase for real users (runs once per login).
-  // For dev users, fall back to the legacy localStorage load.
-  useEffect(() => {
-    let cancelled = false
-
-    const load = async () => {
-      if (supabaseUserId) {
-        try {
-          const hydrated = await hydrateFromSupabase(supabaseUserId)
-          if (cancelled) return
-          // Replace state with server data — demo seeds are intentionally
-          // dropped so real users start from their own Supabase rows.
-          setMaterials(hydrated.materials)
-          setObras(hydrated.obras)
-          setBudgets(hydrated.budgets)
-          setVisitas(hydrated.visitas)
-          setNotifications(hydrated.notifications)
-        } catch (err) {
-          console.error("[v0] hydrateFromSupabase failed", err)
-        }
-        return
-      }
-
-      // Dev / fallback: keep legacy localStorage behaviour.
-      const stored = localStorage.getItem("moap_data")
-      if (!stored) return
+    const stored = localStorage.getItem("moap_data")
+    if (stored) {
       try {
         const data = JSON.parse(stored)
+        // This ensures new initial data is used if user had empty/outdated data
         if (data.materials && data.materials.length > initialMaterials.length) {
           setMaterials(data.materials)
         }
@@ -6445,14 +6391,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error("Error loading data:", e)
       }
     }
+    // localStorage.removeItem("moap_data") // Removed this line to persist data across refreshes
+  }, [])
 
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [supabaseUserId])
-
-  // Cache to localStorage on change (offline resilience for both user types).
+  // Save to localStorage on change
   useEffect(() => {
     localStorage.setItem(
       "moap_data",
@@ -6460,22 +6402,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     )
   }, [materials, budgets, obras, visitas, notifications, invitations])
 
-  // Prefer real UUIDs so ids written to Supabase match the schema's uuid columns.
-  // Falls back to a short random id only in environments without `crypto.randomUUID()`.
-  const generateId = () => {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      return crypto.randomUUID()
-    }
-    return Math.random().toString(36).slice(2, 11)
-  }
+  const generateId = () => Math.random().toString(36).substr(2, 9)
 
   // Materials
   const addMaterial = (material: Omit<Material, "id">) => {
     const newMaterial = { ...material, id: generateId() }
     setMaterials((prev) => [...prev, newMaterial])
-    if (supabaseUserIdRef.current) {
-      void remoteUpsertMaterial(newMaterial, supabaseUserIdRef.current)
-    }
     addNotification({
       type: "system",
       title: "Material Adicionado",
@@ -6484,21 +6416,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const updateMaterial = (id: string, material: Partial<Material>) => {
-    setMaterials((prev) => {
-      const next = prev.map((m) => (m.id === id ? { ...m, ...material } : m))
-      const target = next.find((m) => m.id === id)
-      if (target && supabaseUserIdRef.current) {
-        void remoteUpsertMaterial(target, supabaseUserIdRef.current)
-      }
-      return next
-    })
+    setMaterials((prev) => prev.map((m) => (m.id === id ? { ...m, ...material } : m)))
   }
 
   const deleteMaterial = (id: string) => {
     setMaterials((prev) => prev.filter((m) => m.id !== id))
-    if (supabaseUserIdRef.current && isUuid(id)) {
-      void remoteDeleteMaterial(id)
-    }
   }
 
   // Import budget items to materials database
@@ -6580,28 +6502,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addBudget = (budget: Omit<Budget, "id">) => {
     const newBudget = { ...budget, id: generateId() }
     setBudgets((prev) => [...prev, newBudget])
-    if (supabaseUserIdRef.current) {
-      void remoteUpsertBudget(newBudget, supabaseUserIdRef.current)
-    }
     addNotification({ type: "budget", title: "Orçamento Criado", description: `${budget.name} foi criado.` })
   }
 
   const updateBudget = (id: string, budget: Partial<Budget>) => {
-    setBudgets((prev) => {
-      const next = prev.map((b) => (b.id === id ? { ...b, ...budget } : b))
-      const target = next.find((b) => b.id === id)
-      if (target && supabaseUserIdRef.current) {
-        void remoteUpsertBudget(target, supabaseUserIdRef.current)
-      }
-      return next
-    })
+    setBudgets((prev) => prev.map((b) => (b.id === id ? { ...b, ...budget } : b)))
   }
 
   const deleteBudget = (id: string) => {
     setBudgets((prev) => prev.filter((b) => b.id !== id))
-    if (supabaseUserIdRef.current && isUuid(id)) {
-      void remoteDeleteBudget(id)
-    }
   }
 
   // Obras
@@ -6616,9 +6525,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updatedAt: new Date().toISOString(),
     }
     setObras((prev) => [...prev, newObra])
-    if (supabaseUserIdRef.current) {
-      void remoteUpsertObra(newObra, supabaseUserIdRef.current)
-    }
     addNotification({
       type: "obra",
       title: "Nova Obra Submetida",
@@ -6627,23 +6533,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const updateObra = (id: string, obra: Partial<Obra>) => {
-    setObras((prev) => {
-      const next = prev.map((o) =>
-        o.id === id ? { ...o, ...obra, updatedAt: new Date().toISOString() } : o,
-      )
-      const target = next.find((o) => o.id === id)
-      if (target && supabaseUserIdRef.current) {
-        void remoteUpsertObra(target, supabaseUserIdRef.current)
-      }
-      return next
-    })
+    setObras((prev) => prev.map((o) => (o.id === id ? { ...o, ...obra, updatedAt: new Date().toISOString() } : o)))
   }
 
   const deleteObra = (id: string) => {
     setObras((prev) => prev.filter((o) => o.id !== id))
-    if (supabaseUserIdRef.current && isUuid(id)) {
-      void remoteDeleteObra(id)
-    }
   }
 
   // Visitas
@@ -6651,9 +6545,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // Removed default status from here, it's handled in the UI or by initial data
     const newVisita: Visita = { ...visita, id: generateId() }
     setVisitas((prev) => [...prev, newVisita])
-    if (supabaseUserIdRef.current) {
-      void remoteUpsertVisita(newVisita, supabaseUserIdRef.current)
-    }
     addNotification({
       type: "visit",
       title: "Visita Agendada",
@@ -6662,33 +6553,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const updateVisita = (id: string, visita: Partial<Visita>) => {
-    setVisitas((prev) => {
-      const next = prev.map((v) => (v.id === id ? { ...v, ...visita } : v))
-      const target = next.find((v) => v.id === id)
-      if (target && supabaseUserIdRef.current) {
-        void remoteUpsertVisita(target, supabaseUserIdRef.current)
-      }
-      return next
-    })
+    setVisitas((prev) => prev.map((v) => (v.id === id ? { ...v, ...visita } : v)))
   }
 
   const deleteVisita = (id: string) => {
     setVisitas((prev) => prev.filter((v) => v.id !== id))
-    if (supabaseUserIdRef.current && isUuid(id)) {
-      void remoteDeleteVisita(id)
-    }
   }
 
   // Added cancelVisita
   const cancelVisita = (id: string) => {
-    setVisitas((prev) => {
-      const next = prev.map((v) => (v.id === id ? { ...v, status: "cancelada" as const } : v))
-      const target = next.find((v) => v.id === id)
-      if (target && supabaseUserIdRef.current) {
-        void remoteUpsertVisita(target, supabaseUserIdRef.current)
-      }
-      return next
-    })
+    setVisitas((prev) => prev.map((v) => (v.id === id ? { ...v, status: "cancelada" } : v)))
     addNotification({
       type: "visit",
       title: "Visita Cancelada",
@@ -6806,38 +6680,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
       read: false,
     }
     setNotifications((prev) => [newNotification, ...prev])
-    if (supabaseUserIdRef.current) {
-      void remoteUpsertNotification(newNotification, supabaseUserIdRef.current)
-    }
   }
 
   const markNotificationAsRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
-    if (supabaseUserIdRef.current && isUuid(id)) {
-      void remoteMarkNotificationRead(id, true)
-    }
   }
 
   const markAllNotificationsAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-    if (supabaseUserIdRef.current) {
-      void remoteMarkAllNotificationsRead(supabaseUserIdRef.current)
-    }
   }
 
   // Added deleteNotification
   const deleteNotification = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id))
-    if (supabaseUserIdRef.current && isUuid(id)) {
-      void remoteDeleteNotification(id)
-    }
   }
 
   const clearNotifications = () => {
     setNotifications([])
-    if (supabaseUserIdRef.current) {
-      void remoteClearAllNotifications(supabaseUserIdRef.current)
-    }
   }
 
   // Invites

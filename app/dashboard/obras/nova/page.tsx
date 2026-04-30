@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { useData } from "@/contexts/data-context"
-import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import { Building2, MapPin, Calendar, Euro, FileText, Send, CheckCircle } from "lucide-react"
 
 const projectTypes = [
@@ -81,13 +80,12 @@ export default function NovaObraPage() {
   if (submitted) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="bp-bracket relative max-w-md w-full overflow-hidden border-border/60 bg-card/30 text-center">
+        <Card className="bg-card/50 max-w-md w-full text-center">
           <CardContent className="pt-10 pb-10">
-            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-price-below/40 bg-price-below/10">
+            <div className="mx-auto w-16 h-16 bg-price-below/20 rounded-full flex items-center justify-center mb-6">
               <CheckCircle className="h-8 w-8 text-price-below" />
             </div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Confirmação</p>
-            <h2 className="mt-2 font-display text-3xl font-medium tracking-tight">Obra Submetida</h2>
+            <h2 className="text-2xl font-bold mb-2">Obra Submetida!</h2>
             <p className="text-muted-foreground mb-6">
               A sua solicitação foi recebida com sucesso. Iremos analisar os detalhes e entrar em contacto brevemente.
             </p>
@@ -105,14 +103,15 @@ export default function NovaObraPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <DashboardPageHeader
-        eyebrow="Projetos / Novo"
-        title="Nova Obra"
-        description="Preencha o formulário abaixo para nos ajudar a entender as suas necessidades."
-      />
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Nova Obra</h1>
+        <p className="text-muted-foreground">
+          Preencha o formulário abaixo para nos ajudar a entender as suas necessidades.
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30" data-tutorial="obra-form">
+        <Card className="bg-card/50" data-tutorial="obra-form">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-primary" />
@@ -129,14 +128,14 @@ export default function NovaObraPage() {
                   placeholder="Ex: Edifício Residencial Sol Nascente"
                   value={formData.name}
                   onChange={(e) => updateField("name", e.target.value)}
-                  className="border-border/60 bg-background/60"
+                  className="bg-input/50"
                   required
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">Tipo de Obra *</Label>
                 <Select value={formData.type} onValueChange={(value) => updateField("type", value)}>
-                  <SelectTrigger className="border-border/60 bg-background/60">
+                  <SelectTrigger className="bg-input/50">
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -153,7 +152,7 @@ export default function NovaObraPage() {
         </Card>
 
         {/* Location */}
-        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+        <Card className="bg-card/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
@@ -166,7 +165,7 @@ export default function NovaObraPage() {
               <div className="space-y-2">
                 <Label htmlFor="region">Região *</Label>
                 <Select value={formData.region} onValueChange={(value) => updateField("region", value)}>
-                  <SelectTrigger className="border-border/60 bg-background/60">
+                  <SelectTrigger className="bg-input/50">
                     <SelectValue placeholder="Selecione a região" />
                   </SelectTrigger>
                   <SelectContent>
@@ -185,14 +184,14 @@ export default function NovaObraPage() {
                   placeholder="Rua, número, código postal, cidade"
                   value={formData.address}
                   onChange={(e) => updateField("address", e.target.value)}
-                  className="border-border/60 bg-background/60"
+                  className="bg-input/50"
                 />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30" data-tutorial="obra-details">
+        <Card className="bg-card/50" data-tutorial="obra-details">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary" />
@@ -209,7 +208,7 @@ export default function NovaObraPage() {
                   type="date"
                   value={formData.startDate}
                   onChange={(e) => updateField("startDate", e.target.value)}
-                  className="border-border/60 bg-background/60"
+                  className="bg-input/50"
                 />
               </div>
               <div className="space-y-2">
@@ -219,7 +218,7 @@ export default function NovaObraPage() {
                   type="date"
                   value={formData.endDate}
                   onChange={(e) => updateField("endDate", e.target.value)}
-                  className="border-border/60 bg-background/60"
+                  className="bg-input/50"
                 />
               </div>
               <div className="space-y-2">
@@ -230,13 +229,13 @@ export default function NovaObraPage() {
                   placeholder="150000"
                   value={formData.estimatedBudget}
                   onChange={(e) => updateField("estimatedBudget", e.target.value)}
-                  className="border-border/60 bg-background/60"
+                  className="bg-input/50"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="urgency">Urgência</Label>
                 <Select value={formData.urgency} onValueChange={(value) => updateField("urgency", value)}>
-                  <SelectTrigger className="border-border/60 bg-background/60">
+                  <SelectTrigger className="bg-input/50">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
@@ -253,7 +252,7 @@ export default function NovaObraPage() {
         </Card>
 
         {/* Description */}
-        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+        <Card className="bg-card/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
@@ -269,7 +268,7 @@ export default function NovaObraPage() {
                 placeholder="Descreva o projeto, incluindo área total, número de pisos, materiais preferenciais, etc."
                 value={formData.description}
                 onChange={(e) => updateField("description", e.target.value)}
-                className="border-border/60 bg-background/60 min-h-[120px]"
+                className="bg-input/50 min-h-[120px]"
                 required
               />
             </div>
@@ -280,14 +279,14 @@ export default function NovaObraPage() {
                 placeholder="Certificações necessárias, requisitos de sustentabilidade, normas específicas, etc."
                 value={formData.requirements}
                 onChange={(e) => updateField("requirements", e.target.value)}
-                className="border-border/60 bg-background/60 min-h-[100px]"
+                className="bg-input/50 min-h-[100px]"
               />
             </div>
           </CardContent>
         </Card>
 
         {/* Contact */}
-        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+        <Card className="bg-card/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Euro className="h-5 w-5 text-primary" />
@@ -304,7 +303,7 @@ export default function NovaObraPage() {
                   placeholder="Nome completo"
                   value={formData.contactName}
                   onChange={(e) => updateField("contactName", e.target.value)}
-                  className="border-border/60 bg-background/60"
+                  className="bg-input/50"
                   required
                 />
               </div>
@@ -315,7 +314,7 @@ export default function NovaObraPage() {
                   placeholder="+351 912 345 678"
                   value={formData.contactPhone}
                   onChange={(e) => updateField("contactPhone", e.target.value)}
-                  className="border-border/60 bg-background/60"
+                  className="bg-input/50"
                 />
               </div>
               <div className="space-y-2">
@@ -326,7 +325,7 @@ export default function NovaObraPage() {
                   placeholder="email@exemplo.pt"
                   value={formData.contactEmail}
                   onChange={(e) => updateField("contactEmail", e.target.value)}
-                  className="border-border/60 bg-background/60"
+                  className="bg-input/50"
                   required
                 />
               </div>

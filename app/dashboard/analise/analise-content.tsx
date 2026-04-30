@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -68,15 +68,6 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { cn } from "@/lib/utils"
 import { useData } from "@/contexts/data-context"
 import { useAuth } from "@/contexts/auth-context"
-import { DashboardPageHeader } from "@/components/dashboard/page-header"
-import { DashboardStatCard } from "@/components/dashboard/stat-card"
-import { AnaliseTools } from "@/components/analise/analise-tools"
-import { DecisionControls } from "@/components/analise/decision-controls"
-import { NotesSheet } from "@/components/analise/notes-sheet"
-import { NegotiationDialog } from "@/components/analise/negotiation-dialog"
-import { useAnaliseWorkspace } from "@/hooks/use-analise-workspace"
-import { StickyNote, MessageSquare } from "lucide-react"
-import * as XLSX from "xlsx"
 import { toast } from "sonner"
 
 interface BudgetItem {
@@ -220,7 +211,6 @@ export default function AnaliseContent() {
   const [isSaving, setIsSaving] = useState(false)
   const [selectedRegion, setSelectedRegion] = useState("Lisboa e Vale do Tejo")
   const [searchTerm, setSearchTerm] = useState("")
-  const searchInputRef = useRef<HTMLInputElement | null>(null)
   const [filterRating, setFilterRating] = useState<string>("all")
   const [activeTab, setActiveTab] = useState("all")
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null)
@@ -264,58 +254,6 @@ export default function AnaliseContent() {
   const [highlightRisks, setHighlightRisks] = useState(true)
   const [autoExpandSuggestions, setAutoExpandSuggestions] = useState(false)
   
-  // Workspace (Supabase-backed) — saved analyses, decisions, notes, scripts
-  const workspace = useAnaliseWorkspace(analysisResult)
-  const [notesItem, setNotesItem] = useState<BudgetItem | null>(null)
-  const [negotiationItem, setNegotiationItem] = useState<BudgetItem | null>(null)
-
-  // Load a saved analysis by id — transforms the DB row into an AnalysisResult shape
-  const loadSavedAnalysis = useCallback(async (id: string) => {
-    try {
-      const res = await fetch(`/api/analise/saved/${id}`)
-      if (!res.ok) {
-        toast.error("Não foi possível carregar a análise")
-        return
-      }
-      const { analysis } = (await res.json()) as { analysis: any }
-      const restored: AnalysisResult = {
-        id: analysis.id,
-        fileName: analysis.file_name,
-        uploadDate: analysis.created_at,
-        region: analysis.region ?? "Lisboa e Vale do Tejo",
-        totalBudget: Number(analysis.total_budget) || 0,
-        totalReference: Number(analysis.total_reference) || 0,
-        overallVariance: Number(analysis.overall_variance) || 0,
-        overallRating: (analysis.overall_rating as AnalysisResult["overallRating"]) || "average",
-        items: (analysis.items as BudgetItem[]) ?? [],
-        stats:
-          (analysis.stats as AnalysisResult["stats"]) ?? {
-            totalItems: 0,
-            matchedItems: 0,
-            belowAverage: 0,
-            average: 0,
-            aboveAverage: 0,
-            critical: 0,
-            unknown: 0,
-            matchRate: 0,
-            avgConfidence: 0,
-            potentialSavings: 0,
-            riskItems: 0,
-          },
-        categoryBreakdown:
-          (analysis.category_breakdown as AnalysisResult["categoryBreakdown"]) ?? [],
-        recommendations: (analysis.recommendations as string[]) ?? [],
-        qualityScore: analysis.quality_score ?? undefined,
-      }
-      setAnalysisResult(restored)
-      workspace.setAnalysisId(analysis.id)
-      toast.success("Análise carregada")
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao carregar")
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   // Sorting
   const [sortField, setSortField] = useState<"name" | "price" | "variance" | "confidence">("name")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
@@ -579,106 +517,6 @@ export default function AnaliseContent() {
     [materials],
   )
 
-  // Parse Excel files locally (fallback when API fails)
-  const parseExcelLocal = async (file: File): Promise<Array<{ name: string; unit: string; quantity: number; price: number }>> => {
-    console.log("[v0] parseExcelLocal called")
-    const items: Array<{ name: string; unit: string; quantity: number; price: number }> = []
-    
-    try {
-      const arrayBuffer = await file.arrayBuffer()
-      const workbook = XLSX.read(arrayBuffer, { type: "array" })
-      console.log("[v0] Excel sheets:", workbook.SheetNames)
-      
-      for (const sheetName of workbook.SheetNames) {
-        const sheet = workbook.Sheets[sheetName]
-        const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][]
-        
-        // Find header row
-        let headerRow = -1
-        let descCol = -1, unitCol = -1, qtyCol = -1, priceCol = -1
-        
-        for (let i = 0; i < Math.min(data.length, 15); i++) {
-          const row = data[i]
-          if (!row || !Array.isArray(row)) continue
-          
-          for (let j = 0; j < row.length; j++) {
-            const cell = String(row[j] || "").toLowerCase().trim()
-            if (cell.includes("descrição") || cell.includes("designação") || cell.includes("nome")) {
-              descCol = j; headerRow = i
-            } else if (cell.includes("unid") || cell === "un") {
-              unitCol = j; headerRow = i
-            } else if (cell.includes("quant") || cell === "qt") {
-              qtyCol = j; headerRow = i
-            } else if (cell.includes("preço") && cell.includes("unit")) {
-              priceCol = j; headerRow = i
-            }
-          }
-          if (descCol >= 0) break
-        }
-        
-        console.log("[v0] Excel columns found: desc=", descCol, "unit=", unitCol, "qty=", qtyCol, "price=", priceCol)
-        
-        // Parse data rows
-        for (let i = headerRow + 1; i < data.length; i++) {
-          const row = data[i]
-          if (!row || !Array.isArray(row)) continue
-          
-          let name = "", unit = "un", quantity = 1, price = 0
-          
-          // Extract description (find longest text)
-          if (descCol >= 0 && row[descCol]) {
-            name = String(row[descCol]).trim()
-          } else {
-            for (let j = 0; j < row.length; j++) {
-              const cell = String(row[j] || "")
-              if (cell.length > name.length && cell.length > 10 && !/^[\d.,€\s]+$/.test(cell)) {
-                name = cell.trim()
-              }
-            }
-          }
-          
-          // Extract unit
-          if (unitCol >= 0 && row[unitCol]) {
-            unit = String(row[unitCol]).toLowerCase().replace(/\./g, "")
-          }
-          
-          // Extract quantity
-          if (qtyCol >= 0 && row[qtyCol] != null) {
-            const q = typeof row[qtyCol] === "number" ? row[qtyCol] : parseFloat(String(row[qtyCol]).replace(",", "."))
-            if (q > 0 && q < 100000) quantity = q
-          }
-          
-          // Extract price
-          if (priceCol >= 0 && row[priceCol] != null) {
-            price = typeof row[priceCol] === "number" ? row[priceCol] : parseFloat(String(row[priceCol]).replace(/[€\s]/g, "").replace(",", "."))
-          }
-          
-          // Fallback: find numbers that look like prices
-          if (price === 0) {
-            for (let j = row.length - 1; j >= 0; j--) {
-              const val = row[j]
-              const num = typeof val === "number" ? val : parseFloat(String(val || "").replace(/[€\s]/g, "").replace(",", "."))
-              if (num > 0 && num < 10000000 && !isNaN(num)) {
-                price = num
-                break
-              }
-            }
-          }
-          
-          if (name && name.length > 5 && !/^(total|subtotal|iva)/i.test(name)) {
-            items.push({ name, unit, quantity, price })
-          }
-        }
-      }
-      
-      console.log("[v0] parseExcelLocal found", items.length, "items")
-    } catch (error) {
-      console.log("[v0] parseExcelLocal error:", error)
-    }
-    
-    return items
-  }
-
   const parseCSV = (content: string): Array<{ name: string; unit: string; quantity: number; price: number }> => {
     const lines = content.split("\n").filter((line) => line.trim())
     const items: Array<{ name: string; unit: string; quantity: number; price: number }> = []
@@ -907,39 +745,22 @@ export default function AnaliseContent() {
   
   // Read PDF file - use API route for server-side parsing or fallback to client-side
   const parsePDF = async (file: File): Promise<Array<{ name: string; unit: string; quantity: number; price: number }>> => {
-    console.log("[v0] parsePDF called for file:", file.name)
-    
     // First try the API route (uses GPT for intelligent parsing)
     try {
       const formData = new FormData()
       formData.append("file", file)
       
-      console.log("[v0] Calling /api/parse-pdf...")
-      
-      // Add timeout for API call
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => {
-        console.log("[v0] /api/parse-pdf timeout after 20s")
-        controller.abort()
-      }, 20000) // 20 second timeout
-      
       const response = await fetch("/api/parse-pdf", {
         method: "POST",
-        body: formData,
-        signal: controller.signal
+        body: formData
       })
       
-      clearTimeout(timeoutId)
-      console.log("[v0] /api/parse-pdf response status:", response.status)
-      
       const data = await response.json()
-      console.log("[v0] /api/parse-pdf data:", data.items?.length || 0, "items")
       
       if (data.items && data.items.length > 0) {
         return data.items
       }
-    } catch (apiError) {
-      console.log("[v0] /api/parse-pdf error:", apiError)
+    } catch {
       // API failed, continue to fallback
     }
     
@@ -965,23 +786,6 @@ export default function AnaliseContent() {
   const analyzeFileWithLimit = async (file: File, lineLimit: number | null) => {
     await analyzeFile(file, lineLimit)
   }
-
-  // On mount: if the URL has `?load=<id>`, open that saved analysis. This is
-  // how `/dashboard/meus-orcamentos/:id → Abrir na Análise` deep-links back
-  // into the workspace after an approval.
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const params = new URLSearchParams(window.location.search)
-    const loadId = params.get("load")
-    if (loadId) {
-      loadSavedAnalysis(loadId)
-      // Drop the param so a refresh doesn't re-load it endlessly.
-      const url = new URL(window.location.href)
-      url.searchParams.delete("load")
-      window.history.replaceState({}, "", url.toString())
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // On mount: check if there's a pending file stored from the landing page upload
   useEffect(() => {
@@ -1242,16 +1046,6 @@ www.moap.pt
   }
 
   const analyzeFile = async (file: File, lineLimit: number | null = null) => {
-    console.log("[v0] Starting file analysis:", file.name)
-    console.log("[v0] Materials available:", materials.length)
-    
-    if (materials.length === 0) {
-      console.log("[v0] WARNING: No materials loaded! Analysis may fail.")
-      toast.warning("Base de dados a carregar", {
-        description: "Aguarde enquanto carregamos a base de dados de materiais..."
-      })
-    }
-    
     setIsAnalyzing(true)
     setAnalyzeProgress(0)
     setAnalyzeStatus("A ler ficheiro...")
@@ -1260,78 +1054,25 @@ www.moap.pt
       let parsedItems: Array<{ name: string; unit: string; quantity: number; price: number }> = []
       const fileName = file.name.toLowerCase()
       
-      // Excel files - try local parsing first (faster), then API as fallback
-      if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
-        setAnalyzeStatus("A processar Excel...")
+      // PDF and Excel files go through the API (which uses GPT)
+      if (fileName.endsWith(".pdf") || fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+        setAnalyzeStatus("A extrair itens do documento (IA)...")
         setAnalyzeProgress(2)
-        console.log("[v0] Processing Excel file locally first...")
-        
-        // Try local Excel parsing first (much faster)
-        parsedItems = await parseExcelLocal(file)
-        
-        // If local parsing found few items, try API
-        if (parsedItems.length < 3) {
-          console.log("[v0] Local Excel parsing found few items, trying API...")
-          setAnalyzeStatus("A extrair itens do documento...")
-          try {
-            const apiItems = await parsePDF(file)
-            if (apiItems.length > parsedItems.length) {
-              parsedItems = apiItems
-            }
-          } catch (apiError) {
-            console.log("[v0] API parsing failed, using local results:", apiError)
-          }
-        }
-        console.log("[v0] Excel parsing completed, items:", parsedItems.length)
-      }
-      // PDF files - try API first, then local text extraction
-      else if (fileName.endsWith(".pdf")) {
-        setAnalyzeStatus("A extrair itens do PDF...")
-        setAnalyzeProgress(2)
-        console.log("[v0] Processing PDF file...")
         try {
-          // Add timeout for PDF parsing
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => {
-            console.log("[v0] PDF parsing timeout, aborting...")
-            controller.abort()
-          }, 15000) // 15 second timeout
-          
           parsedItems = await parsePDF(file)
-          clearTimeout(timeoutId)
-          console.log("[v0] PDF parsing completed, items:", parsedItems.length)
-        } catch (pdfError) {
-          console.log("[v0] PDF parsing failed:", pdfError)
-          setAnalyzeStatus("A processar PDF localmente...")
-          console.log("[v0] Trying local PDF text parsing...")
-          try {
+        } catch {
+          // For PDF, try fallback
+          if (fileName.endsWith(".pdf")) {
+            setAnalyzeStatus("A processar PDF localmente...")
             const content = await file.text()
             parsedItems = parsePDFText(content)
-            console.log("[v0] Local PDF parsing found items:", parsedItems.length)
-          } catch (localError) {
-            console.log("[v0] Local PDF parsing also failed:", localError)
-            parsedItems = []
           }
         }
       } else {
         // CSV/TXT files parsed locally
         setAnalyzeStatus("A processar CSV...")
-        console.log("[v0] Processing CSV/TXT file...")
         const content = await file.text()
         parsedItems = parseCSV(content)
-        console.log("[v0] CSV parsing found items:", parsedItems.length)
-      }
-      
-      // If no items found after all parsing attempts, show helpful error
-      if (parsedItems.length === 0) {
-        setIsAnalyzing(false)
-        setAnalyzeProgress(0)
-        setAnalyzeStatus("")
-        toast.error("Não foi possível extrair itens do ficheiro", {
-          description: "Verifique se o ficheiro contém um orçamento válido com descrição, unidade, quantidade e preço. Tente converter para Excel (.xlsx) ou CSV.",
-          duration: 8000,
-        })
-        return
       }
       
       setAnalyzeStatus(`${parsedItems.length} itens encontrados. A validar preços...`)
@@ -1411,12 +1152,11 @@ www.moap.pt
       
       if (itemsNeedingGPT.length > 0) {
         setAnalyzeProgress(5)
-        console.log("[v0] Items needing GPT matching:", itemsNeedingGPT.length)
-        setAnalyzeStatus(`A procurar correspondências para ${itemsNeedingGPT.length} itens...`)
+        setAnalyzeStatus(`A procurar correspondências IA para ${itemsNeedingGPT.length} itens...`)
         
-        // First try GPT matching against our database (optional - skip if taking too long)
+        // First try GPT matching against our database
         try {
-          const materialRefs = materials.slice(0, 200).map(m => ({
+          const materialRefs = materials.map(m => ({
             id: m.id,
             name: m.name,
             unit: m.unit,
@@ -1425,48 +1165,71 @@ www.moap.pt
             category: m.category
           }))
           
-          // Add timeout for API call (8 seconds max)
+          // Add timeout for API call (5 seconds max)
           const controller = new AbortController()
-          const timeoutId = setTimeout(() => {
-            console.log("[v0] GPT match API timeout")
-            controller.abort()
-          }, 8000)
+          const timeoutId = setTimeout(() => controller.abort(), 5000)
           
-          console.log("[v0] Calling /api/match-items...")
           const matchResponse = await fetch("/api/match-items", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
-              items: itemsNeedingGPT.slice(0, 20).map(i => ({ name: i.name, unit: i.unit, quantity: i.quantity, price: i.price })),
+              items: itemsNeedingGPT.map(i => ({ name: i.name, unit: i.unit, quantity: i.quantity, price: i.price })),
               materials: materialRefs 
             }),
             signal: controller.signal
           })
           
           clearTimeout(timeoutId)
-          console.log("[v0] /api/match-items response:", matchResponse.status)
           
           if (matchResponse.ok) {
             const matchData = await matchResponse.json()
-            console.log("[v0] GPT matches received:", Object.keys(matchData.matches || {}).length)
             if (matchData.matches) {
               gptMatches = matchData.matches
             }
           }
         } catch (err) {
           // Continue without GPT matching (timeout or error)
-          console.log("[v0] GPT matching skipped:", err instanceof Error ? err.message : "timeout/error")
+          console.log("[v0] GPT matching skipped or timed out, continuing with local matches")
         }
         
         setAnalyzeProgress(8)
-        console.log("[v0] Progress at 8%, continuing with price comparison...")
         
-        // Skip GPT price lookup to speed up analysis - use local matching only
-        // Price estimates from GPT are optional and slow
+        // For items still without good matches, get price estimates
+        const itemsStillNeedingPrices = itemsNeedingGPT.filter((item, idx) => {
+          const gptMatch = gptMatches[String(idx + 1)]
+          return !gptMatch || !gptMatch.materialId || gptMatch.confidence < CONFIDENCE_THRESHOLD
+        })
+        
+        if (itemsStillNeedingPrices.length > 0) {
+          setAnalyzeStatus(`A consultar preços de mercado para ${itemsStillNeedingPrices.length} itens...`)
+          try {
+            // Add timeout for price lookup API (5 seconds max)
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 5000)
+            
+            const response = await fetch("/api/lookup-prices", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ items: itemsStillNeedingPrices }),
+              signal: controller.signal
+            })
+            
+            clearTimeout(timeoutId)
+            
+            if (response.ok) {
+              const data = await response.json()
+              if (data.prices) {
+                gptPrices = data.prices
+              }
+            }
+          } catch (err) {
+            // Continue without GPT prices (timeout or error)
+            console.log("[v0] Price lookup skipped or timed out, continuing with local estimates")
+          }
+        }
       }
       
       setAnalyzeStatus("A comparar preços e calcular variâncias...")
-      console.log("[v0] Starting main analysis loop with", itemsToAnalyze.length, "items")
 
       // Map itemsNeedingGPT indices for quick lookup
       const gptItemIndexMap = new Map<number, number>()
@@ -1532,10 +1295,10 @@ www.moap.pt
             if (matchedMaterial) {
               material = matchedMaterial
               confidence = gptMatch.confidence
-              matchDetails = gptMatch.reason + " (correspondência)"
+              matchDetails = gptMatch.reason + " (IA)"
               finalMatchedName = matchedMaterial.name
               finalConfidence = gptMatch.confidence
-              finalMatchDetails = gptMatch.reason + " (correspondência)"
+              finalMatchDetails = gptMatch.reason + " (correspondência IA)"
               finalCategory = matchedMaterial.category
             }
           }
@@ -1547,10 +1310,10 @@ www.moap.pt
           refMin = gptPrice.minPrice
           refMax = gptPrice.maxPrice
           refAvg = gptPrice.avgPrice
-            finalMatchedName = item.name + " (estimativa)"
+          finalMatchedName = item.name + " (estimativa IA)"
           finalConfidence = gptPrice.confidence || 70
-            finalMatchDetails = "Preço estimado (mercado PT)"
-            finalCategory = "Estimativa"
+          finalMatchDetails = "Preço estimado via IA (mercado PT)"
+          finalCategory = "Estimativa IA"
           totalReference += item.quantity * refAvg
 
           if (refAvg > 0) {
@@ -1750,7 +1513,6 @@ www.moap.pt
       
       setAnalyzeProgress(95)
       setAnalyzeStatus("A gerar relatório final...")
-      console.log("[v0] Analysis complete! Items analyzed:", analyzedItems.length, "Total budget:", totalBudget)
 
       setAnalysisResult({
         id: `analysis-${Date.now()}`,
@@ -1779,17 +1541,14 @@ www.moap.pt
         recommendations,
       })
     } catch (error) {
-      console.error("[v0] Error analyzing file:", error)
-      const errorMsg = error instanceof Error ? error.message : "Unknown error"
-      console.log("[v0] Error details:", errorMsg)
+      console.error("Error analyzing file:", error)
       setIsAnalyzing(false)
       setAnalyzeProgress(0)
       setAnalyzeStatus("")
       toast.error("Erro na análise", {
-        description: `Ocorreu um erro: ${errorMsg.substring(0, 100)}. Tente novamente.`,
+        description: "Ocorreu um erro ao analisar o ficheiro. Tente novamente ou com outro ficheiro.",
       })
     } finally {
-      console.log("[v0] Analysis function completed (finally block)")
       setIsAnalyzing(false)
       setAnalyzeStatus("")
     }
@@ -2216,7 +1975,7 @@ www.moap.pt
                     referenceMinPrice: gptPrice.minPrice,
                     referenceMaxPrice: gptPrice.maxPrice,
                     referenceAvgPrice: gptPrice.avgPrice,
-                    matchedName: item.originalName + " (correspondência)",
+                    matchedName: item.originalName + " (IA)",
                     matchConfidence: gptPrice.confidence || 75,
                     variance,
                     rating
@@ -2264,7 +2023,7 @@ www.moap.pt
       })
       
       toast.success("Re-análise concluída", {
-        description: `${items.length} itens foram re-analisados.`,
+        description: `${items.length} itens foram re-analisados com IA.`,
       })
       
     } catch (err) {
@@ -2352,77 +2111,21 @@ www.moap.pt
     }
   })
 
-  // Keyboard shortcuts: ⌘F focus search, ⌘E export CSV, ⌘S save to history
-  useEffect(() => {
-    const isEditableTarget = (el: EventTarget | null): boolean => {
-      if (!(el instanceof HTMLElement)) return false
-      if (el.isContentEditable) return true
-      const tag = el.tagName
-      return tag === "TEXTAREA" || (tag === "INPUT" && el !== searchInputRef.current)
-    }
-
-    const onKey = (e: KeyboardEvent) => {
-      const meta = e.metaKey || e.ctrlKey
-      if (!meta) return
-      const key = e.key.toLowerCase()
-
-      if (key === "f") {
-        // Only hijack ⌘F when we actually have something to search
-        if (!analysisResult) return
-        e.preventDefault()
-        searchInputRef.current?.focus()
-        searchInputRef.current?.select()
-        return
-      }
-
-      if (isEditableTarget(e.target)) return
-
-      if (key === "e") {
-        if (!analysisResult) return
-        e.preventDefault()
-        try {
-          exportToCSV()
-          toast.success("Exportação iniciada")
-        } catch (err) {
-          toast.error("Erro ao exportar", {
-            description: err instanceof Error ? err.message : undefined,
-          })
-        }
-        return
-      }
-
-      if (key === "s") {
-        if (!analysisResult) return
-        e.preventDefault()
-        try {
-          saveToHistory()
-        } catch (err) {
-          toast.error("Erro ao guardar", {
-            description: err instanceof Error ? err.message : undefined,
-          })
-        }
-      }
-    }
-
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [analysisResult])
-
   return (
     <div className="space-y-6">
-      <DashboardPageHeader
-        eyebrow="Operações / Análise"
-        title="Análise de Orçamentos"
-        description="Carregue um ficheiro CSV, PDF ou Excel para comparar com os preços de referência."
-      />
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Análise de Orçamentos</h1>
+        <p className="text-muted-foreground">
+          Carregue um ficheiro CSV com o seu orçamento para comparar com os preços de referência.
+        </p>
+      </div>
 
       {/* Upload Section */}
       {!analysisResult && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30" data-tutorial="analise-upload">
+          <Card className="bg-card/50" data-tutorial="analise-upload">
             <CardHeader>
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Passo · 01</p>
-              <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+              <CardTitle className="flex items-center gap-2">
                 <Upload className="h-5 w-5 text-primary" />
                 Carregar Orçamento
               </CardTitle>
@@ -2431,7 +2134,7 @@ www.moap.pt
             <CardContent>
               <div
                 className={cn(
-                  "relative cursor-pointer overflow-hidden rounded-md border border-dashed border-border/70 bg-background/40 px-8 py-10 text-center transition-colors",
+                  "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
                   "hover:border-primary/50 hover:bg-primary/5",
                   isAnalyzing && "pointer-events-none opacity-50",
                 )}
@@ -2440,20 +2143,17 @@ www.moap.pt
                 onClick={() => document.getElementById("file-upload")?.click()}
               >
                 <input
-                  id="file-upload"
-                  type="file"
-                  accept=".csv,.txt,.pdf,.xls,.xlsx"
-                  onChange={handleFileUpload}
-                  className="hidden"
+  id="file-upload"
+  type="file"
+  accept=".csv,.txt,.pdf,.xls,.xlsx"
+  onChange={handleFileUpload}
+  className="hidden"
                   disabled={isAnalyzing}
                 />
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md border border-border/60 bg-background/60 text-muted-foreground">
-                  <FileText className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Dropzone</p>
-                <p className="mt-1 font-display text-xl font-medium tracking-tight">Arraste o ficheiro aqui</p>
-                <p className="mt-1 text-sm text-muted-foreground">PDF · Excel · CSV · TXT</p>
-                <Button variant="outline" disabled={isAnalyzing} className="mt-5 rounded-full">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+<p className="font-medium mb-1">Arraste o ficheiro aqui</p>
+<p className="text-sm text-muted-foreground mb-4">Formatos aceites: PDF, Excel (XLS/XLSX), CSV, TXT</p>
+                <Button variant="outline" disabled={isAnalyzing}>
                   Selecionar Ficheiro
                 </Button>
               </div>
@@ -2475,12 +2175,10 @@ www.moap.pt
                 </div>
               )}
 
-              <div className="mt-5">
-                <Label className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Região
-                </Label>
+              <div className="mt-4">
+                <Label className="text-sm font-medium">Região</Label>
                 <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-                  <SelectTrigger className="mt-2 rounded-full border-border/60 bg-background/60">
+                  <SelectTrigger className="mt-1 bg-input/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2495,51 +2193,38 @@ www.moap.pt
             </CardContent>
           </Card>
 
-          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30" data-tutorial="analise-format">
+          <Card className="bg-card/50" data-tutorial="analise-format">
             <CardHeader>
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Referência</p>
-              <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+              <CardTitle className="flex items-center gap-2">
                 <Info className="h-5 w-5 text-primary" />
                 Formatos Aceites
               </CardTitle>
               <CardDescription>PDF, Excel (XLS/XLSX), CSV ou TXT com orçamento de construção</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-5">
-              {/* CSV sample — technical snippet */}
-              <div className="overflow-hidden rounded-md border border-border/60 bg-background/60">
-                <div className="flex items-center justify-between border-b border-border/40 px-3 py-1.5">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">csv · amostra</p>
-                  <span className="font-mono text-[10px] text-muted-foreground/70">utf-8</span>
-                </div>
-                <pre className="overflow-x-auto px-3 py-2.5 font-mono text-[12px] leading-6 text-foreground/90">
-{`Nome;Unidade;Quantidade;Preço
-Demolição de paredes;m2;50;12.50
-Betão C25/30;m3;10;95.00
-Pintura interior;m2;200;8.75`}
-                </pre>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg bg-muted/50 p-4 font-mono text-sm">
+                <p className="text-muted-foreground mb-2"># Formato CSV recomendado:</p>
+                <p>Nome;Unidade;Quantidade;Preço</p>
+                <p>Demolição de paredes;m2;50;12.50</p>
+                <p>Betão C25/30;m3;10;95.00</p>
+                <p>Pintura interior;m2;200;8.75</p>
               </div>
-
-              {/* PDF note — hairline callout, mono eyebrow */}
-              <div className="rounded-md border border-border/60 bg-card/40 p-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Nota · PDF</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  PDFs de orçamentos são processados automaticamente — o sistema extrai texto e identifica itens, quantidades e preços.
+              
+              <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-4 text-sm">
+                <p className="font-medium text-blue-400 mb-1">Ficheiros PDF</p>
+                <p className="text-muted-foreground">
+                  PDFs de orçamentos são automaticamente processados. O sistema extrai texto e identifica itens, quantidades e preços.
                 </p>
               </div>
 
-              {/* Rating legend — editorial row list */}
               <div className="space-y-2">
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Legenda · Classificações
-                </p>
-                <div className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-border/60 bg-border/60 sm:grid-cols-2">
+                <h4 className="font-medium text-sm">Legenda de Classificações:</h4>
+                <div className="grid grid-cols-2 gap-2">
                   {Object.entries(ratingConfig).map(([key, config]) => (
-                    <div key={key} className="flex items-center gap-3 bg-background/80 px-3 py-2 text-sm">
-                      <span className={cn("h-2 w-2 shrink-0 rounded-full", config.bg.replace("/20", ""))} aria-hidden="true" />
-                      <span className={cn("font-mono text-[11px] uppercase tracking-wider", config.color)}>
-                        {config.shortLabel}
-                      </span>
-                      <span className="truncate text-muted-foreground">{config.label}</span>
+                    <div key={key} className="flex items-center gap-2 text-sm">
+                      <div className={cn("w-3 h-3 rounded-full", config.bg, config.border, "border")} />
+                      <span className={config.color}>{config.shortLabel}</span>
+                      <span className="text-muted-foreground">- {config.label}</span>
                     </div>
                   ))}
                 </div>
@@ -2554,64 +2239,38 @@ Pintura interior;m2;200;8.75`}
         <div className="space-y-6" data-tutorial="analise-results">
           {/* Alert Banner for High Risk Items */}
           {analysisResult.stats.critical > 0 && (
-            <div className="bp-bracket relative overflow-hidden rounded-lg border border-price-critical/30 bg-price-critical/5 p-5">
-              <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-price-critical/40 bg-price-critical/10 text-price-critical">
-                  <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-                </div>
+            <div className="rounded-lg border border-price-critical/30 bg-price-critical/10 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-price-critical shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-price-critical">
-                    Alerta · Risco elevado
+                  <h3 className="font-semibold text-price-critical">Atenção: {analysisResult.stats.critical} itens com preço muito acima da média</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Estes itens estão mais de 30% acima do preço de referência e podem representar um risco para o orçamento.
+                    Reveja cuidadosamente ou solicite esclarecimentos ao fornecedor.
                   </p>
-                  <h3 className="mt-1 font-display text-xl font-medium tracking-tight text-price-critical">
-                    {analysisResult.stats.critical} itens muito acima da média
-                  </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Estes itens estão mais de 30% acima do preço de referência e podem representar um risco para o orçamento. Reveja cuidadosamente ou solicite esclarecimentos ao fornecedor.
-                  </p>
-                  <Button
-                    size="sm"
+                  <Button 
+                    size="sm" 
                     variant="outline"
-                    className="mt-4 rounded-full border-price-critical/40 text-price-critical hover:bg-price-critical/10"
+                    className="mt-3 border-price-critical/30 text-price-critical hover:bg-price-critical/10"
                     onClick={() => setFilterRating("critical")}
                   >
-                    Ver itens de alto risco
+                    Ver Itens de Alto Risco
                   </Button>
                 </div>
               </div>
             </div>
           )}
-
-          {/* Análise Workspace · saved, simulator, compare, history, export */}
-          <AnaliseTools
-            analysis={analysisResult}
-            analysisId={workspace.analysisId}
-            isSaving={workspace.isSaving}
-            saved={workspace.saved}
-            isLoadingSaved={workspace.isLoadingSaved}
-            decisions={workspace.decisions}
-            onSave={() => workspace.saveCurrent()}
-            onSubmitForReview={() => workspace.submitCurrent()}
-            onRefreshSaved={workspace.refreshSaved}
-            onLoadSaved={loadSavedAnalysis}
-            onDeleteSaved={workspace.deleteSaved}
-          />
-
+          
           {/* Potential Savings Banner */}
           {analysisResult.stats.potentialSavings > 0 && (
-            <div className="bp-bracket relative overflow-hidden rounded-lg border border-price-below/30 bg-price-below/5 p-5">
-              <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-price-below/40 bg-price-below/10 text-price-below">
-                  <TrendingDown className="h-4 w-4" aria-hidden="true" />
-                </div>
+            <div className="rounded-lg border border-price-below/30 bg-price-below/10 p-4">
+              <div className="flex items-start gap-3">
+                <TrendingDown className="h-5 w-5 text-price-below shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-price-below">
-                    Oportunidade · Poupança
-                  </p>
-                  <h3 className="mt-1 font-display text-xl font-medium tracking-tight text-price-below">
-                    {analysisResult.stats.potentialSavings.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                  <h3 className="font-semibold text-price-below">
+                    Poupança Potencial: {analysisResult.stats.potentialSavings.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
                   </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Se negociar os itens acima da média para valores de referência, poderá economizar este valor.
                   </p>
                 </div>
@@ -2619,60 +2278,53 @@ Pintura interior;m2;200;8.75`}
             </div>
           )}
 
-          {/* Summary Cards - Editorial */}
-          {(() => {
-            const rating = ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown
-            const varianceTone: "default" | "primary" | "amber" | "muted" =
-              analysisResult.overallRating === "below"
-                ? "primary"
-                : analysisResult.overallRating === "above" || analysisResult.overallRating === "critical"
-                  ? "amber"
-                  : "default"
-            return (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <DashboardStatCard
-                  eyebrow="§ 01 / Orçamento"
-                  value={analysisResult.totalBudget.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
-                  description="Total do Orçamento"
-                />
-                <DashboardStatCard
-                  eyebrow="§ 02 / Referência"
-                  value={analysisResult.totalReference.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
-                  description="Total de Referência"
-                />
-                <DashboardStatCard
-                  eyebrow="§ 03 / Desvio"
-                  value={`${analysisResult.overallVariance > 0 ? "+" : ""}${analysisResult.overallVariance.toFixed(1)}%`}
-                  description="Variação Global"
-                  tone={varianceTone}
-                />
-                <DashboardStatCard
-                  eyebrow="§ 04 / Rating"
-                  value={rating.label}
-                  description="Classificação Geral"
-                  tone={varianceTone}
-                />
-              </div>
-            )
-          })()}
+          {/* Summary Cards - Enhanced */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card className="bg-card/50">
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{analysisResult.totalBudget.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
+                <p className="text-sm text-muted-foreground">Total do Orçamento</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50">
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{analysisResult.totalReference.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
+                <p className="text-sm text-muted-foreground">Total de Referência</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50">
+              <CardContent className="pt-6">
+                <div className={cn("text-2xl font-bold", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).color)}>
+                  {analysisResult.overallVariance > 0 ? "+" : ""}
+                  {analysisResult.overallVariance.toFixed(1)}%
+                </div>
+                <p className="text-sm text-muted-foreground">Variação Global</p>
+              </CardContent>
+            </Card>
+            <Card className={cn("bg-card/50", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).bg)}>
+              <CardContent className="pt-6">
+                <div className={cn("text-2xl font-bold", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).color)}>
+                  {(ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).label}
+                </div>
+                <p className="text-sm text-muted-foreground">Classificação Geral</p>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Quality Score and Quick Actions */}
           <div className="grid gap-4 md:grid-cols-2">
             {/* Quality Score Card */}
-            <Card className="bp-bracket relative overflow-hidden border-primary/30 bg-primary/5">
+            <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Quality Index</p>
-                    <p className="mt-1 text-sm text-muted-foreground">Pontuação de Qualidade</p>
-                    <div className="mt-2 flex items-baseline gap-1">
-                      <span className="font-display text-4xl font-medium tracking-tight tabular-nums text-primary">
-                        {calculateQualityScore(analysisResult)}
-                      </span>
-                      <span className="font-mono text-xs text-muted-foreground">/ 100</span>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Pontuação de Qualidade</p>
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-3xl font-bold text-primary">{calculateQualityScore(analysisResult)}</div>
+                      <span className="text-muted-foreground">/100</span>
                     </div>
-                    <div className="w-40 h-1 bg-border/60 rounded-full mt-3 overflow-hidden">
-                      <div
+                    <div className="w-32 h-1.5 bg-muted rounded-full mt-3 overflow-hidden">
+                      <div 
                         className="h-full bg-primary transition-all"
                         style={{ width: `${calculateQualityScore(analysisResult)}%` }}
                       />
@@ -2680,10 +2332,9 @@ Pintura interior;m2;200;8.75`}
                   </div>
                   <button
                     onClick={() => setShowQualityDetails(!showQualityDetails)}
-                    className="rounded-md border border-border/60 bg-background/60 p-2 text-primary transition-colors hover:bg-primary/10"
-                    aria-label="Detalhes da pontuação"
+                    className="p-2 hover:bg-primary/10 rounded-lg transition-colors"
                   >
-                    <HelpCircle className="h-4 w-4" />
+                    <HelpCircle className="h-5 w-5 text-primary" />
                   </button>
                 </div>
                 {showQualityDetails && (
@@ -2692,7 +2343,7 @@ Pintura interior;m2;200;8.75`}
                       <p className="font-medium text-foreground mb-2">Composição da Pontuação:</p>
                       <p>🎯 Taxa de correspondência: {(analysisResult.stats.matchRate * 40).toFixed(0)}/40</p>
                       <p>⭐ Confiança média: {(analysisResult.stats.avgConfidence * 30).toFixed(0)}/30</p>
-                      <p>��� Cobertura: {Math.min((analysisResult.items.length / 50) * 15, 15).toFixed(0)}/15</p>
+                      <p>📊 Cobertura: {Math.min((analysisResult.items.length / 50) * 15, 15).toFixed(0)}/15</p>
                       <p>🛡️ Baixo risco: {((1 - analysisResult.stats.riskItems / Math.max(analysisResult.items.length, 1)) * 15).toFixed(0)}/15</p>
                     </div>
                     
@@ -2707,7 +2358,7 @@ Pintura interior;m2;200;8.75`}
             </Card>
 
             {/* Quick Actions Toolbar */}
-            <Card className="border-border/60 bg-card/30">
+            <Card className="bg-card/50">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-medium text-muted-foreground">Ações Rápidas</p>
@@ -2736,26 +2387,18 @@ Pintura interior;m2;200;8.75`}
                     variant="outline" 
                     className="gap-2"
                     onClick={saveToHistory}
-                    title="Guardar no histórico (⌘S)"
                   >
                     <Save className="h-4 w-4" />
                     Guardar
-                    <kbd className="pointer-events-none ml-1 hidden items-center gap-1 rounded border border-border/60 bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground md:inline-flex">
-                      ⌘S
-                    </kbd>
                   </Button>
                   <Button 
                     size="sm" 
                     variant="outline" 
                     className="gap-2"
                     onClick={exportToCSV}
-                    title="Exportar CSV (⌘E)"
                   >
                     <Download className="h-4 w-4" />
                     CSV
-                    <kbd className="pointer-events-none ml-1 hidden items-center gap-1 rounded border border-border/60 bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground md:inline-flex">
-                      ⌘E
-                    </kbd>
                   </Button>
                   <Button 
                     size="sm" 
@@ -2773,58 +2416,75 @@ Pintura interior;m2;200;8.75`}
 
           {/* Advanced Metrics Row */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <DashboardStatCard
-              eyebrow="Match · %"
-              value={`${analysisResult.stats.matchRate.toFixed(0)}%`}
-              description="Taxa de Correspondência"
-              icon={BarChart3}
-              tone="primary"
-            />
-            <DashboardStatCard
-              eyebrow="Confiança · IA"
-              value={`${analysisResult.stats.avgConfidence.toFixed(0)}%`}
-              description="Confiança Média"
-              icon={TrendingUp}
-            />
-            <DashboardStatCard
-              eyebrow="Oportunidade"
-              value={analysisResult.stats.potentialSavings.toLocaleString("pt-PT", {
-                style: "currency",
-                currency: "EUR",
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
-              })}
-              description="Poupança Potencial"
-              icon={TrendingDown}
-              tone="amber"
-            />
-            <DashboardStatCard
-              eyebrow="Risco · Itens"
-              value={analysisResult.stats.riskItems}
-              description="Itens de Risco"
-              icon={AlertTriangle}
-              tone="amber"
-            />
+            <Card className="bg-card/50 border-l-4 border-l-primary">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xl font-bold">{analysisResult.stats.matchRate.toFixed(0)}%</div>
+                    <p className="text-sm text-muted-foreground">Taxa de Correspondência</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <BarChart3 className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 border-l-4 border-l-price-below">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xl font-bold">{analysisResult.stats.avgConfidence.toFixed(0)}%</div>
+                    <p className="text-sm text-muted-foreground">Confiança Média</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-price-below/10 flex items-center justify-center">
+                    <TrendingUp className="h-6 w-6 text-price-below" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 border-l-4 border-l-price-above">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xl font-bold text-price-above">{analysisResult.stats.potentialSavings.toLocaleString("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                    <p className="text-sm text-muted-foreground">Poupança Potencial</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-price-above/10 flex items-center justify-center">
+                    <TrendingDown className="h-6 w-6 text-price-above" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 border-l-4 border-l-price-critical">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xl font-bold text-price-critical">{analysisResult.stats.riskItems}</div>
+                    <p className="text-sm text-muted-foreground">Itens de Risco</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-price-critical/10 flex items-center justify-center">
+                    <AlertTriangle className="h-6 w-6 text-price-critical" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Recommendations Card */}
           {analysisResult.recommendations && analysisResult.recommendations.length > 0 && (
-            <Card className="bp-bracket relative overflow-hidden border-primary/30 bg-primary/5">
+            <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
               <CardHeader>
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Insights · IA</p>
-                <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+                <CardTitle className="flex items-center gap-2">
                   <Info className="h-5 w-5 text-primary" />
                   Recomendações da Análise
                 </CardTitle>
                 <CardDescription>Insights automáticos baseados na análise do orçamento</CardDescription>
               </CardHeader>
               <CardContent>
-                <ul className="divide-y divide-border/40 overflow-hidden rounded-md border border-border/40 bg-background/40">
+                <ul className="space-y-3">
                   {analysisResult.recommendations.map((rec, idx) => (
-                    <li key={idx} className="flex items-start gap-3 px-4 py-3">
-                      <span className="font-mono text-[10px] uppercase tracking-wider text-primary">
-                        {String(idx + 1).padStart(2, "0")}
-                      </span>
+                    <li key={idx} className="flex items-start gap-3">
+                      <div className="mt-1 h-2 w-2 rounded-full bg-primary flex-shrink-0" />
                       <p className="text-sm text-foreground/90">{rec}</p>
                     </li>
                   ))}
@@ -2835,10 +2495,9 @@ Pintura interior;m2;200;8.75`}
 
           {/* Category Breakdown */}
           {analysisResult.categoryBreakdown && analysisResult.categoryBreakdown.length > 0 && (
-            <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+            <Card className="bg-card/50">
               <CardHeader>
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Breakdown · Categorias</p>
-                <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+                <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-primary" />
                   Análise por Categoria
                 </CardTitle>
@@ -2881,10 +2540,9 @@ Pintura interior;m2;200;8.75`}
           )}
 
           {/* Distribution */}
-          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+          <Card className="bg-card/50">
             <CardHeader>
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Distribuição · Rating</p>
-              <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
+              <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-primary" />
                 Distribuição por Classificação
               </CardTitle>
@@ -2924,14 +2582,11 @@ Pintura interior;m2;200;8.75`}
           </Card>
 
           {/* Items Table */}
-          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+          <Card className="bg-card/50">
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                    Registo · {analysisResult.items.length} linhas
-                  </p>
-                  <CardTitle className="font-display text-xl font-medium tracking-tight">Itens Analisados</CardTitle>
+                  <CardTitle>Itens Analisados</CardTitle>
                   <CardDescription>{analysisResult.fileName}</CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -2966,16 +2621,15 @@ Pintura interior;m2;200;8.75`}
             <CardContent>
               {/* Bulk Re-analyze with AI - Admin only */}
               {isAdmin && (
-                <div className="mb-4 rounded-md border border-primary/30 bg-primary/5 px-4 py-3">
-                  <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+                <div className="mb-4 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div className="flex-1">
-                      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">Admin · IA</p>
-                      <h4 className="mt-0.5 flex items-center gap-2 font-display text-base font-medium tracking-tight">
+                      <h4 className="font-medium text-sm flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-primary" />
-                        Re-analisar todos os itens
+                        Re-analisar todos os itens com IA
                       </h4>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Procura preços de referência atualizados para os {analysisResult.items.length} itens
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Procura preços de referência atualizados para todos os {analysisResult.items.length} itens usando inteligência artificial
                       </p>
                     </div>
                     <Button
@@ -3010,18 +2664,14 @@ Pintura interior;m2;200;8.75`}
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      ref={searchInputRef}
-                      placeholder="Pesquisar itens... (⌘F)"
+                      placeholder="Pesquisar itens..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9 pr-16 border-border/60 bg-background/60"
+                      className="pl-9 bg-input/50"
                     />
-                    <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 hidden items-center gap-1 rounded border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
-                      ⌘F
-                    </kbd>
                   </div>
                   <Select value={filterRating} onValueChange={setFilterRating}>
-                    <SelectTrigger className="w-[180px] border-border/60 bg-background/60">
+                    <SelectTrigger className="w-[180px] bg-input/50">
                       <SelectValue placeholder="Filtrar por..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -3269,60 +2919,31 @@ Pintura interior;m2;200;8.75`}
                                     </div>
                                   </td>
                                   <td className="px-4 py-3">
-                                    <div className="flex flex-col items-center gap-2">
-                                      <div className="flex justify-center gap-1">
+                                    <div className="flex justify-center gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => openEditDialog(item)}
+                                        disabled={isReanalyzing === item.id}
+                                        title="Editar item"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                      {isAdmin && (
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          onClick={() => openEditDialog(item)}
+                                          onClick={() => reanalyzeItem(item)}
                                           disabled={isReanalyzing === item.id}
-                                          title="Editar item"
+                                          title="Re-analisar com IA"
+                                          className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
                                         >
-                                          <Pencil className="h-4 w-4" />
+                                          {isReanalyzing === item.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Sparkles className="h-4 w-4" />
+                                          )}
                                         </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => setNotesItem(item)}
-                                          title="Anotações do item"
-                                        >
-                                          <StickyNote className="h-4 w-4" />
-                                        </Button>
-                                        {(item.rating === "above" || item.rating === "critical") && (
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setNegotiationItem(item)}
-                                            title="Gerar script de negociação (IA)"
-                                            className="text-primary hover:text-primary"
-                                          >
-                                            <MessageSquare className="h-4 w-4" />
-                                          </Button>
-                                        )}
-                                        {isAdmin && (
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => reanalyzeItem(item)}
-                                            disabled={isReanalyzing === item.id}
-                                            title="Re-analisar Item"
-                                            className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
-                                          >
-                                            {isReanalyzing === item.id ? (
-                                              <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                              <Sparkles className="h-4 w-4" />
-                                            )}
-                                          </Button>
-                                        )}
-                                      </div>
-                                      {(item.rating === "above" || item.rating === "critical") && (
-                                        <DecisionControls
-                                          value={workspace.decisions[item.id]?.decision}
-                                          onChange={(next) => workspace.setDecision(item.id, next)}
-                                          disabled={!workspace.analysisId}
-                                          size="xs"
-                                        />
                                       )}
                                     </div>
                                   </td>
@@ -3546,7 +3167,7 @@ Pintura interior;m2;200;8.75`}
               <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-3 text-sm">
                 <p className="text-yellow-500 font-medium mb-1">Item sem referência de preço</p>
                 <p className="text-muted-foreground">
-                  Ao guardar, será procurado preços de referência no mercado português para este item.
+                  Ao guardar, a IA irá procurar preços de referência no mercado português para este item.
                 </p>
               </div>
             )}
@@ -3592,7 +3213,7 @@ Pintura interior;m2;200;8.75`}
                 placeholder="Ex: Orçamento Reabilitação Fachada"
                 value={saveBudgetName}
                 onChange={(e) => setSaveBudgetName(e.target.value)}
-                className="border-border/60 bg-background/60"
+                className="bg-input/50"
               />
             </div>
             <div className="space-y-2">
@@ -3605,7 +3226,7 @@ Pintura interior;m2;200;8.75`}
                 placeholder="Ex: Rua das Flores, 123 - Lisboa"
                 value={saveBudgetLocation}
                 onChange={(e) => setSaveBudgetLocation(e.target.value)}
-                className="border-border/60 bg-background/60"
+                className="bg-input/50"
               />
             </div>
             {analysisResult && (
@@ -4205,23 +3826,6 @@ Pintura interior;m2;200;8.75`}
 
         </DialogContent>
       </Dialog>
-
-      {/* Notes Sheet — per-item annotations persisted to Supabase */}
-      <NotesSheet
-        open={Boolean(notesItem)}
-        onOpenChange={(open) => !open && setNotesItem(null)}
-        analysisId={workspace.analysisId}
-        item={notesItem}
-      />
-
-      {/* Negotiation AI — per-item script generation */}
-      <NegotiationDialog
-        open={Boolean(negotiationItem)}
-        onOpenChange={(open) => !open && setNegotiationItem(null)}
-        analysisId={workspace.analysisId}
-        item={negotiationItem}
-        region={analysisResult?.region ?? selectedRegion}
-      />
     </div>
   )
 }

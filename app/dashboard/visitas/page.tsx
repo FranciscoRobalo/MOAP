@@ -10,8 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
-import { DashboardPageHeader } from "@/components/dashboard/page-header"
-import { DashboardStatCard } from "@/components/dashboard/stat-card"
 import { Calendar, Clock, User, Plus, Trash2, CheckCircle } from "lucide-react"
 import {
   Dialog,
@@ -110,18 +108,18 @@ export default function VisitasPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardPageHeader
-        eyebrow="Operações / Visitas"
-        title="Agendar Visita à Obra"
-        description="Gerir e agendar visitas técnicas às suas obras."
-        actions={
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="rounded-full gap-2">
-                <Plus className="h-4 w-4" />
-                Nova Visita
-              </Button>
-            </DialogTrigger>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Agendar Visita à Obra</h1>
+          <p className="text-muted-foreground">Gerir e agendar visitas técnicas às suas obras.</p>
+        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Visita
+            </Button>
+          </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Agendar Nova Visita</DialogTitle>
@@ -137,7 +135,7 @@ export default function VisitasPage() {
                     setNewVisit((p) => ({ ...p, obraId: v, obraName: obra?.name || "" }))
                   }}
                 >
-                  <SelectTrigger className="border-border/60 bg-background/60">
+                  <SelectTrigger className="bg-input/50">
                     <SelectValue placeholder="Selecione a obra" />
                   </SelectTrigger>
                   <SelectContent>
@@ -153,7 +151,7 @@ export default function VisitasPage() {
               <div className="space-y-2">
                 <Label>Tipo de Visita *</Label>
                 <Select value={newVisit.type} onValueChange={(v) => setNewVisit((p) => ({ ...p, type: v }))}>
-                  <SelectTrigger className="border-border/60 bg-background/60">
+                  <SelectTrigger className="bg-input/50">
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -173,14 +171,14 @@ export default function VisitasPage() {
                     type="date"
                     value={newVisit.date}
                     onChange={(e) => setNewVisit((p) => ({ ...p, date: e.target.value }))}
-                    className="border-border/60 bg-background/60"
+                    className="bg-input/50"
                     required
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Hora *</Label>
                   <Select value={newVisit.time} onValueChange={(v) => setNewVisit((p) => ({ ...p, time: v }))}>
-                    <SelectTrigger className="border-border/60 bg-background/60">
+                    <SelectTrigger className="bg-input/50">
                       <SelectValue placeholder="Hora" />
                     </SelectTrigger>
                     <SelectContent>
@@ -201,7 +199,7 @@ export default function VisitasPage() {
                     placeholder="Nome"
                     value={newVisit.contactName}
                     onChange={(e) => setNewVisit((p) => ({ ...p, contactName: e.target.value }))}
-                    className="border-border/60 bg-background/60"
+                    className="bg-input/50"
                   />
                 </div>
                 <div className="space-y-2">
@@ -210,7 +208,7 @@ export default function VisitasPage() {
                     placeholder="+351 900 000 000"
                     value={newVisit.contactPhone}
                     onChange={(e) => setNewVisit((p) => ({ ...p, contactPhone: e.target.value }))}
-                    className="border-border/60 bg-background/60"
+                    className="bg-input/50"
                   />
                 </div>
               </div>
@@ -221,7 +219,7 @@ export default function VisitasPage() {
                   placeholder="Observações adicionais..."
                   value={newVisit.notes}
                   onChange={(e) => setNewVisit((p) => ({ ...p, notes: e.target.value }))}
-                  className="border-border/60 bg-background/60"
+                  className="bg-input/50"
                 />
               </div>
 
@@ -232,37 +230,57 @@ export default function VisitasPage() {
                 <Button type="submit">Agendar Visita</Button>
               </div>
             </form>
-            </DialogContent>
-          </Dialog>
-        }
-      />
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <DashboardStatCard
-          eyebrow="Próximas Visitas"
-          value={upcomingVisits.length}
-          icon={Calendar}
-          tone="primary"
-        />
-        <DashboardStatCard
-          eyebrow="Realizadas"
-          value={completedVisits.length}
-          icon={CheckCircle}
-        />
-        <DashboardStatCard
-          eyebrow="Total de Visitas"
-          value={visitas.length}
-          icon={Clock}
-          tone="muted"
-        />
+        <Card className="bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-primary/10">
+                <Calendar className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Próximas Visitas</p>
+                <p className="text-2xl font-bold">{upcomingVisits.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-price-below/10">
+                <CheckCircle className="h-5 w-5 text-price-below" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Realizadas</p>
+                <p className="text-2xl font-bold">{completedVisits.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-muted">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total de Visitas</p>
+                <p className="text-2xl font-bold">{visitas.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Upcoming Visits */}
-      <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+      <Card className="bg-card/50">
         <CardHeader>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Agenda · Próximas</p>
-          <CardTitle className="font-display text-xl font-medium tracking-tight">Visitas Agendadas</CardTitle>
+          <CardTitle>Visitas Agendadas</CardTitle>
           <CardDescription>Próximas visitas técnicas às obras</CardDescription>
         </CardHeader>
         <CardContent>
@@ -273,7 +291,7 @@ export default function VisitasPage() {
               upcomingVisits.map((visit) => (
                 <div
                   key={visit.id}
-                  className="flex flex-col gap-4 rounded-md border border-border/60 bg-background/40 p-4 lg:flex-row lg:items-center lg:justify-between"
+                  className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 rounded-lg border border-border/50 bg-background/50"
                 >
                   <div className="flex-1 space-y-2">
                     <div className="flex items-start justify-between">
@@ -321,10 +339,9 @@ export default function VisitasPage() {
 
       {/* Completed Visits */}
       {completedVisits.length > 0 && (
-        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+        <Card className="bg-card/50">
           <CardHeader>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Agenda · Histórico</p>
-            <CardTitle className="font-display text-xl font-medium tracking-tight">Visitas Realizadas</CardTitle>
+            <CardTitle>Visitas Realizadas</CardTitle>
             <CardDescription>Histórico de visitas</CardDescription>
           </CardHeader>
           <CardContent>
@@ -332,7 +349,7 @@ export default function VisitasPage() {
               {completedVisits.map((visit) => (
                 <div
                   key={visit.id}
-                  className="flex items-center justify-between rounded-md border border-border/60 bg-background/40 p-4 opacity-75"
+                  className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-background/50 opacity-75"
                 >
                   <div>
                     <h3 className="font-semibold">{visit.obraName}</h3>

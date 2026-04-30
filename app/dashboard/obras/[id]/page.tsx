@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useData } from "@/contexts/data-context"
-import { DashboardStatCard } from "@/components/dashboard/stat-card"
 import {
   Building2,
   MapPin,
@@ -94,11 +93,8 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              Obra
-            </p>
-            <div className="mt-1 flex flex-wrap items-center gap-3">
-              <h1 className="font-display text-3xl font-medium tracking-tight">{obra.name}</h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold tracking-tight">{obra.name}</h1>
               <Badge className={status.color}>
                 <StatusIcon className="mr-1 h-3 w-3" />
                 {status.label}
@@ -109,7 +105,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
                 </Badge>
               )}
             </div>
-            <p className="mt-1 flex items-center gap-1 text-muted-foreground">
+            <p className="text-muted-foreground flex items-center gap-1 mt-1">
               <MapPin className="h-4 w-4" />
               {obra.address || obra.region}
             </p>
@@ -128,17 +124,15 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {/* Progress Overview */}
-      <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+      <Card className="bg-card/50">
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-3">
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              Progresso do Projeto
-            </span>
-            <span className="font-display text-xl font-medium tabular-nums">{obra.progress}%</span>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Progresso do Projeto</span>
+            <span className="text-sm font-bold">{obra.progress}%</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
+          <div className="h-3 bg-muted rounded-full overflow-hidden">
             <div
-              className="h-full bg-primary transition-all duration-500"
+              className="h-full bg-gradient-to-r from-primary to-price-below transition-all duration-500"
               style={{ width: `${obra.progress}%` }}
             />
           </div>
@@ -147,34 +141,65 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <DashboardStatCard
-          eyebrow="Orçamento Estimado"
-          value={`€${obra.estimatedBudget.toLocaleString("pt-PT")}`}
-          icon={Euro}
-          tone="primary"
-        />
-        <DashboardStatCard
-          eyebrow="Total Orçamentado"
-          value={`€${calculateTotalBudget().toLocaleString("pt-PT", { minimumFractionDigits: 2 })}`}
-          icon={Calculator}
-        />
-        <DashboardStatCard
-          eyebrow="Data de Início"
-          value={new Date(obra.startDate).toLocaleDateString("pt-PT")}
-          icon={Calendar}
-          tone="muted"
-        />
-        <DashboardStatCard
-          eyebrow="Data de Conclusão"
-          value={new Date(obra.endDate).toLocaleDateString("pt-PT")}
-          icon={CalendarCheck}
-          tone="muted"
-        />
+        <Card className="bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Euro className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Orçamento Estimado</p>
+                <p className="text-lg font-bold">€{obra.estimatedBudget.toLocaleString("pt-PT")}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-price-below/10 flex items-center justify-center">
+                <Calculator className="h-5 w-5 text-price-below" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Orçamentado</p>
+                <p className="text-lg font-bold">
+                  €{calculateTotalBudget().toLocaleString("pt-PT", { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-price-average/10 flex items-center justify-center">
+                <Calendar className="h-5 w-5 text-price-average" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Data de Início</p>
+                <p className="text-lg font-bold">{new Date(obra.startDate).toLocaleDateString("pt-PT")}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-price-above/10 flex items-center justify-center">
+                <CalendarCheck className="h-5 w-5 text-price-above" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Data de Conclusão</p>
+                <p className="text-lg font-bold">{new Date(obra.endDate).toLocaleDateString("pt-PT")}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="details" className="space-y-4">
-        <TabsList className="border-border/60 bg-card/30">
+        <TabsList className="bg-card/50">
           <TabsTrigger value="details">Detalhes</TabsTrigger>
           <TabsTrigger value="budgets">Orçamentos ({obraBudgets.length})</TabsTrigger>
           <TabsTrigger value="visits">Visitas ({obraVisitas.length})</TabsTrigger>
@@ -183,7 +208,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
 
         <TabsContent value="details" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <Card className="border-border/60 bg-card/30">
+            <Card className="bg-card/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <FileText className="h-5 w-5 text-primary" />
@@ -201,7 +226,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
               </CardContent>
             </Card>
 
-            <Card className="border-border/60 bg-card/30">
+            <Card className="bg-card/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <User className="h-5 w-5 text-primary" />
@@ -235,7 +260,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
           {obraBudgets.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2">
               {obraBudgets.map((budget) => (
-                <Card key={budget.id} className="border-border/60 bg-card/30">
+                <Card key={budget.id} className="bg-card/50">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div>
@@ -281,7 +306,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
               ))}
             </div>
           ) : (
-            <Card className="border-border/60 bg-card/30">
+            <Card className="bg-card/50">
               <CardContent className="py-12 text-center">
                 <Calculator className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                 <h3 className="text-lg font-medium mb-2">Sem orçamentos</h3>
@@ -298,7 +323,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
           {obraVisitas.length > 0 ? (
             <div className="space-y-4">
               {obraVisitas.map((visita) => (
-                <Card key={visita.id} className="border-border/60 bg-card/30">
+                <Card key={visita.id} className="bg-card/50">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
@@ -339,7 +364,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
               ))}
             </div>
           ) : (
-            <Card className="border-border/60 bg-card/30">
+            <Card className="bg-card/50">
               <CardContent className="py-12 text-center">
                 <CalendarCheck className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                 <h3 className="text-lg font-medium mb-2">Sem visitas agendadas</h3>
@@ -356,7 +381,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
           {assignedUsersList.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {assignedUsersList.map((user) => (
-                <Card key={user.id} className="border-border/60 bg-card/30">
+                <Card key={user.id} className="bg-card/50">
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-4">
                       <Avatar className="h-12 w-12">
@@ -374,7 +399,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
               ))}
             </div>
           ) : (
-            <Card className="border-border/60 bg-card/30">
+            <Card className="bg-card/50">
               <CardContent className="py-12 text-center">
                 <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                 <h3 className="text-lg font-medium mb-2">Sem equipa atribuída</h3>
