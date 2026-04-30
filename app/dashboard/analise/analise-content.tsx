@@ -227,6 +227,18 @@ export default function AnaliseContent() {
   const [paymentForm, setPaymentForm] = useState({ name: "", card: "", expiry: "", cvv: "" })
   const [paymentError, setPaymentError] = useState("")
   
+  // Scroll to upload section if hash is present
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#upload-section") {
+      setTimeout(() => {
+        const element = document.getElementById("upload-section")
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+      }, 300) // Small delay to ensure page is rendered
+    }
+  }, [])
+  
   // Analysis History
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisHistoryEntry[]>([])
   const [showHistoryPanel, setShowHistoryPanel] = useState(false)
@@ -2052,7 +2064,7 @@ www.moap.pt
 
       {/* Upload Section */}
       {!analysisResult && (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div id="upload-section" className="grid gap-6 lg:grid-cols-2 scroll-mt-24">
           <Card className="bg-card/50" data-tutorial="analise-upload">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
