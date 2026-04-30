@@ -112,10 +112,8 @@ function RegisterPageContent() {
 
     if (result.success) {
       setSuccess(true)
-      // Redirect after a short delay to show success message, then go to target
-      setTimeout(() => {
-        router.push(redirectTo)
-      }, 1500)
+      // Do NOT redirect to dashboard - user needs admin approval first
+      // They will see a success message with instructions
     } else {
       setError(t(result.message as any))
     }
