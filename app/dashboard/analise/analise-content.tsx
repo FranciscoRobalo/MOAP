@@ -1070,32 +1070,116 @@ www.moap.pt
   const analyzeFile = async (file: File, lineLimit: number | null = null) => {
     setIsAnalyzing(true)
     setAnalyzeProgress(0)
-    setAnalyzeStatus("A ler ficheiro...")
+    setAnalyzeStatus("A iniciar analise com IA...")
 
     try {
-      let parsedItems: Array<{ name: string; unit: string; quantity: number; price: number }> = []
       const fileName = file.name.toLowerCase()
       
-      // PDF and Excel files go through the API (which uses GPT)
-      if (fileName.endsWith(".pdf") || fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
-        setAnalyzeStatus("A extrair itens do documento (IA)...")
-        setAnalyzeProgress(2)
-        try {
-          parsedItems = await parsePDF(file)
-        } catch {
-          // For PDF, try fallback
-          if (fileName.endsWith(".pdf")) {
-            setAnalyzeStatus("A processar PDF localmente...")
-            const content = await file.text()
-            parsedItems = parsePDFText(content)
-          }
+      // Use the new unified analysis API
+      setAnalyzeStatus("A processar documento com analise unificada IA...")
+      setAnalyzeProgress(5)
+      
+      // Prepare materials data for the API
+      const materialRefs = materials.map(m => ({
+        id: m.id,
+        name: m.name,
+        unit: m.unit,
+        price: m.price,
+        priceMax: m.priceMax || m.price,
+        category: m.category
+      }))
+      
+      // Create form data with file and materials
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("materials", JSON.stringify(materialRefs))
+      
+      // Call the unified analysis API with increased timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minute timeout
+      
+      setAnalyzeProgress(10)
+      setAnalyzeStatus("A extrair itens e calcular correspondencias (IA)...")
+      
+      let apiResponse
+      try {
+        const response = await fetch("/api/analyze-budget", {
+          method: "POST",
+          body: formData,
+          signal: controller.signal
+        })
+        clearTimeout(timeoutId)
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`)
         }
-      } else {
-        // CSV/TXT files parsed locally
-        setAnalyzeStatus("A processar CSV...")
-        const content = await file.text()
-        parsedItems = parseCSV(content)
+        
+        apiResponse = await response.json()
+        
+        if (!apiResponse.success || !apiResponse.items) {
+          throw new Error(apiResponse.error || "Falha na analise")
+        }
+        
+        setAnalyzeProgress(60)
+        setAnalyzeStatus(`${apiResponse.items.length} itens analisados. A processar resultados...`)
+        
+      } catch (fetchError) {
+        clearTimeout(timeoutId)
+        // Fallback to local parsing if API fails
+        console.log("[v0] Unified API failed, using fallback...")
+        setAnalyzeStatus("API indisponivel, a processar localmente...")
+        
+        let parsedItems: Array<{ name: string; unit: string; quantity: number; price: number }> = []
+        
+        if (fileName.endsWith(".pdf") || fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+          try {
+            parsedItems = await parsePDF(file)
+          } catch {
+            if (fileName.endsWith(".pdf")) {
+              const content = await file.text()
+              parsedItems = parsePDFText(content)
+            }
+          }
+        } else {
+          const content = await file.text()
+          parsedItems = parseCSV(content)
+        }
+        
+        if (parsedItems.length === 0) {
+          setIsAnalyzing(false)
+          setAnalyzeProgress(0)
+          setAnalyzeStatus("")
+          toast.error("Nenhum item encontrado", {
+            description: "Nao foi possivel extrair itens do ficheiro. Verifique se o formato esta correto ou tente converter para CSV.",
+          })
+          return
+        }
+        
+        // Convert to API response format for compatibility
+        apiResponse = {
+          success: true,
+          items: parsedItems.map(item => ({
+            name: item.name,
+            unit: item.unit,
+            quantity: item.quantity,
+            price: item.price,
+            matchedMaterialId: null,
+            matchedMaterialName: null,
+            confidence: 0,
+            referenceMinPrice: null,
+            referenceMaxPrice: null,
+            referenceAvgPrice: null,
+            variance: null,
+            category: "Sem categoria",
+            matchReason: "Processamento local (fallback)"
+          })),
+          stats: { totalItems: parsedItems.length, matchedItems: 0, avgConfidence: 0, processingTimeMs: 0 }
+        }
+        
+        setAnalyzeProgress(60)
       }
+      
+      const parsedItems = apiResponse.items
       
       // Check if any items were found
       if (parsedItems.length === 0) {
@@ -1109,10 +1193,9 @@ www.moap.pt
       }
       
       setAnalyzeStatus(`${parsedItems.length} itens encontrados. A validar precos...`)
-      setAnalyzeProgress(4)
+      setAnalyzeProgress(65)
       
       // Check if public user needs to pay for large budgets (8+ lines)
-      // Skip this check if a lineLimit is already set (meaning payment was handled)
       if (!isAdmin && parsedItems.length > 8 && lineLimit === null) {
         setIsAnalyzing(false)
         setAnalyzeProgress(0)
@@ -1124,336 +1207,122 @@ www.moap.pt
       }
       
       // Apply line limit if set (free tier = 8 items max)
+      let itemsToProcess = parsedItems
       if (lineLimit !== null && parsedItems.length > lineLimit) {
-        parsedItems = parsedItems.slice(0, lineLimit)
-        setAnalyzeStatus(`Limitado a ${lineLimit} itens (plano gratuito). A validar preços...`)
+        itemsToProcess = parsedItems.slice(0, lineLimit)
+        setAnalyzeStatus(`Limitado a ${lineLimit} itens (plano gratuito). A finalizar...`)
       }
       
       // Check if the budget has valid prices (not all zeros)
-      const itemsWithPrice = parsedItems.filter(item => item.price > 0)
-      const itemsWithoutPrice = parsedItems.filter(item => item.price <= 0)
-      const percentWithoutPrice = parsedItems.length > 0 ? (itemsWithoutPrice.length / parsedItems.length) * 100 : 0
+      const itemsWithPrice = itemsToProcess.filter((item: any) => item.price > 0)
+      const itemsWithoutPrice = itemsToProcess.filter((item: any) => item.price <= 0)
+      const percentWithoutPrice = itemsToProcess.length > 0 ? (itemsWithoutPrice.length / itemsToProcess.length) * 100 : 0
       
-      // If more than 80% of items have no price, warn the user
-      if (percentWithoutPrice > 80 && parsedItems.length > 3) {
+      if (percentWithoutPrice > 80 && itemsToProcess.length > 3) {
         setIsAnalyzing(false)
         setAnalyzeProgress(0)
         setAnalyzeStatus("")
-        toast.error("Orçamento sem preços", {
-          description: `Este orçamento não contém preços unitários (${itemsWithoutPrice.length} de ${parsedItems.length} itens sem preço). Por favor, carregue um orçamento com preços preenchidos ou adicione os preços manualmente.`,
+        toast.error("Orcamento sem precos", {
+          description: `Este orcamento nao contem precos unitarios (${itemsWithoutPrice.length} de ${itemsToProcess.length} itens sem preco).`,
         })
         return
       }
       
-      // Filter out items without valid prices for analysis (but keep a minimum of items)
-      const itemsToAnalyze = itemsWithPrice.length >= 3 ? itemsWithPrice : parsedItems
+      setAnalyzeProgress(75)
+      setAnalyzeStatus("A processar resultados da analise IA...")
       
-      const totalItems = itemsToAnalyze.length
+      // Convert API response to internal format
+      const CONFIDENCE_THRESHOLD = 60
       const analyzedItems: BudgetItem[] = []
-
-      let belowCount = 0,
-        avgCount = 0,
-        aboveCount = 0,
-        criticalCount = 0,
-        unknownCount = 0
-      let totalBudget = 0,
-        totalReference = 0
+      let belowCount = 0, avgCount = 0, aboveCount = 0, criticalCount = 0, unknownCount = 0
+      let totalBudget = 0, totalReference = 0
+      let itemsSkippedNoPrice = itemsWithoutPrice.length
       
-      // Track items without price for reporting
-      let itemsSkippedNoPrice = parsedItems.length - itemsToAnalyze.length
-
-      // First pass: identify items needing GPT assistance (no match or low confidence < 60%)
-      const itemsNeedingGPT: Array<{ index: number; name: string; unit: string; quantity: number; price: number }> = []
-      const localMatches: Map<number, { material: typeof materials[0] | null; confidence: number; matchDetails: string }> = new Map()
-      
-      const CONFIDENCE_THRESHOLD = 60 // Minimum confidence to show match
-      
-      for (let i = 0; i < itemsToAnalyze.length; i++) {
-        const item = itemsToAnalyze[i]
-        const match = findBestMatch(item.name, item.unit)
-        localMatches.set(i, match)
-        
-        // Items with no match OR confidence below 60% need GPT
-        if (!match.material || match.confidence < CONFIDENCE_THRESHOLD) {
-          itemsNeedingGPT.push({ index: i, ...item })
-        }
-      }
-      
-      // GPT semantic matching for low-confidence items
-      let gptMatches: Record<string, { materialId: string | null; confidence: number; reason: string }> = {}
-      let gptPrices: Record<string, { minPrice: number; maxPrice: number; avgPrice: number; confidence: number }> = {}
-      
-      if (itemsNeedingGPT.length > 0) {
-        setAnalyzeProgress(5)
-        setAnalyzeStatus(`A processar ${itemsNeedingGPT.length} itens com IA (correspondencias e precos em paralelo)...`)
-        
-        const materialRefs = materials.map(m => ({
-          id: m.id,
-          name: m.name,
-          unit: m.unit,
-          price: m.price,
-          priceMax: m.priceMax,
-          category: m.category
-        }))
-        
-        // Run BOTH API calls in PARALLEL for speed
-        const [matchResult, priceResult] = await Promise.allSettled([
-          // GPT matching against our database
-          (async () => {
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 45000)
-            try {
-              const response = await fetch("/api/match-items", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                  items: itemsNeedingGPT.map(i => ({ name: i.name, unit: i.unit, quantity: i.quantity, price: i.price })),
-                  materials: materialRefs 
-                }),
-                signal: controller.signal
-              })
-              clearTimeout(timeoutId)
-              if (response.ok) {
-                const data = await response.json()
-                return data.matches || {}
-              }
-              return {}
-            } catch {
-              clearTimeout(timeoutId)
-              return {}
-            }
-          })(),
-          
-          // GPT price lookup (runs in parallel)
-          (async () => {
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 45000)
-            try {
-              const response = await fetch("/api/lookup-prices", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ items: itemsNeedingGPT }),
-                signal: controller.signal
-              })
-              clearTimeout(timeoutId)
-              if (response.ok) {
-                const data = await response.json()
-                return data.prices || {}
-              }
-              return {}
-            } catch {
-              clearTimeout(timeoutId)
-              return {}
-            }
-          })()
-        ])
-        
-        // Extract results from Promise.allSettled
-        if (matchResult.status === "fulfilled") {
-          gptMatches = matchResult.value
-        }
-        if (priceResult.status === "fulfilled") {
-          gptPrices = priceResult.value
-        }
-        
-        setAnalyzeProgress(8)
-      }
-      
-      setAnalyzeStatus("A comparar preços e calcular variâncias...")
-
-      // Map itemsNeedingGPT indices for quick lookup
-      const gptItemIndexMap = new Map<number, number>()
-      itemsNeedingGPT.forEach((item, gptIdx) => {
-        gptItemIndexMap.set(item.index, gptIdx + 1) // GPT uses 1-based indices
-      })
-
-      for (let i = 0; i < itemsToAnalyze.length; i++) {
-        const item = itemsToAnalyze[i]
-        const currentProgress = 10 + Math.round(((i + 1) / totalItems) * 85)
-        setAnalyzeProgress(currentProgress)
-        
-        // Update status every 5 items or for the first few
-        if (i < 3 || i % 5 === 0) {
-          setAnalyzeStatus(`A analisar item ${i + 1} de ${totalItems}: ${item.name.substring(0, 40)}${item.name.length > 40 ? '...' : ''}`)
-        }
-
-        let { material, confidence, matchDetails } = localMatches.get(i) || findBestMatch(item.name, item.unit)
-        const itemTotal = item.quantity * item.price
+      for (let i = 0; i < itemsToProcess.length; i++) {
+        const item = itemsToProcess[i] as any
+        const itemTotal = (item.quantity || 1) * (item.price || 0)
         totalBudget += itemTotal
-
-        let rating: BudgetItem["rating"] = "unknown"
-        let variance: number | null = null
-        let refMin: number | null = null
-        let refMax: number | null = null
-        let refAvg: number | null = null
-        let finalMatchedName: string | null = material?.name || null
-        let finalConfidence = confidence
-        let finalMatchDetails = matchDetails
-        let finalCategory = material?.category || "Sem categoria"
         
-        // Skip items with zero price - mark them differently
+        // Use pre-calculated values from API or calculate locally
+        let variance = item.variance
+        let refMin = item.referenceMinPrice
+        let refMax = item.referenceMaxPrice
+        let refAvg = item.referenceAvgPrice
+        let matchedName = item.matchedMaterialName
+        let confidence = item.confidence || 0
+        let category = item.category || "Sem categoria"
+        let matchDetails = item.matchReason || ""
+        
+        // If no API data, try local matching
+        if (!matchedName && !refAvg && item.price > 0) {
+          const match = findBestMatch(item.name, item.unit)
+          if (match.material && match.confidence >= CONFIDENCE_THRESHOLD) {
+            matchedName = match.material.name
+            confidence = match.confidence
+            refMin = match.material.price
+            refMax = match.material.priceMax || match.material.price
+            refAvg = (refMin + refMax) / 2
+            category = match.material.category
+            matchDetails = match.matchDetails
+            if (refAvg > 0) {
+              variance = ((item.price - refAvg) / refAvg) * 100
+            }
+          }
+        }
+        
+        if (refAvg && refAvg > 0) {
+          totalReference += (item.quantity || 1) * refAvg
+        }
+        
+        // Determine rating
+        let rating: BudgetItem["rating"] = "unknown"
         if (item.price <= 0) {
-          analyzedItems.push({
-            id: `item-${i}`,
-            originalName: item.name,
-            matchedName: null,
-            unit: item.unit,
-            quantity: item.quantity,
-            budgetPrice: 0,
-            referenceMinPrice: null,
-            referenceMaxPrice: null,
-            referenceAvgPrice: null,
-            variance: null,
-            rating: "unknown",
-            category: "Sem preço",
-            matchConfidence: 0,
-            type: "work",
-            matchDetails: "Item sem preço no orçamento",
-          } as BudgetItem & { matchDetails: string })
+          rating = "unknown"
           unknownCount++
-          continue
-        }
-
-        // Check if this item was sent to GPT for matching
-        const gptIdx = gptItemIndexMap.get(i)
-        if (gptIdx !== undefined) {
-          const gptMatch = gptMatches[String(gptIdx)]
-          
-          // If GPT found a good match in our database
-          if (gptMatch && gptMatch.materialId && gptMatch.confidence >= CONFIDENCE_THRESHOLD) {
-            const matchedMaterial = materials.find(m => m.id === gptMatch.materialId)
-            if (matchedMaterial) {
-              material = matchedMaterial
-              confidence = gptMatch.confidence
-              matchDetails = gptMatch.reason + " (IA)"
-              finalMatchedName = matchedMaterial.name
-              finalConfidence = gptMatch.confidence
-              finalMatchDetails = gptMatch.reason + " (correspondência IA)"
-              finalCategory = matchedMaterial.category
-            }
-          }
-        }
-
-        // If still no good match, check GPT price estimates
-        const gptPrice = gptPrices[item.name]
-        if ((!material || finalConfidence < CONFIDENCE_THRESHOLD) && gptPrice && gptPrice.avgPrice > 0) {
-          refMin = gptPrice.minPrice
-          refMax = gptPrice.maxPrice
-          refAvg = gptPrice.avgPrice
-          finalMatchedName = item.name + " (estimativa IA)"
-          finalConfidence = gptPrice.confidence || 70
-          finalMatchDetails = "Preço estimado via IA (mercado PT)"
-          finalCategory = "Estimativa IA"
-          totalReference += item.quantity * refAvg
-
-          if (refAvg > 0) {
-            variance = ((item.price - refAvg) / refAvg) * 100
-          }
-
-          // Rating based on variance
-          if (variance !== null) {
-            if (variance <= -10) {
-              rating = "below"
-              belowCount++
-            } else if (variance <= 10) {
-              rating = "average"
-              avgCount++
-            } else if (variance <= 50) {
-              rating = "above"
-              aboveCount++
-            } else {
-              rating = "critical"
-              criticalCount++
-            }
+        } else if (variance !== null && variance !== undefined) {
+          if (variance <= -10) {
+            rating = "below"
+            belowCount++
+          } else if (variance <= 10) {
+            rating = "average"
+            avgCount++
+          } else if (variance <= 50) {
+            rating = "above"
+            aboveCount++
           } else {
-            unknownCount++
-          }
-
-          analyzedItems.push({
-            id: `item-${i}`,
-            originalName: item.name,
-            matchedName: finalMatchedName,
-            unit: item.unit,
-            quantity: item.quantity,
-            budgetPrice: item.price,
-            referenceMinPrice: refMin,
-            referenceMaxPrice: refMax,
-            referenceAvgPrice: refAvg,
-            variance,
-            rating,
-            category: finalCategory,
-            matchConfidence: finalConfidence,
-            type: "work",
-            matchDetails: finalMatchDetails,
-          } as BudgetItem & { matchDetails: string })
-          
-          continue
-        }
-
-        // Use local match if confidence is above threshold
-        if (material && finalConfidence >= CONFIDENCE_THRESHOLD) {
-          // Use price as min and priceMax as max (matching Material interface in data-context)
-          refMin = material.price
-          refMax = material.priceMax || material.price
-          refAvg = (refMin + refMax) / 2
-          totalReference += item.quantity * refAvg
-
-          // Calculate variance only if we have valid reference price
-          if (refAvg > 0) {
-            variance = ((item.price - refAvg) / refAvg) * 100
-          } else {
-            variance = null
-          }
-
-          // Enhanced rating system with granular thresholds
-          if (variance !== null) {
-            if (variance <= -25) {
-              rating = "below" // Significantly below market - potential quality concern
-              belowCount++
-            } else if (variance <= -10) {
-              rating = "below" // Below market - good deal
-              belowCount++
-            } else if (variance <= 10) {
-              rating = "average" // Within market range
-              avgCount++
-            } else if (variance <= 30) {
-              rating = "above" // Moderately above market
-              aboveCount++
-            } else if (variance <= 50) {
-              rating = "above" // Significantly above market
-              aboveCount++
-            } else {
-              rating = "critical" // Extremely overpriced
-              criticalCount++
-            }
-          } else {
-            unknownCount++
+            rating = "critical"
+            criticalCount++
           }
         } else {
+          rating = "unknown"
           unknownCount++
         }
-
+        
         analyzedItems.push({
           id: `item-${i}`,
           originalName: item.name,
-          matchedName: finalMatchedName,
-          unit: item.unit,
-          quantity: item.quantity,
-          budgetPrice: item.price,
-          referenceMinPrice: refMin,
-          referenceMaxPrice: refMax,
-          referenceAvgPrice: refAvg,
-          variance,
+          matchedName: matchedName || null,
+          unit: item.unit || "un",
+          quantity: item.quantity || 1,
+          budgetPrice: item.price || 0,
+          referenceMinPrice: refMin || null,
+          referenceMaxPrice: refMax || null,
+          referenceAvgPrice: refAvg || null,
+          variance: variance ?? null,
           rating,
-          category: finalCategory,
-          matchConfidence: finalConfidence,
-          type: material?.type || "work",
-          matchDetails: finalMatchDetails,
+          category,
+          matchConfidence: confidence,
+          type: "work",
+          matchDetails,
         } as BudgetItem & { matchDetails: string })
-
-        // Small delay for visual progress
-        await new Promise((r) => setTimeout(r, 10))
+        
+        // Update progress
+        if (i % 10 === 0) {
+          setAnalyzeProgress(75 + Math.round((i / itemsToProcess.length) * 15))
+        }
       }
+      
+      const totalItems = analyzedItems.length
 
       const overallVariance = totalReference > 0 ? ((totalBudget - totalReference) / totalReference) * 100 : 0
       let overallRating: AnalysisResult["overallRating"] = "average"
@@ -1538,11 +1407,37 @@ www.moap.pt
       }
 
       if (recommendations.length === 0) {
-        recommendations.push("O orçamento está globalmente alinhado com os preços de mercado.")
+        recommendations.push("O orcamento esta globalmente alinhado com os precos de mercado.")
       }
       
+      // Calculate overall quality score (0-100)
+      // Based on: match rate, confidence, variance alignment, risk items
+      let qualityScore = 0
+      
+      // Match rate contribution (up to 30 points)
+      qualityScore += Math.min(30, matchRate * 0.3)
+      
+      // Confidence contribution (up to 25 points)
+      qualityScore += Math.min(25, avgConfidence * 0.25)
+      
+      // Variance alignment (up to 30 points) - penalize extreme variances
+      const absVariance = Math.abs(overallVariance)
+      if (absVariance <= 5) qualityScore += 30
+      else if (absVariance <= 10) qualityScore += 25
+      else if (absVariance <= 20) qualityScore += 20
+      else if (absVariance <= 30) qualityScore += 10
+      else qualityScore += 5
+      
+      // Risk items penalty (up to 15 points)
+      const riskRatio = totalItems > 0 ? riskItems / totalItems : 0
+      if (riskRatio === 0) qualityScore += 15
+      else if (riskRatio < 0.1) qualityScore += 10
+      else if (riskRatio < 0.2) qualityScore += 5
+      
+      qualityScore = Math.round(Math.min(100, Math.max(0, qualityScore)))
+      
       setAnalyzeProgress(95)
-      setAnalyzeStatus("A gerar relatório final...")
+      setAnalyzeStatus("A gerar relatorio final...")
 
       setAnalysisResult({
         id: `analysis-${Date.now()}`,
@@ -1569,6 +1464,7 @@ www.moap.pt
         },
         categoryBreakdown,
         recommendations,
+        qualityScore,
       })
     } catch (error) {
       console.error("Error analyzing file:", error)
@@ -1817,7 +1713,7 @@ www.moap.pt
           confidence = gptPrice.confidence || 70
           
           const budgetPrice = parseFloat(editForm.price) || 0
-          if (refAvg > 0) {
+          if (refAvg && refAvg > 0) {
             variance = ((budgetPrice - refAvg) / refAvg) * 100
             
             if (variance <= -10) rating = "below"
