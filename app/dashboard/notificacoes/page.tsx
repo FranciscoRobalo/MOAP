@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useData } from "@/contexts/data-context"
-import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import Link from "next/link"
 import {
   Bell,
@@ -68,41 +67,33 @@ export default function NotificacoesPage() {
           return (
             <Card
               key={notification.id}
-              className={`bp-bracket relative overflow-hidden transition-colors ${
-                !notification.read
-                  ? "border-primary/30 bg-primary/5"
-                  : "border-border/60 bg-card/30"
-              }`}
+              className={`bg-card/50 transition-colors ${!notification.read ? "border-primary/30 bg-primary/5" : ""}`}
             >
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-start gap-4">
                   <div
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${
-                      !notification.read ? "border-primary/40 bg-primary/10 text-primary" : "border-border/60 bg-background/60 text-muted-foreground"
+                    className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${
+                      !notification.read ? "bg-primary/20" : "bg-muted"
                     }`}
                   >
-                    <Icon className="h-4 w-4" aria-hidden="true" />
+                    <Icon className={`h-5 w-5 ${!notification.read ? "text-primary" : "text-muted-foreground"}`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                          {typeLabels[notification.type]} · {formatTime(notification.timestamp)}
-                        </p>
-                        <p className={`mt-1 font-medium ${!notification.read ? "text-foreground" : "text-muted-foreground"}`}>
+                      <div>
+                        <p
+                          className={`font-medium ${!notification.read ? "text-foreground" : "text-muted-foreground"}`}
+                        >
                           {notification.title}
                         </p>
-                        <p className="mt-1 text-sm text-muted-foreground">{notification.description}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{notification.description}</p>
+                        <p className="text-xs text-muted-foreground mt-2">{formatTime(notification.timestamp)}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {!notification.read && (
-                          <Badge variant="outline" className="border-primary/40 bg-primary/10 font-mono text-[10px] uppercase tracking-wider text-primary">
-                            Nova
-                          </Badge>
-                        )}
+                        {!notification.read && <Badge className="bg-primary/20 text-primary text-xs">Nova</Badge>}
                         {notification.link && (
                           <Link href={notification.link}>
-                            <Button variant="outline" size="sm" className="rounded-full bg-transparent">
+                            <Button variant="outline" size="sm" className="bg-transparent">
                               Ver
                             </Button>
                           </Link>
@@ -126,14 +117,11 @@ export default function NotificacoesPage() {
           )
         })
       ) : (
-        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
-          <CardContent className="py-14 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md border border-border/60 bg-background/60 text-muted-foreground">
-              <Bell className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Vazio</p>
-            <h3 className="mt-2 font-display text-2xl font-medium tracking-tight">Sem notificações</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Não existem notificações nesta categoria.</p>
+        <Card className="bg-card/50">
+          <CardContent className="py-12 text-center">
+            <Bell className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-medium mb-2">Sem notificações</h3>
+            <p className="text-muted-foreground">Não existem notificações nesta categoria.</p>
           </CardContent>
         </Card>
       )}
@@ -142,26 +130,27 @@ export default function NotificacoesPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardPageHeader
-        eyebrow="Conta / Alertas"
-        title="Notificações"
-        description={unreadCount > 0 ? `${unreadCount} notificações por ler` : "Todas as notificações lidas"}
-        actions={
-          <>
-            <Button variant="outline" className="rounded-full gap-2" onClick={() => markAllNotificationsAsRead()} disabled={unreadCount === 0}>
-              <CheckCheck className="h-4 w-4" />
-              Marcar todas como lidas
-            </Button>
-            <Button variant="destructive" className="rounded-full gap-2" onClick={() => clearNotifications()} disabled={notifications.length === 0}>
-              <Trash2 className="h-4 w-4" />
-              Limpar
-            </Button>
-          </>
-        }
-      />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Notificações</h1>
+          <p className="text-muted-foreground">
+            {unreadCount > 0 ? `${unreadCount} notificações por ler` : "Todas as notificações lidas"}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => markAllNotificationsAsRead()} disabled={unreadCount === 0}>
+            <CheckCheck className="mr-2 h-4 w-4" />
+            Marcar todas como lidas
+          </Button>
+          <Button variant="destructive" onClick={() => clearNotifications()} disabled={notifications.length === 0}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Limpar
+          </Button>
+        </div>
+      </div>
 
       <Tabs defaultValue="all" className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-1 p-1 border border-border/60 bg-card/30">
+        <TabsList className="bg-card/50 flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="all" className="gap-2">
             Todas
             {notifications.length > 0 && (

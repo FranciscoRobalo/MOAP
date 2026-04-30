@@ -8,12 +8,12 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FileText, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react"
+import { FileText, Eye, EyeOff, AlertCircle, CheckCircle2, Building2, User, Mail, Phone, Lock } from "lucide-react"
 import { useAuth, type UserRole } from "@/contexts/auth-context"
 import { useLanguage } from "@/contexts/language-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
-import { BlueprintBackdrop } from "@/components/landing/blueprint-backdrop"
 
 export default function RegisterPage() {
   return (
@@ -26,20 +26,28 @@ export default function RegisterPage() {
 function RegisterPageSkeleton() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-lg">
-        <div className="mb-8 flex items-center justify-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+      <div className="w-full max-w-md">
+        <div className="flex items-center justify-center gap-2 mb-8">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary animate-pulse">
             <FileText className="h-6 w-6 text-primary-foreground" />
           </div>
-          <span className="text-2xl font-semibold tracking-tight">MOAP</span>
+          <span className="text-2xl font-bold tracking-tight">MOAP</span>
         </div>
-        <div className="rounded-2xl border hairline bg-card p-8">
-          <div className="space-y-4">
+        <Card className="border-border/50 bg-card/50 backdrop-blur">
+          <CardHeader className="text-center">
+            <div className="h-7 w-32 mx-auto bg-muted animate-pulse rounded" />
+            <div className="h-4 w-48 mx-auto bg-muted animate-pulse rounded mt-2" />
+          </CardHeader>
+          <CardContent className="space-y-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-10 w-full animate-pulse rounded bg-muted" />
+              <div key={i} className="space-y-2">
+                <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                <div className="h-10 w-full bg-muted animate-pulse rounded" />
+              </div>
             ))}
-          </div>
-        </div>
+            <div className="h-10 w-full bg-muted animate-pulse rounded" />
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
@@ -61,6 +69,7 @@ function RegisterPageContent() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
   const { register } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -68,7 +77,9 @@ function RegisterPageContent() {
   const redirectTo = searchParams.get("redirect") || "/dashboard"
   const hasPendingFile = searchParams.get("pending_file") === "1"
 
-  useEffect(() => {}, [])
+  useEffect(() => {
+    setIsVisible(true)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -101,6 +112,7 @@ function RegisterPageContent() {
 
     if (result.success) {
       setSuccess(true)
+      // Redirect after a short delay to show success message, then go to target
       setTimeout(() => {
         router.push(redirectTo)
       }, 1500)
@@ -117,80 +129,83 @@ function RegisterPageContent() {
 
   if (success) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-background">
-        <BlueprintBackdrop />
-        <div className="relative z-10 flex min-h-screen items-center justify-center p-4">
-          <div className="bp-bracket w-full max-w-md rounded-2xl border hairline bg-card/80 p-8 backdrop-blur-xl">
-            <div className="mb-4 flex justify-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full border hairline bg-primary/10">
-                <CheckCircle2 className="h-7 w-7 text-primary" />
+      <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute top-1/4 left-1/4 h-[500px] w-[500px] rounded-full bg-green-500/10 blur-[120px] animate-pulse-glow" />
+          <div className="absolute bottom-1/4 right-1/4 h-[400px] w-[400px] rounded-full bg-primary/10 blur-[100px] animate-float animate-delay-300" />
+        </div>
+
+        <Card className="max-w-md w-full border-border/50 bg-card/50 backdrop-blur glass animate-fade-in-up">
+          <CardContent className="pt-6 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="h-16 w-16 rounded-full bg-green-500/20 flex items-center justify-center animate-bounce-subtle">
+                <CheckCircle2 className="h-8 w-8 text-green-500" />
               </div>
             </div>
-            <div className="text-center">
-              <span className="eyebrow-strong">Registo submetido</span>
-              <h2 className="mt-3 font-display text-3xl font-medium tracking-tight text-foreground">
-                {t("registrationSubmitted")}
-              </h2>
-              <p className="mt-3 text-sm text-muted-foreground">{t("registrationPendingMessage")}</p>
-              <p className="mt-4 text-xs text-muted-foreground">
-                {t("contactEmail")}:{" "}
-                <span className="font-mono text-primary">webmaster@moap.com</span>
-              </p>
-              <Button asChild className="mt-6 h-11 w-full rounded-full">
-                <Link href="/login">{t("backToLogin")}</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
+            <h2 className="text-2xl font-bold mb-2">{t("registrationSubmitted")}</h2>
+            <p className="text-muted-foreground mb-6">{t("registrationPendingMessage")}</p>
+            <p className="text-sm text-muted-foreground mb-6">
+              {t("contactEmail")}: <span className="text-primary font-medium">webmaster@moap.com</span>
+            </p>
+            <Button asChild className="w-full">
+              <Link href="/login">{t("backToLogin")}</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background">
-      <BlueprintBackdrop />
-
-      {/* Top bar */}
-      <div className="relative z-10 flex items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
-        <Link href="/" className="group flex items-center gap-2.5">
-          <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-primary">
-            <FileText className="relative z-10 h-5 w-5 text-primary-foreground" />
-            <div className="absolute inset-0 bg-gradient-to-tr from-primary via-primary to-amber opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-          </div>
-          <div className="flex flex-col leading-none">
-            <span className="font-sans text-base font-semibold tracking-tight text-foreground">MOAP</span>
-            <span className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
-              Orçamentos
-            </span>
-          </div>
-        </Link>
-        <LanguageSwitcher />
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute top-1/4 left-1/4 h-[500px] w-[500px] rounded-full bg-primary/10 blur-[120px] animate-pulse-glow" />
+        <div className="absolute bottom-1/4 right-1/4 h-[400px] w-[400px] rounded-full bg-chart-1/10 blur-[100px] animate-float animate-delay-300" />
       </div>
 
-      <div className="relative z-10 flex min-h-[calc(100vh-72px)] items-start justify-center px-4 py-8 sm:px-6 lg:px-8">
-        <div className="w-full max-w-xl">
-          <div className="mb-6 flex items-center gap-3">
-            <span className="h-px w-8 bg-primary" />
-            <span className="eyebrow-strong">Criar conta</span>
+      <div className="w-full max-w-lg">
+        <div
+          className={`flex justify-end mb-4 transition-all duration-500 ${
+            isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"
+          }`}
+        >
+          <LanguageSwitcher />
+        </div>
+
+        <Link
+          href="/"
+          className={`flex items-center justify-center gap-2 mb-8 transition-all duration-700 delay-100 ${
+            isVisible ? "opacity-100 scale-100" : "opacity-0 scale-90"
+          }`}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary animate-pulse-glow">
+            <FileText className="h-6 w-6 text-primary-foreground" />
           </div>
+          <span className="text-2xl font-bold tracking-tight">MOAP</span>
+        </Link>
 
-          <h1 className="font-display text-4xl font-medium tracking-tight text-foreground sm:text-5xl">
-            {t("createAccount")}
-          </h1>
-          <p className="mt-3 text-base text-muted-foreground">{t("registerSubtitle")}</p>
-
-          <div className="bp-bracket mt-10 rounded-2xl border hairline bg-card/80 p-6 backdrop-blur-xl sm:p-8">
-            <form onSubmit={handleSubmit} className="space-y-5">
+        <Card
+          className={`border-border/50 bg-card/50 backdrop-blur glass transition-all duration-700 delay-200 ${
+            isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+          }`}
+        >
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">{t("createAccount")}</CardTitle>
+            <CardDescription>{t("registerSubtitle")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
+                <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive animate-fade-in-down">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
                   {error}
                 </div>
               )}
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="eyebrow">
+                  <Label htmlFor="name" className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
                     {t("fullName")} *
                   </Label>
                   <Input
@@ -200,12 +215,13 @@ function RegisterPageContent() {
                     value={formData.name}
                     onChange={(e) => updateField("name", e.target.value)}
                     required
-                    className="h-11 border-border/60 bg-background/60"
+                    className="bg-input/50 transition-all duration-300 focus:scale-[1.01]"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="username" className="eyebrow">
+                  <Label htmlFor="username" className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
                     {t("username")} *
                   </Label>
                   <Input
@@ -215,13 +231,14 @@ function RegisterPageContent() {
                     value={formData.username}
                     onChange={(e) => updateField("username", e.target.value.toLowerCase().replace(/\s/g, ""))}
                     required
-                    className="h-11 border-border/60 bg-background/60 font-mono"
+                    className="bg-input/50 transition-all duration-300 focus:scale-[1.01]"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="eyebrow">
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
                   {t("email")} *
                 </Label>
                 <Input
@@ -231,13 +248,14 @@ function RegisterPageContent() {
                   value={formData.email}
                   onChange={(e) => updateField("email", e.target.value)}
                   required
-                  className="h-11 border-border/60 bg-background/60"
+                  className="bg-input/50 transition-all duration-300 focus:scale-[1.01]"
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="company" className="eyebrow">
+                  <Label htmlFor="company" className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
                     {t("company")}
                   </Label>
                   <Input
@@ -246,12 +264,13 @@ function RegisterPageContent() {
                     placeholder={t("companyPlaceholder")}
                     value={formData.company}
                     onChange={(e) => updateField("company", e.target.value)}
-                    className="h-11 border-border/60 bg-background/60"
+                    className="bg-input/50 transition-all duration-300 focus:scale-[1.01]"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone" className="eyebrow">
+                  <Label htmlFor="phone" className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
                     {t("phone")}
                   </Label>
                   <Input
@@ -260,17 +279,15 @@ function RegisterPageContent() {
                     placeholder={t("phonePlaceholder")}
                     value={formData.phone}
                     onChange={(e) => updateField("phone", e.target.value)}
-                    className="h-11 border-border/60 bg-background/60"
+                    className="bg-input/50 transition-all duration-300 focus:scale-[1.01]"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="role" className="eyebrow">
-                  {t("accountType")} *
-                </Label>
+                <Label htmlFor="role">{t("accountType")} *</Label>
                 <Select value={formData.role} onValueChange={(value) => updateField("role", value)}>
-                  <SelectTrigger className="h-11 border-border/60 bg-background/60">
+                  <SelectTrigger className="bg-input/50">
                     <SelectValue placeholder={t("selectAccountType")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -280,9 +297,10 @@ function RegisterPageContent() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="eyebrow">
+                  <Label htmlFor="password" className="flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
                     {t("password")} *
                   </Label>
                   <div className="relative">
@@ -293,7 +311,7 @@ function RegisterPageContent() {
                       value={formData.password}
                       onChange={(e) => updateField("password", e.target.value)}
                       required
-                      className="h-11 border-border/60 bg-background/60 pr-10"
+                      className="bg-input/50 pr-10 transition-all duration-300 focus:scale-[1.01]"
                     />
                     <Button
                       type="button"
@@ -301,7 +319,6 @@ function RegisterPageContent() {
                       size="icon"
                       className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? "Ocultar password" : "Mostrar password"}
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -313,7 +330,8 @@ function RegisterPageContent() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword" className="eyebrow">
+                  <Label htmlFor="confirmPassword" className="flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
                     {t("confirmPassword")} *
                   </Label>
                   <div className="relative">
@@ -324,7 +342,7 @@ function RegisterPageContent() {
                       value={formData.confirmPassword}
                       onChange={(e) => updateField("confirmPassword", e.target.value)}
                       required
-                      className="h-11 border-border/60 bg-background/60 pr-10"
+                      className="bg-input/50 pr-10 transition-all duration-300 focus:scale-[1.01]"
                     />
                     <Button
                       type="button"
@@ -332,7 +350,6 @@ function RegisterPageContent() {
                       size="icon"
                       className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      aria-label={showConfirmPassword ? "Ocultar password" : "Mostrar password"}
                     >
                       {showConfirmPassword ? (
                         <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -346,10 +363,10 @@ function RegisterPageContent() {
 
               <p className="text-xs text-muted-foreground">{t("registrationNote")}</p>
 
-              <Button type="submit" className="h-12 w-full rounded-full text-sm font-semibold" disabled={isLoading}>
+              <Button type="submit" className="w-full btn-ripple hover-glow" disabled={isLoading}>
                 {isLoading ? (
                   <span className="flex items-center gap-2">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+                    <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                     {t("loading")}
                   </span>
                 ) : (
@@ -358,24 +375,14 @@ function RegisterPageContent() {
               </Button>
             </form>
 
-            <div className="mt-8 border-t hairline pt-5 text-center">
-              <p className="text-sm text-muted-foreground">
-                {t("alreadyHaveAccount")}{" "}
-                <Link href="/login" className="font-medium text-primary hover:underline">
-                  {t("loginHere")}
-                </Link>
-              </p>
+            <div className="mt-6 text-center text-sm text-muted-foreground">
+              {t("alreadyHaveAccount")}{" "}
+              <Link href="/login" className="text-primary hover:underline">
+                {t("loginHere")}
+              </Link>
             </div>
-          </div>
-
-          <Link
-            href="/"
-            className="mt-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {t("back")}
-          </Link>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

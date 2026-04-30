@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Upload, FileText, X, CheckCircle } from "lucide-react"
-import { DashboardPageHeader } from "@/components/dashboard/page-header"
 
 interface UploadedFile {
   id: string
@@ -85,18 +84,16 @@ export default function UploadPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardPageHeader
-        eyebrow="Documentos / Upload"
-        title="Carregar Documentos"
-        description="Carregue os seus orçamentos para análise automática."
-      />
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Carregar Documentos</h1>
+        <p className="text-muted-foreground">Carregue os seus orçamentos para análise automática.</p>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Upload Area */}
-        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30 lg:col-span-2">
+        <Card className="lg:col-span-2 bg-card/50">
           <CardHeader>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Dropzone</p>
-            <CardTitle className="font-display text-xl font-medium tracking-tight">Área de Upload</CardTitle>
+            <CardTitle>Área de Upload</CardTitle>
             <CardDescription>Arraste ficheiros ou clique para selecionar</CardDescription>
           </CardHeader>
           <CardContent>
@@ -107,8 +104,8 @@ export default function UploadPage() {
                 setIsDragging(true)
               }}
               onDragLeave={() => setIsDragging(false)}
-              className={`relative rounded-md border border-dashed px-6 py-10 text-center transition-colors ${
-                isDragging ? "border-primary/60 bg-primary/5" : "border-border/70 bg-background/40 hover:border-primary/50"
+              className={`relative rounded-lg border-2 border-dashed p-12 text-center transition-colors ${
+                isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
               }`}
             >
               <input
@@ -118,14 +115,13 @@ export default function UploadPage() {
                 onChange={handleFileInput}
                 className="absolute inset-0 cursor-pointer opacity-0"
               />
-              <div className="flex flex-col items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-md border border-border/60 bg-background/60 text-muted-foreground">
-                  <Upload className="h-5 w-5" aria-hidden="true" />
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                  <Upload className="h-8 w-8 text-primary" />
                 </div>
                 <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Drop · arquivos</p>
-                  <p className="mt-1 font-display text-xl font-medium tracking-tight">Arraste ficheiros aqui</p>
-                  <p className="mt-1 text-sm text-muted-foreground">PDF · Excel · CSV · Word — máx. 10MB</p>
+                  <p className="font-medium">Arraste ficheiros ou clique para selecionar</p>
+                  <p className="text-sm text-muted-foreground">PDF, Excel, CSV, Word (máx. 10MB)</p>
                 </div>
               </div>
             </div>
@@ -136,10 +132,10 @@ export default function UploadPage() {
                 {files.map((file) => (
                   <div
                     key={file.id}
-                    className="flex items-center gap-3 rounded-md border border-border/60 bg-background/40 p-3"
+                    className="flex items-center gap-3 rounded-lg border border-border/50 bg-background/50 p-3"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border/60 bg-background/60 text-muted-foreground">
-                      <FileText className="h-4 w-4" aria-hidden="true" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <FileText className="h-5 w-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{file.name}</p>
@@ -168,17 +164,16 @@ export default function UploadPage() {
         </Card>
 
         {/* Settings */}
-        <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+        <Card className="bg-card/50">
           <CardHeader>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Parâmetros</p>
-            <CardTitle className="font-display text-xl font-medium tracking-tight">Configurações</CardTitle>
+            <CardTitle>Configurações</CardTitle>
             <CardDescription>Defina a região e ano para análise</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Região</label>
               <Select value={region} onValueChange={setRegion}>
-                <SelectTrigger className="border-border/60 bg-background/60">
+                <SelectTrigger className="bg-input/50">
                   <SelectValue placeholder="Selecione a região" />
                 </SelectTrigger>
                 <SelectContent>
@@ -194,7 +189,7 @@ export default function UploadPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Ano de Referência</label>
               <Select value={year} onValueChange={setYear}>
-                <SelectTrigger className="border-border/60 bg-background/60">
+                <SelectTrigger className="bg-input/50">
                   <SelectValue placeholder="Selecione o ano" />
                 </SelectTrigger>
                 <SelectContent>

@@ -12,7 +12,7 @@ export default function ObraDetailLoading() {
         </div>
       </div>
 
-      <Card className="border-border/60 bg-card/30">
+      <Card className="bg-card/50">
         <CardContent className="pt-6">
           <Skeleton className="h-3 w-full rounded-full" />
         </CardContent>
@@ -20,7 +20,7 @@ export default function ObraDetailLoading() {
 
       <div className="grid gap-4 md:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <Card key={i} className="border-border/60 bg-card/30">
+          <Card key={i} className="bg-card/50">
             <CardContent className="pt-6">
               <Skeleton className="h-16 w-full" />
             </CardContent>
@@ -28,7 +28,7 @@ export default function ObraDetailLoading() {
         ))}
       </div>
 
-      <Card className="border-border/60 bg-card/30">
+      <Card className="bg-card/50">
         <CardHeader>
           <Skeleton className="h-6 w-32" />
         </CardHeader>

@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/contexts/auth-context"
 import { useTutorial } from "@/contexts/tutorial-context"
-import { DashboardPageHeader } from "@/components/dashboard/page-header"
 import {
   User,
   Bell,
@@ -74,14 +73,13 @@ export default function DefinicoesPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <DashboardPageHeader
-        eyebrow="Conta / Configuração"
-        title="Definições"
-        description="Gerencie as suas preferências e configurações da conta."
-      />
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Definições</h1>
+        <p className="text-muted-foreground">Gerencie as suas preferências e configurações da conta.</p>
+      </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="border border-border/60 bg-card/30">
+        <TabsList className="bg-card/50">
           <TabsTrigger value="profile" className="gap-2">
             <User className="h-4 w-4" />
             Perfil
@@ -102,10 +100,9 @@ export default function DefinicoesPage() {
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
-          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+          <Card className="bg-card/50">
             <CardHeader>
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 01 / Perfil</p>
-              <CardTitle className="font-display text-2xl font-medium tracking-tight">Informação do Perfil</CardTitle>
+              <CardTitle>Informação do Perfil</CardTitle>
               <CardDescription>Atualize as suas informações pessoais.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -131,7 +128,7 @@ export default function DefinicoesPage() {
                     id="name"
                     value={profile.name}
                     onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
-                    className="border-border/60 bg-background/60"
+                    className="bg-input/50"
                   />
                 </div>
                 <div className="space-y-2">
@@ -141,7 +138,7 @@ export default function DefinicoesPage() {
                     type="email"
                     value={profile.email}
                     onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))}
-                    className="border-border/60 bg-background/60"
+                    className="bg-input/50"
                   />
                 </div>
                 <div className="space-y-2">
@@ -150,7 +147,7 @@ export default function DefinicoesPage() {
                     id="phone"
                     value={profile.phone}
                     onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
-                    className="border-border/60 bg-background/60"
+                    className="bg-input/50"
                   />
                 </div>
                 <div className="space-y-2">
@@ -159,7 +156,7 @@ export default function DefinicoesPage() {
                     id="company"
                     value={profile.company}
                     onChange={(e) => setProfile((p) => ({ ...p, company: e.target.value }))}
-                    className="border-border/60 bg-background/60"
+                    className="bg-input/50"
                   />
                 </div>
               </div>
@@ -170,7 +167,7 @@ export default function DefinicoesPage() {
                   id="bio"
                   value={profile.bio}
                   onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))}
-                  className="border-border/60 bg-background/60 min-h-[100px]"
+                  className="bg-input/50 min-h-[100px]"
                   placeholder="Conte um pouco sobre si..."
                 />
               </div>
@@ -180,10 +177,9 @@ export default function DefinicoesPage() {
 
         {/* Notifications Tab */}
         <TabsContent value="notifications" className="space-y-6">
-          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+          <Card className="bg-card/50">
             <CardHeader>
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 02 / Alertas</p>
-              <CardTitle className="font-display text-2xl font-medium tracking-tight">Preferências de Notificações</CardTitle>
+              <CardTitle>Preferências de Notificações</CardTitle>
               <CardDescription>Escolha como e quando deseja ser notificado.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -249,10 +245,9 @@ export default function DefinicoesPage() {
 
         {/* Preferences Tab */}
         <TabsContent value="preferences" className="space-y-6">
-          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+          <Card className="bg-card/50">
             <CardHeader>
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 03 / Aparência</p>
-              <CardTitle className="font-display text-2xl font-medium tracking-tight">Preferências Gerais</CardTitle>
+              <CardTitle>Preferências Gerais</CardTitle>
               <CardDescription>Configure a aparência e formato da aplicação.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -266,7 +261,7 @@ export default function DefinicoesPage() {
                     value={preferences.language}
                     onValueChange={(v) => setPreferences((p) => ({ ...p, language: v }))}
                   >
-                    <SelectTrigger className="border-border/60 bg-background/60">
+                    <SelectTrigger className="bg-input/50">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -282,7 +277,7 @@ export default function DefinicoesPage() {
                     value={preferences.currency}
                     onValueChange={(v) => setPreferences((p) => ({ ...p, currency: v }))}
                   >
-                    <SelectTrigger className="border-border/60 bg-background/60">
+                    <SelectTrigger className="bg-input/50">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -298,7 +293,7 @@ export default function DefinicoesPage() {
                     value={preferences.dateFormat}
                     onValueChange={(v) => setPreferences((p) => ({ ...p, dateFormat: v }))}
                   >
-                    <SelectTrigger className="border-border/60 bg-background/60">
+                    <SelectTrigger className="bg-input/50">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -314,7 +309,7 @@ export default function DefinicoesPage() {
                     Tema
                   </Label>
                   <Select value={preferences.theme} onValueChange={(v) => setPreferences((p) => ({ ...p, theme: v }))}>
-                    <SelectTrigger className="border-border/60 bg-background/60">
+                    <SelectTrigger className="bg-input/50">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -328,10 +323,9 @@ export default function DefinicoesPage() {
             </CardContent>
           </Card>
 
-          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+          <Card className="bg-card/50">
             <CardHeader>
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 04 / Onboarding</p>
-              <CardTitle className="flex items-center gap-2 font-display text-2xl font-medium tracking-tight">
+              <CardTitle className="flex items-center gap-2">
                 <Lightbulb className="h-5 w-5 text-primary" />
                 Tutorial da Plataforma
               </CardTitle>
@@ -358,10 +352,9 @@ export default function DefinicoesPage() {
 
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
-          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+          <Card className="bg-card/50">
             <CardHeader>
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">§ 05 / Segurança</p>
-              <CardTitle className="font-display text-2xl font-medium tracking-tight">Segurança da Conta</CardTitle>
+              <CardTitle>Segurança da Conta</CardTitle>
               <CardDescription>Gerencie a segurança da sua conta.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -373,16 +366,16 @@ export default function DefinicoesPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="currentPassword">Palavra-passe Atual</Label>
-                    <Input id="currentPassword" type="password" className="border-border/60 bg-background/60" />
+                    <Input id="currentPassword" type="password" className="bg-input/50" />
                   </div>
                   <div></div>
                   <div className="space-y-2">
                     <Label htmlFor="newPassword">Nova Palavra-passe</Label>
-                    <Input id="newPassword" type="password" className="border-border/60 bg-background/60" />
+                    <Input id="newPassword" type="password" className="bg-input/50" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Confirmar Palavra-passe</Label>
-                    <Input id="confirmPassword" type="password" className="border-border/60 bg-background/60" />
+                    <Input id="confirmPassword" type="password" className="bg-input/50" />
                   </div>
                 </div>
                 <Button variant="outline">Alterar Palavra-passe</Button>
@@ -420,8 +413,8 @@ export default function DefinicoesPage() {
       </Tabs>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving} className="rounded-full gap-2">
-          <Save className="h-4 w-4" />
+        <Button onClick={handleSave} disabled={saving}>
+          <Save className="mr-2 h-4 w-4" />
           {saving ? "A guardar..." : "Guardar Alterações"}
         </Button>
       </div>

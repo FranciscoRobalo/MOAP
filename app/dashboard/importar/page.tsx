@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Upload, FileSpreadsheet, FileText, CheckCircle, AlertCircle, Plus, Trash2 } from "lucide-react"
-import { DashboardPageHeader } from "@/components/dashboard/page-header"
 
 interface ExtractedMaterial {
   id: string
@@ -264,16 +263,17 @@ export default function ImportarPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardPageHeader
-        eyebrow="Documentos / Importação"
-        title="Importar Documentos"
-        description="Carregue orçamentos e extraia automaticamente os materiais para adicionar à lista de preços."
-      />
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Importar Documentos</h1>
+        <p className="text-muted-foreground">
+          Carregue orçamentos e extraia automaticamente os materiais para adicionar à lista de preços.
+        </p>
+      </div>
 
       {/* Upload Area */}
       <Card
-        className={`bp-bracket relative overflow-hidden border border-dashed transition-colors ${
-          isDragging ? "border-primary/60 bg-primary/5" : "border-border/70 bg-card/30 hover:border-border"
+        className={`bg-card/50 border-2 border-dashed transition-colors ${
+          isDragging ? "border-primary bg-primary/5" : "border-border"
         }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -281,12 +281,11 @@ export default function ImportarPage() {
       >
         <CardContent className="py-12">
           <div className="flex flex-col items-center text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-md border border-border/60 bg-background/60 text-muted-foreground">
-              <Upload className="h-5 w-5" aria-hidden="true" />
+            <div className="p-4 rounded-full bg-primary/10 mb-4">
+              <Upload className="h-8 w-8 text-primary" />
             </div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Drop · documento</p>
-            <h3 className="mt-1 font-display text-xl font-medium tracking-tight">Carregar Documento</h3>
-            <p className="mt-2 text-muted-foreground">
+            <h3 className="font-semibold text-lg mb-2">Carregar Documento</h3>
+            <p className="text-muted-foreground mb-4">
               Arraste e solte ficheiros PDF, Excel ou CSV com orçamentos de fornecedores
             </p>
 
@@ -315,10 +314,9 @@ export default function ImportarPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Documents List */}
         <div className="lg:col-span-1 space-y-4">
-          <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+          <Card className="bg-card/50">
             <CardHeader>
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Registo · documentos</p>
-              <CardTitle className="font-display text-xl font-medium tracking-tight">Documentos Importados</CardTitle>
+              <CardTitle className="text-lg">Documentos Importados</CardTitle>
               <CardDescription>{documents.length} documentos</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -329,13 +327,13 @@ export default function ImportarPage() {
                 return (
                   <div
                     key={doc.id}
-                    className={`cursor-pointer rounded-md border p-3 transition-colors hover:bg-accent/40 ${
-                      selectedDocument?.id === doc.id ? "border-primary/50 bg-primary/5" : "border-border/60 bg-background/40"
+                    className={`p-3 rounded-lg border cursor-pointer transition-colors hover:bg-muted/50 ${
+                      selectedDocument?.id === doc.id ? "bg-primary/10 border-primary" : "border-border/50"
                     }`}
                     onClick={() => setSelectedDocument(doc)}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="rounded-md border border-border/60 bg-background/60 p-2 text-muted-foreground">
+                      <div className="p-2 rounded-lg bg-muted">
                         {doc.fileName.endsWith(".pdf") ? (
                           <FileText className="h-4 w-4 text-muted-foreground" />
                         ) : (
@@ -372,13 +370,12 @@ export default function ImportarPage() {
         {/* Materials Extraction */}
         <div className="lg:col-span-2">
           {selectedDocument ? (
-            <Card className="bp-bracket relative overflow-hidden border-border/60 bg-card/30">
+            <Card className="bg-card/50">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Extração</p>
-                    <CardTitle className="flex items-center gap-2 font-display text-xl font-medium tracking-tight">
-                      <FileSpreadsheet className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    <CardTitle className="flex items-center gap-2">
+                      <FileSpreadsheet className="h-5 w-5" />
                       {selectedDocument.fileName}
                     </CardTitle>
                     <CardDescription>
@@ -460,7 +457,7 @@ export default function ImportarPage() {
                                     onChange={(e) =>
                                       updateMaterialPrice(selectedDocument.id, material.id, Number(e.target.value))
                                     }
-                                    className="w-24 h-8 text-right border-border/60 bg-background/60"
+                                    className="w-24 h-8 text-right bg-input/50"
                                   />
                                 </td>
                                 <td className="py-3">
@@ -491,7 +488,7 @@ export default function ImportarPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-border/60 bg-card/30">
+            <Card className="bg-card/50">
               <CardContent className="py-16 text-center">
                 <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="font-semibold text-lg mb-2">Selecione um Documento</h3>

@@ -8,8 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useData } from "@/contexts/data-context"
-import { DashboardPageHeader } from "@/components/dashboard/page-header"
-import { DashboardStatCard } from "@/components/dashboard/stat-card"
 import { Building2, MapPin, Calendar, Euro, Search, Plus, Eye, Filter, ArrowUpDown, Clock } from "lucide-react"
 
 const statusConfig = {
@@ -48,22 +46,21 @@ export default function ObrasListPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardPageHeader
-        eyebrow="Projetos / 03"
-        title="Minhas Obras"
-        description="Gerencie todas as suas obras e projetos."
-        actions={
-          <Link href="/dashboard/obras/nova">
-            <Button className="rounded-full gap-2">
-              <Plus className="h-4 w-4" />
-              Nova Obra
-            </Button>
-          </Link>
-        }
-      />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Minhas Obras</h1>
+          <p className="text-muted-foreground">Gerencie todas as suas obras e projetos.</p>
+        </div>
+        <Link href="/dashboard/obras/nova">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Nova Obra
+          </Button>
+        </Link>
+      </div>
 
       {/* Filters */}
-      <Card className="border-border/60 bg-card/30">
+      <Card className="bg-card/50">
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center">
             <div className="relative flex-1">
@@ -72,12 +69,12 @@ export default function ObrasListPage() {
                 placeholder="Pesquisar obras..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 border-border/60 bg-background/60"
+                className="pl-9 bg-input/50"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[140px] border-border/60 bg-background/60">
+                <SelectTrigger className="w-[140px] bg-input/50">
                   <Filter className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
@@ -91,7 +88,7 @@ export default function ObrasListPage() {
                 </SelectContent>
               </Select>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[160px] border-border/60 bg-background/60">
+                <SelectTrigger className="w-[160px] bg-input/50">
                   <Building2 className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Categoria" />
                 </SelectTrigger>
@@ -105,7 +102,7 @@ export default function ObrasListPage() {
                 </SelectContent>
               </Select>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[140px] border-border/60 bg-background/60">
+                <SelectTrigger className="w-[140px] bg-input/50">
                   <ArrowUpDown className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Ordenar" />
                 </SelectTrigger>
@@ -122,23 +119,60 @@ export default function ObrasListPage() {
 
       {/* Stats Summary */}
       <div className="grid gap-4 md:grid-cols-4">
-        <DashboardStatCard eyebrow="Total de Obras" value={obras.length} icon={Building2} />
-        <DashboardStatCard
-          eyebrow="Aprovadas"
-          value={obras.filter((o) => o.status === "approved").length}
-          description={`${obras.length > 0 ? Math.round((obras.filter((o) => o.status === "approved").length / obras.length) * 100) : 0}% do total`}
-        />
-        <DashboardStatCard
-          eyebrow="Em Análise"
-          value={obras.filter((o) => o.status === "in-analysis" || o.status === "pending").length}
-          icon={Clock}
-          tone="primary"
-        />
-        <DashboardStatCard
-          eyebrow="Orçamento Total"
-          value={`€${(obras.reduce((sum, o) => sum + (o.budget || 0), 0) / 1000000).toFixed(1)}M`}
-          icon={Euro}
-        />
+        <Card className="bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total de Obras</p>
+                <p className="text-2xl font-bold">{obras.length}</p>
+              </div>
+              <Building2 className="h-8 w-8 text-primary/50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Aprovadas</p>
+                <p className="text-2xl font-bold text-price-below">
+                  {obras.filter((o) => o.status === "approved").length}
+                </p>
+              </div>
+              <div className="h-8 w-8 rounded-full bg-price-below/20 flex items-center justify-center">
+                <span className="text-price-below font-bold">
+                  {obras.length > 0 ? Math.round((obras.filter((o) => o.status === "approved").length / obras.length) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Em Análise</p>
+                <p className="text-2xl font-bold text-primary">
+                  {obras.filter((o) => o.status === "in-analysis" || o.status === "pending").length}
+                </p>
+              </div>
+              <Clock className="h-8 w-8 text-primary/50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Orçamento Total</p>
+                <p className="text-2xl font-bold">
+                  €{(obras.reduce((sum, o) => sum + (o.budget || 0), 0) / 1000000).toFixed(1)}M
+                </p>
+              </div>
+              <Euro className="h-8 w-8 text-primary/50" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Obras Grid */}
@@ -147,7 +181,7 @@ export default function ObrasListPage() {
           const status = statusConfig[obra.status as keyof typeof statusConfig] || { label: obra.status || "Unknown", color: "bg-muted text-muted-foreground" }
 
           return (
-            <Card key={obra.id} className="group border-border/60 bg-card/30 transition-colors hover:border-border hover:bg-card/50">
+            <Card key={obra.id} className="bg-card/50 hover:bg-card/80 transition-colors group">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
@@ -207,7 +241,7 @@ export default function ObrasListPage() {
       </div>
 
       {filteredObras.length === 0 && (
-        <Card className="border-border/60 bg-card/30">
+        <Card className="bg-card/50">
           <CardContent className="py-12 text-center">
             <Building2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-medium mb-2">Nenhuma obra encontrada</h3>

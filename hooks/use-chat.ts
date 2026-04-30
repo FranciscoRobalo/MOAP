@@ -396,35 +396,6 @@ export function useChat(userId: string | null) {
       : conversation.participant1
   }, [userId])
 
-  // List users available to start a new conversation with
-  const listCandidateUsers = useCallback(async (): Promise<
-    { id: string; name: string; avatar_url?: string | null }[]
-  > => {
-    if (!userId) return []
-    // Mock data for dev users
-    if (useMockData || isDevUser(userId)) {
-      return Object.values(MOCK_USERS).filter((u) => u.id !== userId)
-    }
-    if (!supabase) return []
-    try {
-      const { data, error: err } = await supabase
-        .from("profiles")
-        .select("id, name, avatar_url")
-        .neq("id", userId)
-        .order("name", { ascending: true })
-        .limit(100)
-      if (err) throw err
-      return (data || []).map((u: any) => ({
-        id: u.id,
-        name: u.name || "Utilizador",
-        avatar_url: u.avatar_url,
-      }))
-    } catch (e) {
-      console.error("Error listing candidate users:", e)
-      return []
-    }
-  }, [userId, supabase, useMockData])
-
   return {
     conversations,
     messages,
@@ -434,9 +405,7 @@ export function useChat(userId: string | null) {
     createConversation,
     fetchConversations,
     getOtherParticipant,
-    listCandidateUsers,
     isLoading,
     error,
-    useMockData,
   }
 }
