@@ -163,52 +163,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         // Load pending registrations for admins
         if (profile?.role === "admin") {
-          await loadPendingRegistrationsFromDb()
+          try {
+            const { data: dbPending } = await supabase
+              .from("pending_registrations")
+              .select("*")
+              .eq("status", "pending")
+              .order("created_at", { ascending: false })
+            
+            if (dbPending && dbPending.length > 0) {
+              const mapped: PendingRegistration[] = dbPending.map(p => ({
+                id: p.id,
+                data: {
+                  name: p.name,
+                  email: p.email,
+                  password: p.password_hash,
+                  company: p.company,
+                  phone: p.phone,
+                  role: p.role as UserRole,
+                },
+                status: p.status as "pending" | "approved" | "rejected",
+                createdAt: p.created_at,
+              }))
+              setPendingRegistrations(mapped)
+            } else {
+              const stored = localStorage.getItem("moap_pending_registrations")
+              if (stored) {
+                setPendingRegistrations(JSON.parse(stored))
+              }
+            }
+          } catch {
+            const stored = localStorage.getItem("moap_pending_registrations")
+            if (stored) {
+              setPendingRegistrations(JSON.parse(stored))
+            }
+          }
         }
       } catch (error) {
         console.error("Error initializing auth:", error)
       } finally {
         setIsLoading(false)
-      }
-    }
-    
-    // Function to load pending registrations from database
-    const loadPendingRegistrationsFromDb = async () => {
-      try {
-        const { data: dbPending } = await supabase
-          .from("pending_registrations")
-          .select("*")
-          .eq("status", "pending")
-          .order("created_at", { ascending: false })
-        
-        if (dbPending && dbPending.length > 0) {
-          const mapped: PendingRegistration[] = dbPending.map(p => ({
-            id: p.id,
-            data: {
-              name: p.name,
-              email: p.email,
-              password: p.password_hash,
-              company: p.company,
-              phone: p.phone,
-              role: p.role as UserRole,
-            },
-            status: p.status as "pending" | "approved" | "rejected",
-            createdAt: p.created_at,
-          }))
-          setPendingRegistrations(mapped)
-        } else {
-          // Fallback to localStorage
-          const stored = localStorage.getItem("moap_pending_registrations")
-          if (stored) {
-            setPendingRegistrations(JSON.parse(stored))
-          }
-        }
-      } catch {
-        // Fallback to localStorage
-        const stored = localStorage.getItem("moap_pending_registrations")
-        if (stored) {
-          setPendingRegistrations(JSON.parse(stored))
-        }
       }
     }
 
@@ -310,6 +303,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null)
     }
   }
+  
+  // Function to load pending registrations from database
+  const loadPendingRegistrationsFromDb = async () => {
+    try {
+      const { data: dbPending } = await supabase
+        .from("pending_registrations")
+        .select("*")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+      
+      if (dbPending && dbPending.length > 0) {
+        const mapped: PendingRegistration[] = dbPending.map(p => ({
+          id: p.id,
+          data: {
+            name: p.name,
+            email: p.email,
+            password: p.password_hash,
+            company: p.company,
+            phone: p.phone,
+            role: p.role as UserRole,
+          },
+          status: p.status as "pending" | "approved" | "rejected",
+          createdAt: p.created_at,
+        }))
+        setPendingRegistrations(mapped)
+      } else {
+        // Fallback to localStorage
+        const stored = localStorage.getItem("moap_pending_registrations")
+        if (stored) {
+          setPendingRegistrations(JSON.parse(stored))
+        }
+      }
+    } catch {
+      // Fallback to localStorage
+      const stored = localStorage.getItem("moap_pending_registrations")
+      if (stored) {
+        setPendingRegistrations(JSON.parse(stored))
+      }
+    }
+  }
 
   const register = async (data: RegisterData): Promise<{ success: boolean; message: string }> => {
     try {
@@ -355,7 +388,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
       } else {
         // Refresh pending registrations from database
-        await loadPendingRegistrations()
+        await loadPendingRegistrationsFromDb()
       }
 
       return { success: true, message: "registrationPending" }
@@ -365,45 +398,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
   
-  const loadPendingRegistrations = async () => {
-    try {
-      const { data: dbPending } = await supabase
-        .from("pending_registrations")
-        .select("*")
-        .eq("status", "pending")
-        .order("created_at", { ascending: false })
-      
-      if (dbPending && dbPending.length > 0) {
-        const mapped: PendingRegistration[] = dbPending.map(p => ({
-          id: p.id,
-          data: {
-            name: p.name,
-            email: p.email,
-            password: p.password_hash,
-            company: p.company,
-            phone: p.phone,
-            role: p.role as UserRole,
-          },
-          status: p.status as "pending" | "approved" | "rejected",
-          createdAt: p.created_at,
-        }))
-        setPendingRegistrations(mapped)
-      } else {
-        // Fallback to localStorage
-        const stored = localStorage.getItem("moap_pending_registrations")
-        if (stored) {
-          setPendingRegistrations(JSON.parse(stored))
-        }
-      }
-    } catch {
-      // Fallback to localStorage
-      const stored = localStorage.getItem("moap_pending_registrations")
-      if (stored) {
-        setPendingRegistrations(JSON.parse(stored))
-      }
-    }
-  }
-
   const approveRegistration = async (id: string) => {
     try {
       const registration = pendingRegistrations.find((r) => r.id === id)
