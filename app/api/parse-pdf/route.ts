@@ -90,13 +90,13 @@ For each item found, extract:
 - quantity: The quantity as a number
 - price: The UNIT price as a number (not total)
 
-Return ONLY a valid JSON array. Example:
-[
+Return a JSON object with an "items" array. Example:
+{"items": [
   {"name": "Montagem e desmontagem de estaleiro", "unit": "vg", "quantity": 1, "price": 22000},
   {"name": "Betão C25/30 em fundações", "unit": "m3", "quantity": 38.58, "price": 200}
-]
+]}
 
-If no valid items found, return: []`
+If no valid items found, return: {"items": []}`
 
   try {
     const response = await openai.chat.completions.create({
@@ -106,21 +106,25 @@ If no valid items found, return: []`
         { role: "user", content: `Extract all budget items from this Portuguese construction budget:\n\n${truncatedText}` }
       ],
       temperature: 0.1,
-      max_tokens: 4000,
+      max_tokens: 8000,
+      response_format: { type: "json_object" },
     })
 
-    const content = response.choices[0]?.message?.content || "[]"
+    const content = response.choices[0]?.message?.content || "{}"
     debugInfo.push(`GPT response received, length: ${content.length}`)
     
-    // Extract JSON array from response
-    let jsonStr = content
-    const jsonMatch = content.match(/\[[\s\S]*\]/)
-    if (jsonMatch) {
-      jsonStr = jsonMatch[0]
+    // Parse JSON response
+    let items: ParsedItem[] = []
+    try {
+      const parsed = JSON.parse(content)
+      items = Array.isArray(parsed) ? parsed : (parsed.items || [])
+    } catch {
+      // Try to extract JSON array as fallback
+      const jsonMatch = content.match(/\[[\s\S]*\]/)
+      if (jsonMatch) {
+        items = JSON.parse(jsonMatch[0])
+      }
     }
-    
-    const parsed = JSON.parse(jsonStr)
-    const items = Array.isArray(parsed) ? parsed : []
     debugInfo.push(`GPT parsed ${items.length} items`)
     
     // Validate and normalize items
