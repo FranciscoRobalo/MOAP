@@ -26,6 +26,7 @@ interface AuthContextType {
   approveRegistration: (id: string) => Promise<void>
   rejectRegistration: (id: string) => Promise<void>
   refreshUser: () => Promise<void>
+  refreshPendingRegistrations: () => Promise<void>
 }
 
 interface RegisterData {
@@ -141,6 +142,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           data: { session },
         } = await supabase.auth.getSession()
 
+        let userRole: UserRole | null = null
+
         if (session?.user) {
           // Fetch user profile from database
           const { data: profile } = await supabase
@@ -150,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .single()
 
           if (profile) {
+            userRole = profile.role as UserRole
             setUser({
               id: profile.id,
               email: profile.email,
@@ -161,43 +165,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             })
           }
         }
-        // Load pending registrations for admins
-        if (profile?.role === "admin") {
-          try {
-            const { data: dbPending } = await supabase
-              .from("pending_registrations")
-              .select("*")
-              .eq("status", "pending")
-              .order("created_at", { ascending: false })
-            
-            if (dbPending && dbPending.length > 0) {
-              const mapped: PendingRegistration[] = dbPending.map(p => ({
-                id: p.id,
-                data: {
-                  name: p.name,
-                  email: p.email,
-                  password: p.password_hash,
-                  company: p.company,
-                  phone: p.phone,
-                  role: p.role as UserRole,
-                },
-                status: p.status as "pending" | "approved" | "rejected",
-                createdAt: p.created_at,
-              }))
-              setPendingRegistrations(mapped)
-            } else {
-              const stored = localStorage.getItem("moap_pending_registrations")
-              if (stored) {
-                setPendingRegistrations(JSON.parse(stored))
-              }
-            }
-          } catch {
-            const stored = localStorage.getItem("moap_pending_registrations")
-            if (stored) {
-              setPendingRegistrations(JSON.parse(stored))
-            }
-          }
-        }
+        
+        // Load pending registrations for admins (or always load for dev mode)
+        // In dev mode, admin users might be using DEV_USERS
+        await loadPendingRegistrationsFromDb()
       } catch (error) {
         console.error("Error initializing auth:", error)
       } finally {
@@ -538,6 +509,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         approveRegistration,
         rejectRegistration,
         refreshUser,
+        refreshPendingRegistrations: loadPendingRegistrationsFromDb,
       }}
     >
       {children}
