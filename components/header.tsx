@@ -75,26 +75,58 @@ export function Header() {
       {mobileMenuOpen && (
         <div className="border-t border-border/40 bg-background px-4 py-4 md:hidden">
           <nav className="flex flex-col gap-4">
-            <Link
+            <a
               href="#funcionalidades"
               className="text-sm text-muted-foreground"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={(e) => {
+                e.preventDefault()
+                setMobileMenuOpen(false)
+                setTimeout(() => {
+                  document.getElementById("funcionalidades")?.scrollIntoView({ behavior: "smooth" })
+                }, 100)
+              }}
             >
               {t("features")}
-            </Link>
-            <Link
+            </a>
+            <a
               href="#como-funciona"
               className="text-sm text-muted-foreground"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={(e) => {
+                e.preventDefault()
+                setMobileMenuOpen(false)
+                setTimeout(() => {
+                  document.getElementById("como-funciona")?.scrollIntoView({ behavior: "smooth" })
+                }, 100)
+              }}
             >
               {t("howItWorks")}
-            </Link>
-            <Link href="#relatorio" className="text-sm text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>
+            </a>
+            <a 
+              href="#relatorio" 
+              className="text-sm text-muted-foreground" 
+              onClick={(e) => {
+                e.preventDefault()
+                setMobileMenuOpen(false)
+                setTimeout(() => {
+                  document.getElementById("relatorio")?.scrollIntoView({ behavior: "smooth" })
+                }, 100)
+              }}
+            >
               {t("report")}
-            </Link>
-            <Link href="#carregar" className="text-sm text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>
+            </a>
+            <a 
+              href="#carregar" 
+              className="text-sm text-muted-foreground" 
+              onClick={(e) => {
+                e.preventDefault()
+                setMobileMenuOpen(false)
+                setTimeout(() => {
+                  document.getElementById("carregar")?.scrollIntoView({ behavior: "smooth" })
+                }, 100)
+              }}
+            >
               {t("uploadDocument")}
-            </Link>
+            </a>
             <Link href="/login?action=budget-request" className="text-sm font-medium text-primary" onClick={() => setMobileMenuOpen(false)}>
               {t("heroBudgetRequest")}
             </Link>

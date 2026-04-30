@@ -48,7 +48,7 @@ export function HowItWorks() {
   ]
 
   return (
-    <section ref={sectionRef} id="como-funciona" className="py-20 lg:py-32">
+    <section ref={sectionRef} id="como-funciona" className="py-20 lg:py-32 scroll-mt-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
           className={`mx-auto max-w-2xl text-center transition-all duration-700 ${
