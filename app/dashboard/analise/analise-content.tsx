@@ -750,18 +750,40 @@ export default function AnaliseContent() {
       const formData = new FormData()
       formData.append("file", file)
       
+      // Add timeout of 30 seconds for PDF parsing (can be slow with GPT)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+      
       const response = await fetch("/api/parse-pdf", {
         method: "POST",
-        body: formData
+        body: formData,
+        signal: controller.signal
       })
+      
+      clearTimeout(timeoutId)
+      
+      if (!response.ok) {
+        console.log("[v0] PDF API returned error status:", response.status)
+        throw new Error("API error")
+      }
       
       const data = await response.json()
       
       if (data.items && data.items.length > 0) {
         return data.items
       }
-    } catch {
-      // API failed, continue to fallback
+      
+      // If API returned no items, check for error message
+      if (data.error) {
+        console.log("[v0] PDF API error:", data.error)
+      }
+    } catch (err) {
+      // Log the error type for debugging
+      if (err instanceof Error && err.name === "AbortError") {
+        console.log("[v0] PDF parsing timed out after 30s, trying fallback...")
+      } else {
+        console.log("[v0] PDF API failed, trying fallback...", err)
+      }
     }
     
     // Fallback: try reading file as text directly
@@ -772,14 +794,15 @@ export default function AnaliseContent() {
         const items = parsePDFText(text)
         
         if (items.length > 0) {
+          console.log("[v0] Fallback parser found", items.length, "items")
           return items
         }
       }
-    } catch {
-      // Text reading failed
+    } catch (err) {
+      console.log("[v0] Text fallback failed:", err)
     }
     
-    throw new Error("Não foi possível extrair itens do PDF. Por favor, converta para CSV.")
+    throw new Error("Nao foi possivel extrair itens do PDF. Por favor, converta para CSV.")
   }
 
   // Wrapper for analyzing with a specific line limit (after payment selection)
@@ -1075,7 +1098,18 @@ www.moap.pt
         parsedItems = parseCSV(content)
       }
       
-      setAnalyzeStatus(`${parsedItems.length} itens encontrados. A validar preços...`)
+      // Check if any items were found
+      if (parsedItems.length === 0) {
+        setIsAnalyzing(false)
+        setAnalyzeProgress(0)
+        setAnalyzeStatus("")
+        toast.error("Nenhum item encontrado", {
+          description: "Nao foi possivel extrair itens do ficheiro. Verifique se o formato esta correto ou tente converter para CSV.",
+        })
+        return
+      }
+      
+      setAnalyzeStatus(`${parsedItems.length} itens encontrados. A validar precos...`)
       setAnalyzeProgress(4)
       
       // Check if public user needs to pay for large budgets (8+ lines)
@@ -1545,8 +1579,12 @@ www.moap.pt
       setIsAnalyzing(false)
       setAnalyzeProgress(0)
       setAnalyzeStatus("")
-      toast.error("Erro na análise", {
-        description: "Ocorreu um erro ao analisar o ficheiro. Tente novamente ou com outro ficheiro.",
+      
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido"
+      toast.error("Erro na analise", {
+        description: errorMessage.includes("extrair") 
+          ? errorMessage 
+          : "Ocorreu um erro ao analisar o ficheiro. Tente novamente ou converta para formato CSV.",
       })
     } finally {
       setIsAnalyzing(false)
