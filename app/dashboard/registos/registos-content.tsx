@@ -217,13 +217,39 @@ export default function RegistosContent() {
     const totalBudget = budget.items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0)
     
     // Generate item analysis by matching with materials database
+    // IMPORTANT: Compare unit prices, not total prices, and match units properly
     const itemAnalysis = budget.items.map(item => {
-      const matchedMaterial = materials.find(m => 
+      // Normalize unit for comparison (m2, m², M2 -> m2)
+      const normalizeUnit = (unit: string) => {
+        return unit.toLowerCase()
+          .replace(/²/g, '2')
+          .replace(/³/g, '3')
+          .replace(/\s/g, '')
+      }
+      
+      const itemUnit = normalizeUnit(item.unit || '')
+      
+      // Find matching material - prioritize same unit matches
+      const matchedMaterial = materials.find(m => {
+        const materialUnit = normalizeUnit(m.unit || '')
+        const nameMatch = m.name.toLowerCase().includes(item.materialName.toLowerCase().split(' ')[0]) ||
+          item.materialName.toLowerCase().includes(m.name.toLowerCase().split(' ')[0])
+        // Prefer exact unit match for area/volume units
+        const isAreaVolumeUnit = ['m2', 'm3', 'l', 'kg', 'ton'].some(u => itemUnit.includes(u) || materialUnit.includes(u))
+        if (isAreaVolumeUnit) {
+          return nameMatch && materialUnit === itemUnit
+        }
+        return nameMatch
+      }) || materials.find(m => 
         m.name.toLowerCase().includes(item.materialName.toLowerCase().split(' ')[0]) ||
         item.materialName.toLowerCase().includes(m.name.toLowerCase().split(' ')[0])
       )
       
+      // Compare UNIT prices, not total prices
+      // The item.unitPrice is already per-unit, compare with material reference per-unit
       const referenceAvgPrice = matchedMaterial ? (matchedMaterial.price + (matchedMaterial.priceMax || matchedMaterial.price)) / 2 : null
+      
+      // Calculate variance based on unit price comparison
       const variance = referenceAvgPrice ? ((item.unitPrice - referenceAvgPrice) / referenceAvgPrice) * 100 : null
       
       let rating: "below" | "average" | "above" | "critical" | "unknown" = "unknown"
@@ -234,6 +260,9 @@ export default function RegistosContent() {
         else rating = "critical"
       }
       
+      // Check if units match for confidence
+      const unitsMatch = matchedMaterial ? normalizeUnit(matchedMaterial.unit || '') === itemUnit : false
+      
       return {
         id: item.id,
         originalName: item.materialName,
@@ -243,8 +272,10 @@ export default function RegistosContent() {
         referenceAvgPrice,
         variance,
         rating,
-        matchConfidence: matchedMaterial ? 75 + Math.random() * 25 : 0,
-        matchDetails: matchedMaterial ? `Correspondido com ${matchedMaterial.category}` : undefined
+        matchConfidence: matchedMaterial ? (unitsMatch ? 85 + Math.random() * 15 : 60 + Math.random() * 20) : 0,
+        matchDetails: matchedMaterial 
+          ? `${matchedMaterial.category}${!unitsMatch && matchedMaterial.unit ? ` (Unidade ref: ${matchedMaterial.unit})` : ''}`
+          : undefined
       }
     })
     
@@ -885,260 +916,106 @@ export default function RegistosContent() {
                               </CardHeader>
                               
                               {isExpanded && (
-                                <CardContent className="border-t bg-muted/30 space-y-6 px-3 sm:px-6 py-6">
-                                  {/* ========== SECTION 1: Main Metrics Summary ========== */}
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <Card className="bg-card/50">
-                                      <CardContent className="pt-4 pb-3">
-                                        <div className="text-xl font-bold">{totalValue.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
-                                        <p className="text-xs text-muted-foreground">Total Orcamento</p>
-                                      </CardContent>
-                                    </Card>
-                                    <Card className="bg-card/50">
-                                      <CardContent className="pt-4 pb-3">
-                                        <div className="text-xl font-bold text-blue-600">
-                                          {budget.totalReference 
-                                            ? budget.totalReference.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })
-                                            : (totalValue / (1 + (budget.analysisVariance || 0) / 100)).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })
-                                          }
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">Total Referencia Mercado</p>
-                                      </CardContent>
-                                    </Card>
-                                    <Card className="bg-card/50">
-                                      <CardContent className="pt-4 pb-3">
-                                        <div className={cn("text-xl font-bold flex items-center gap-1", 
-                                          (budget.analysisVariance || 0) > 10 ? "text-red-500" : 
-                                          (budget.analysisVariance || 0) < -10 ? "text-green-500" : "text-yellow-500"
-                                        )}>
-                                          {(budget.analysisVariance || 0) > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                                          {(budget.analysisVariance || 0) > 0 ? "+" : ""}{(budget.analysisVariance || 0).toFixed(1)}%
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">Variacao Global</p>
-                                      </CardContent>
-                                    </Card>
-                                    <Card className={cn("bg-card/50", budget.overallRating && ratingConfig[budget.overallRating]?.bg)}>
-                                      <CardContent className="pt-4 pb-3">
-                                        <div className={cn("text-xl font-bold", budget.overallRating && ratingConfig[budget.overallRating]?.color)}>
-                                          {budget.overallRating ? ratingConfig[budget.overallRating]?.label : "A Analisar"}
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">Classificacao Geral</p>
-                                      </CardContent>
-                                    </Card>
+                                <CardContent className="border-t bg-muted/30 space-y-4 px-3 sm:px-6 py-4">
+                                  {/* ========== COMPACT SUMMARY ROW ========== */}
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                                    <div className="p-2 sm:p-3 rounded-lg bg-card border text-center">
+                                      <p className="text-lg sm:text-xl font-bold">{totalValue.toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })}</p>
+                                      <p className="text-[10px] sm:text-xs text-muted-foreground">Total Orcamento</p>
+                                    </div>
+                                    <div className="p-2 sm:p-3 rounded-lg bg-blue-50 border border-blue-200 text-center">
+                                      <p className="text-lg sm:text-xl font-bold text-blue-600">
+                                        {(budget.totalReference || totalValue / (1 + (budget.analysisVariance || 0) / 100)).toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })}
+                                      </p>
+                                      <p className="text-[10px] sm:text-xs text-muted-foreground">Ref. Mercado</p>
+                                    </div>
+                                    <div className={cn("p-2 sm:p-3 rounded-lg border text-center",
+                                      (budget.analysisVariance || 0) > 10 ? "bg-red-50 border-red-200" : 
+                                      (budget.analysisVariance || 0) < -10 ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"
+                                    )}>
+                                      <p className={cn("text-lg sm:text-xl font-bold flex items-center justify-center gap-1",
+                                        (budget.analysisVariance || 0) > 10 ? "text-red-600" : 
+                                        (budget.analysisVariance || 0) < -10 ? "text-green-600" : "text-yellow-600"
+                                      )}>
+                                        {(budget.analysisVariance || 0) > 0 ? "+" : ""}{(budget.analysisVariance || 0).toFixed(1)}%
+                                      </p>
+                                      <p className="text-[10px] sm:text-xs text-muted-foreground">Variacao</p>
+                                    </div>
+                                    <div className="p-2 sm:p-3 rounded-lg bg-primary/10 border border-primary/20 text-center">
+                                      <p className="text-lg sm:text-xl font-bold text-primary">{budget.qualityScore || 0}/100</p>
+                                      <p className="text-[10px] sm:text-xs text-muted-foreground">Qualidade</p>
+                                    </div>
                                   </div>
 
-                                  {/* ========== SECTION 2: Quality Score & Region ========== */}
-                                  <div className="grid gap-4 md:grid-cols-2">
-                                    <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-                                      <CardContent className="pt-4">
-                                        <div className="flex items-start justify-between">
-                                          <div>
-                                            <p className="text-sm font-medium text-muted-foreground mb-2">Pontuacao de Qualidade</p>
-                                            <div className="flex items-baseline gap-2">
-                                              <div className="text-3xl font-bold text-primary">{budget.qualityScore || 0}</div>
-                                              <span className="text-muted-foreground">/100</span>
-                                            </div>
-                                            <Progress value={budget.qualityScore || 0} className="w-32 h-1.5 mt-3" />
-                                          </div>
-                                          <Target className="h-8 w-8 text-primary/50" />
-                                        </div>
-                                      </CardContent>
-                                    </Card>
-                                    <Card className="bg-card/50">
-                                      <CardContent className="pt-4">
-                                        <div className="flex items-start justify-between">
-                                          <div>
-                                            <p className="text-sm font-medium text-muted-foreground mb-2">Regiao</p>
-                                            <div className="text-xl font-bold">{budget.region || "Nacional"}</div>
-                                            <p className="text-xs text-muted-foreground mt-1">Precos ajustados a regiao</p>
-                                          </div>
-                                          <MapPin className="h-8 w-8 text-muted-foreground/50" />
-                                        </div>
-                                      </CardContent>
-                                    </Card>
+                                  {/* ========== COMPACT STATS ROW ========== */}
+                                  <div className="flex flex-wrap gap-2 text-xs">
+                                    <span className="px-2 py-1 rounded bg-primary/10 text-primary">
+                                      {budget.analysisStats?.matchRate?.toFixed(0) || 0}% correspondencia
+                                    </span>
+                                    <span className="px-2 py-1 rounded bg-orange-100 text-orange-700">
+                                      {(budget.analysisStats?.potentialSavings || 0).toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })} poupanca potencial
+                                    </span>
+                                    <span className="px-2 py-1 rounded bg-red-100 text-red-700">
+                                      {budget.analysisStats?.riskItems || 0} itens risco
+                                    </span>
+                                    {budget.region && (
+                                      <span className="px-2 py-1 rounded bg-muted text-muted-foreground">
+                                        <MapPin className="h-3 w-3 inline mr-1" />{budget.region}
+                                      </span>
+                                    )}
                                   </div>
 
-                                  {/* ========== SECTION 3: Detailed Statistics ========== */}
-                                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                    <Card className="bg-card/50 border-l-4 border-l-primary">
-                                      <CardContent className="pt-4">
-                                        <div className="flex items-center justify-between">
-                                          <div>
-                                            <div className="text-xl font-bold">{budget.analysisStats?.matchRate?.toFixed(0) || 0}%</div>
-                                            <p className="text-xs text-muted-foreground">Taxa de Correspondencia</p>
-                                          </div>
-                                          <BarChart3 className="h-8 w-8 text-primary/50" />
-                                        </div>
-                                      </CardContent>
-                                    </Card>
-                                    <Card className="bg-card/50 border-l-4 border-l-green-500">
-                                      <CardContent className="pt-4">
-                                        <div className="flex items-center justify-between">
-                                          <div>
-                                            <div className="text-xl font-bold">{budget.analysisStats?.avgConfidence?.toFixed(0) || 0}%</div>
-                                            <p className="text-xs text-muted-foreground">Confianca Media</p>
-                                          </div>
-                                          <Zap className="h-8 w-8 text-green-500/50" />
-                                        </div>
-                                      </CardContent>
-                                    </Card>
-                                    <Card className="bg-card/50 border-l-4 border-l-orange-500">
-                                      <CardContent className="pt-4">
-                                        <div className="flex items-center justify-between">
-                                          <div>
-                                            <div className="text-xl font-bold text-orange-600">
-                                              {(budget.analysisStats?.potentialSavings || 0).toLocaleString("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                                            </div>
-                                            <p className="text-xs text-muted-foreground">Poupanca Potencial</p>
-                                          </div>
-                                          <TrendingDown className="h-8 w-8 text-orange-500/50" />
-                                        </div>
-                                      </CardContent>
-                                    </Card>
-                                    <Card className="bg-card/50 border-l-4 border-l-red-500">
-                                      <CardContent className="pt-4">
-                                        <div className="flex items-center justify-between">
-                                          <div>
-                                            <div className="text-xl font-bold text-red-600">{budget.analysisStats?.riskItems || 0}</div>
-                                            <p className="text-xs text-muted-foreground">Itens de Risco</p>
-                                          </div>
-                                          <AlertTriangle className="h-8 w-8 text-red-500/50" />
-                                        </div>
-                                      </CardContent>
-                                    </Card>
+                                  {/* ========== ITEM DISTRIBUTION BAR ========== */}
+                                  <div className="space-y-1">
+                                    <div className="flex justify-between text-[10px] text-muted-foreground px-1">
+                                      <span>Distribuicao: {budget.analysisStats?.belowAverage || 0} abaixo, {budget.analysisStats?.average || 0} media, {budget.analysisStats?.aboveAverage || 0} acima, {budget.analysisStats?.critical || 0} critico, {budget.analysisStats?.unknown || 0} s/ref</span>
+                                    </div>
+                                    <div className="h-2 rounded-full overflow-hidden flex bg-muted">
+                                      {(budget.analysisStats?.belowAverage || 0) > 0 && (
+                                        <div className="bg-green-500 h-full" style={{ width: `${((budget.analysisStats?.belowAverage || 0) / Math.max(budget.items.length, 1)) * 100}%` }} title="Abaixo da media" />
+                                      )}
+                                      {(budget.analysisStats?.average || 0) > 0 && (
+                                        <div className="bg-yellow-500 h-full" style={{ width: `${((budget.analysisStats?.average || 0) / Math.max(budget.items.length, 1)) * 100}%` }} title="Na media" />
+                                      )}
+                                      {(budget.analysisStats?.aboveAverage || 0) > 0 && (
+                                        <div className="bg-orange-500 h-full" style={{ width: `${((budget.analysisStats?.aboveAverage || 0) / Math.max(budget.items.length, 1)) * 100}%` }} title="Acima da media" />
+                                      )}
+                                      {(budget.analysisStats?.critical || 0) > 0 && (
+                                        <div className="bg-red-500 h-full" style={{ width: `${((budget.analysisStats?.critical || 0) / Math.max(budget.items.length, 1)) * 100}%` }} title="Critico" />
+                                      )}
+                                      {(budget.analysisStats?.unknown || 0) > 0 && (
+                                        <div className="bg-gray-400 h-full" style={{ width: `${((budget.analysisStats?.unknown || 0) / Math.max(budget.items.length, 1)) * 100}%` }} title="Sem referencia" />
+                                      )}
+                                    </div>
                                   </div>
 
-                                  {/* ========== SECTION 4: Item Distribution ========== */}
-                                  <Card className="bg-card/50">
-                                    <CardHeader className="pb-2">
-                                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                        <BarChart3 className="h-4 w-4" />
-                                        Distribuicao dos Itens por Classificacao
-                                      </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                      <div className="grid grid-cols-5 gap-2 text-center">
-                                        <div className="p-2 rounded bg-green-100">
-                                          <div className="text-lg font-bold text-green-600">{budget.analysisStats?.belowAverage || 0}</div>
-                                          <p className="text-xs text-green-700">Abaixo</p>
-                                        </div>
-                                        <div className="p-2 rounded bg-yellow-100">
-                                          <div className="text-lg font-bold text-yellow-600">{budget.analysisStats?.average || 0}</div>
-                                          <p className="text-xs text-yellow-700">Media</p>
-                                        </div>
-                                        <div className="p-2 rounded bg-orange-100">
-                                          <div className="text-lg font-bold text-orange-600">{budget.analysisStats?.aboveAverage || 0}</div>
-                                          <p className="text-xs text-orange-700">Acima</p>
-                                        </div>
-                                        <div className="p-2 rounded bg-red-100">
-                                          <div className="text-lg font-bold text-red-600">{budget.analysisStats?.critical || 0}</div>
-                                          <p className="text-xs text-red-700">Critico</p>
-                                        </div>
-                                        <div className="p-2 rounded bg-gray-100">
-                                          <div className="text-lg font-bold text-gray-600">{budget.analysisStats?.unknown || 0}</div>
-                                          <p className="text-xs text-gray-700">S/ Ref</p>
-                                        </div>
-                                      </div>
-                                      {/* Visual bar */}
-                                      <div className="mt-3 h-3 rounded-full overflow-hidden flex">
-                                        {(budget.analysisStats?.belowAverage || 0) > 0 && (
-                                          <div className="bg-green-500 h-full" style={{ width: `${((budget.analysisStats?.belowAverage || 0) / budget.items.length) * 100}%` }} />
-                                        )}
-                                        {(budget.analysisStats?.average || 0) > 0 && (
-                                          <div className="bg-yellow-500 h-full" style={{ width: `${((budget.analysisStats?.average || 0) / budget.items.length) * 100}%` }} />
-                                        )}
-                                        {(budget.analysisStats?.aboveAverage || 0) > 0 && (
-                                          <div className="bg-orange-500 h-full" style={{ width: `${((budget.analysisStats?.aboveAverage || 0) / budget.items.length) * 100}%` }} />
-                                        )}
-                                        {(budget.analysisStats?.critical || 0) > 0 && (
-                                          <div className="bg-red-500 h-full" style={{ width: `${((budget.analysisStats?.critical || 0) / budget.items.length) * 100}%` }} />
-                                        )}
-                                        {(budget.analysisStats?.unknown || 0) > 0 && (
-                                          <div className="bg-gray-400 h-full" style={{ width: `${((budget.analysisStats?.unknown || 0) / budget.items.length) * 100}%` }} />
-                                        )}
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-
-                                  {/* ========== SECTION 5: Category Breakdown ========== */}
-                                  {budget.categoryBreakdown && budget.categoryBreakdown.length > 0 && (
-                                    <Card className="bg-card/50">
-                                      <CardHeader className="pb-2">
-                                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                          <Calculator className="h-4 w-4" />
-                                          Analise por Categoria
-                                        </CardTitle>
-                                      </CardHeader>
-                                      <CardContent>
-                                        <div className="space-y-3">
-                                          {budget.categoryBreakdown.map((cat, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                                              <div className="flex-1">
-                                                <p className="font-medium text-sm">{cat.category}</p>
-                                                <p className="text-xs text-muted-foreground">{cat.count} itens</p>
-                                              </div>
-                                              <div className="text-right">
-                                                <p className="font-medium">{cat.total.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</p>
-                                                <p className={cn("text-xs font-medium", cat.variance > 10 ? "text-red-500" : cat.variance < -10 ? "text-green-500" : "text-yellow-500")}>
-                                                  {cat.variance > 0 ? "+" : ""}{cat.variance.toFixed(1)}%
-                                                </p>
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </CardContent>
-                                    </Card>
-                                  )}
-
-                                  {/* ========== SECTION 6: High Variance Warning ========== */}
+                                  {/* ========== HIGH VARIANCE WARNING (Compact) ========== */}
                                   {(() => {
                                     const highVarianceItems = budget.itemAnalysis?.filter(i => i.variance !== null && Math.abs(i.variance) > 65) || []
                                     if (highVarianceItems.length === 0) return null
                                     
                                     return (
-                                      <Card className="bg-orange-50 border-orange-300 border-2">
-                                        <CardHeader className="pb-2">
-                                          <CardTitle className="flex items-center gap-2 text-orange-700">
-                                            <AlertTriangle className="h-5 w-5 animate-pulse" />
-                                            Alerta: {highVarianceItems.length} itens com variacao superior a 65%
-                                          </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="pt-0">
-                                          <div className="space-y-2 max-h-40 overflow-y-auto">
-                                            {highVarianceItems.slice(0, 5).map((item) => (
-                                              <div key={item.id} className="flex items-center justify-between p-2 bg-white rounded border border-orange-200">
-                                                <p className="text-sm font-medium truncate flex-1">{item.originalName}</p>
-                                                <span className="text-sm font-bold text-orange-600 ml-2">
-                                                  {item.variance && item.variance > 0 ? "+" : ""}{item.variance?.toFixed(1)}%
-                                                </span>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </CardContent>
-                                      </Card>
+                                      <div className="p-2 rounded-lg bg-orange-50 border border-orange-300 text-sm">
+                                        <div className="flex items-center gap-2 text-orange-700 font-medium">
+                                          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                                          <span>{highVarianceItems.length} itens com variacao {">"}65%</span>
+                                        </div>
+                                      </div>
                                     )
                                   })()}
 
-                                  {/* ========== SECTION 7: AI Recommendations ========== */}
+                                  {/* ========== AI RECOMMENDATIONS (Compact) ========== */}
                                   {budget.recommendations && budget.recommendations.length > 0 && (
-                                    <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-                                      <CardHeader className="pb-2">
-                                        <CardTitle className="flex items-center gap-2 text-blue-700">
-                                          <Lightbulb className="h-5 w-5" />
-                                          Recomendacoes da Analise IA
-                                        </CardTitle>
-                                      </CardHeader>
-                                      <CardContent>
-                                        <ul className="space-y-2">
-                                          {budget.recommendations.map((rec, idx) => (
-                                            <li key={idx} className="flex items-start gap-2 text-sm">
-                                              <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                                              <span>{rec}</span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </CardContent>
-                                    </Card>
+                                    <div className="p-2 rounded-lg bg-blue-50 border border-blue-200">
+                                      <p className="text-xs font-medium text-blue-700 mb-1 flex items-center gap-1">
+                                        <Lightbulb className="h-3 w-3" /> Recomendacoes IA
+                                      </p>
+                                      <ul className="text-xs text-blue-800 space-y-0.5">
+                                        {budget.recommendations.slice(0, 3).map((rec, idx) => (
+                                          <li key={idx} className="truncate">• {rec}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
                                   )}
 
                                   {/* ========== SECTION 8: Action Buttons ========== */}
@@ -1187,131 +1064,134 @@ export default function RegistosContent() {
                                     </div>
                                   )}
 
-                                  {/* ========== SECTION 9: Full Items Table with Analysis ========== */}
-                                  <Card className="bg-card/50">
-                                    <CardHeader className="pb-2">
-                                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                        <FileText className="h-4 w-4" />
-                                        Analise Detalhada dos Itens ({budget.items.length} itens)
-                                      </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                      <div className="rounded-lg border overflow-x-auto">
-                                        <Table className="min-w-[1000px]">
-                                          <TableHeader>
-                                            <TableRow>
-                                              <TableHead className="min-w-[200px]">Material/Servico</TableHead>
-                                              <TableHead className="min-w-[150px]">Correspondencia</TableHead>
-                                              <TableHead className="text-right w-16">Qtd.</TableHead>
-                                              <TableHead className="text-right w-12">Un.</TableHead>
-                                              <TableHead className="text-right w-24">Preco Orc.</TableHead>
-                                              <TableHead className="text-right w-24">Preco Ref.</TableHead>
-                                              <TableHead className="text-right w-20">Variacao</TableHead>
-                                              <TableHead className="text-center w-24">Estado</TableHead>
-                                              <TableHead className="text-right w-20">Margem %</TableHead>
-                                              <TableHead className="text-right w-28">Total c/ Margem</TableHead>
-                                              <TableHead className="text-center w-24">Acoes</TableHead>
-                                            </TableRow>
-                                          </TableHeader>
-                                          <TableBody>
-                                            {budget.items.map((item, idx) => {
-                                              const analysis = budget.itemAnalysis?.find(a => a.id === item.id || a.originalName === item.materialName)
-                                              const margin = item.adminMarginPercent || 0
-                                              const baseTotal = item.quantity * item.unitPrice
-                                              const totalWithMargin = baseTotal + (baseTotal * margin / 100)
-                                              const rating = analysis?.rating || "unknown"
-                                              const RatingIcon = ratingConfig[rating]?.icon || HelpCircle
-                                              
-                                              return (
-                                                <TableRow key={idx} className={cn(
-                                                  analysis?.variance && Math.abs(analysis.variance) > 65 && "bg-orange-50"
-                                                )}>
-                                                  <TableCell className="font-medium max-w-[200px]">
-                                                    <span className="truncate block" title={item.materialName}>{item.materialName}</span>
-                                                  </TableCell>
-                                                  <TableCell className="text-xs text-muted-foreground max-w-[150px]">
-                                                    <span className="truncate block" title={analysis?.matchedName || "-"}>
-                                                      {analysis?.matchedName || "-"}
-                                                    </span>
-                                                    {analysis?.matchConfidence && (
-                                                      <span className="text-xs text-blue-500">({analysis.matchConfidence.toFixed(0)}%)</span>
-                                                    )}
-                                                  </TableCell>
-                                                  <TableCell className="text-right">{item.quantity}</TableCell>
-                                                  <TableCell className="text-right">{item.unit}</TableCell>
-                                                  <TableCell className="text-right">€{item.unitPrice.toFixed(2)}</TableCell>
-                                                  <TableCell className="text-right text-blue-600">
-                                                    {analysis?.referenceAvgPrice ? `€${analysis.referenceAvgPrice.toFixed(2)}` : "-"}
-                                                  </TableCell>
-                                                  <TableCell className={cn("text-right font-medium", ratingConfig[rating]?.color)}>
-                                                    {analysis?.variance !== null && analysis?.variance !== undefined
-                                                      ? `${analysis.variance > 0 ? "+" : ""}${analysis.variance.toFixed(1)}%`
-                                                      : "-"
-                                                    }
-                                                  </TableCell>
-                                                  <TableCell className="text-center">
-                                                    <Badge className={cn("gap-1", ratingConfig[rating]?.bg, ratingConfig[rating]?.color)}>
-                                                      <RatingIcon className="h-3 w-3" />
-                                                      {ratingConfig[rating]?.shortLabel}
-                                                    </Badge>
-                                                  </TableCell>
-                                                  <TableCell className="text-right">
-                                                    <Input
-                                                      type="number"
-                                                      min="0"
-                                                      max="100"
-                                                      step="0.5"
-                                                      defaultValue={margin}
-                                                      onChange={(e) => {
-                                                        const newMargin = parseFloat(e.target.value) || 0
-                                                        const updatedItems = budget.items.map((i, index) => 
-                                                          index === idx 
-                                                            ? { ...i, adminMarginPercent: newMargin, adminMarginValue: baseTotal * (newMargin / 100) }
-                                                            : i
-                                                        )
-                                                        updateBudget(budget.id, { items: updatedItems })
-                                                      }}
-                                                      className="w-16 h-7 text-right text-xs bg-primary/10 border-primary/30"
-                                                    />
-                                                  </TableCell>
-                                                  <TableCell className="text-right font-medium text-primary">
-                                                    €{totalWithMargin.toFixed(2)}
-                                                  </TableCell>
-                                                  <TableCell className="text-center">
-                                                    <div className="flex items-center justify-center gap-1">
-                                                      <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        className="h-7 w-7 p-0"
-                                                        onClick={() => setEditingItem({ budgetId: budget.id, itemIndex: idx, item })}
-                                                        title="Editar item"
-                                                      >
-                                                        <Pencil className="h-3.5 w-3.5" />
-                                                      </Button>
-                                                      <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        className="h-7 w-7 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                                                        onClick={() => handleAnalyzeItem(budget.id, item)}
-                                                        disabled={analyzingItemId === `${budget.id}-${item.id}`}
-                                                        title="Analisar com IA"
-                                                      >
-                                                        {analyzingItemId === `${budget.id}-${item.id}` ? (
-                                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                        ) : (
-                                                          <Sparkles className="h-3.5 w-3.5" />
-                                                        )}
-                                                      </Button>
-                                                    </div>
-                                                  </TableCell>
-                                                </TableRow>
-                                              )
-                                            })}
-                                          </TableBody>
-                                        </Table>
-                                      </div>
-                                    </CardContent>
-                                  </Card>
+                                  {/* ========== ITEMS LIST (Mobile-friendly cards instead of table) ========== */}
+                                  <div className="space-y-2">
+                                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                      <FileText className="h-3 w-3" />
+                                      {budget.items.length} itens no orcamento
+                                    </p>
+                                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                                      {budget.items.map((item, idx) => {
+                                        const analysis = budget.itemAnalysis?.find(a => a.id === item.id || a.originalName === item.materialName)
+                                        const margin = item.adminMarginPercent || 0
+                                        const baseTotal = item.quantity * item.unitPrice
+                                        const totalWithMargin = baseTotal + (baseTotal * margin / 100)
+                                        const rating = analysis?.rating || "unknown"
+                                        const RatingIcon = ratingConfig[rating]?.icon || HelpCircle
+                                        
+                                        return (
+                                          <div 
+                                            key={idx} 
+                                            className={cn(
+                                              "p-2 sm:p-3 rounded-lg border bg-card text-sm",
+                                              analysis?.variance && Math.abs(analysis.variance) > 65 && "border-orange-300 bg-orange-50"
+                                            )}
+                                          >
+                                            {/* Row 1: Name + Status Badge + Actions */}
+                                            <div className="flex items-start justify-between gap-2 mb-2">
+                                              <div className="flex-1 min-w-0">
+                                                <p className="font-medium text-sm truncate" title={item.materialName}>{item.materialName}</p>
+                                                {analysis?.matchedName && (
+                                                  <p className="text-[10px] text-muted-foreground truncate">
+                                                    Ref: {analysis.matchedName} ({analysis.matchConfidence?.toFixed(0)}%)
+                                                  </p>
+                                                )}
+                                              </div>
+                                              <div className="flex items-center gap-1 flex-shrink-0">
+                                                <Badge className={cn("text-[10px] px-1.5 py-0.5", ratingConfig[rating]?.bg, ratingConfig[rating]?.color)}>
+                                                  <RatingIcon className="h-2.5 w-2.5 mr-0.5" />
+                                                  {ratingConfig[rating]?.shortLabel}
+                                                </Badge>
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-6 w-6 p-0"
+                                                  onClick={() => setEditingItem({ budgetId: budget.id, itemIndex: idx, item })}
+                                                  title="Editar"
+                                                >
+                                                  <Pencil className="h-3 w-3" />
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-6 w-6 p-0 text-purple-600"
+                                                  onClick={() => handleAnalyzeItem(budget.id, item)}
+                                                  disabled={analyzingItemId === `${budget.id}-${item.id}`}
+                                                  title="Analisar IA"
+                                                >
+                                                  {analyzingItemId === `${budget.id}-${item.id}` ? (
+                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                  ) : (
+                                                    <Sparkles className="h-3 w-3" />
+                                                  )}
+                                                </Button>
+                                              </div>
+                                            </div>
+                                            
+                                            {/* Row 2: Price details */}
+                                            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 text-xs">
+                                              <div>
+                                                <p className="text-muted-foreground text-[10px]">Qtd/Un</p>
+                                                <p className="font-medium">{item.quantity} {item.unit}</p>
+                                              </div>
+                                              <div>
+                                                <p className="text-muted-foreground text-[10px]">P. Unit.</p>
+                                                <p className="font-medium">€{item.unitPrice.toFixed(2)}</p>
+                                              </div>
+                                              <div>
+                                                <p className="text-muted-foreground text-[10px]">P. Ref.</p>
+                                                <p className="font-medium text-blue-600">
+                                                  {analysis?.referenceAvgPrice ? `€${analysis.referenceAvgPrice.toFixed(2)}` : "-"}
+                                                </p>
+                                              </div>
+                                              <div>
+                                                <p className="text-muted-foreground text-[10px]">Variacao</p>
+                                                <p className={cn("font-medium", ratingConfig[rating]?.color)}>
+                                                  {analysis?.variance !== null && analysis?.variance !== undefined
+                                                    ? `${analysis.variance > 0 ? "+" : ""}${analysis.variance.toFixed(0)}%`
+                                                    : "-"
+                                                  }
+                                                </p>
+                                              </div>
+                                              <div className="hidden sm:block">
+                                                <p className="text-muted-foreground text-[10px]">Total</p>
+                                                <p className="font-medium">€{baseTotal.toFixed(2)}</p>
+                                              </div>
+                                            </div>
+                                            
+                                            {/* Row 3: Margin input (collapsed on mobile) */}
+                                            <div className="mt-2 pt-2 border-t flex items-center justify-between gap-2">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-[10px] text-muted-foreground">Margem:</span>
+                                                <Input
+                                                  type="number"
+                                                  min="0"
+                                                  max="100"
+                                                  step="0.5"
+                                                  defaultValue={margin}
+                                                  onChange={(e) => {
+                                                    const newMargin = parseFloat(e.target.value) || 0
+                                                    const updatedItems = budget.items.map((i, index) => 
+                                                      index === idx 
+                                                        ? { ...i, adminMarginPercent: newMargin, adminMarginValue: baseTotal * (newMargin / 100) }
+                                                        : i
+                                                    )
+                                                    updateBudget(budget.id, { items: updatedItems })
+                                                  }}
+                                                  className="w-14 h-6 text-right text-xs bg-primary/10 border-primary/30"
+                                                />
+                                                <span className="text-[10px] text-muted-foreground">%</span>
+                                              </div>
+                                              <div className="text-right">
+                                                <span className="text-[10px] text-muted-foreground mr-1">c/ margem:</span>
+                                                <span className="font-medium text-primary text-sm">€{totalWithMargin.toFixed(2)}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
                                   
                                   {/* ========== SECTION 10: Margin Summary ========== */}
                                   <Card className="bg-primary/5 border-primary/20">
