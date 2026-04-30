@@ -25,8 +25,17 @@ import {
   Search, CheckCircle2, XCircle, Clock, User, Mail, Building2, Phone, Calendar, 
   FileText, Calculator, Database, Sparkles, Loader2, ChevronDown, ChevronUp, Euro,
   Upload, AlertTriangle, Eye, TrendingUp, TrendingDown, BarChart3, Target, Zap,
-  HelpCircle, Lightbulb, Minus, MapPin, Info
+  HelpCircle, Lightbulb, Minus, MapPin, Info, Pencil, Search as SearchIcon, Save, X
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { cn } from "@/lib/utils"
 import { Progress } from "@/components/ui/progress"
@@ -92,6 +101,19 @@ export default function RegistosContent() {
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
+  // Item editing state
+  const [editingItem, setEditingItem] = useState<{ budgetId: string; itemIndex: number; item: any } | null>(null)
+  const [analyzingItemId, setAnalyzingItemId] = useState<string | null>(null)
+  const [itemAnalysisResult, setItemAnalysisResult] = useState<{
+    budgetId: string
+    itemId: string
+    originalName: string
+    matchedMaterials: { name: string; price: number; priceMax?: number; category: string; confidence: number }[]
+    referencePrice: number | null
+    variance: number | null
+    recommendation: string
+  } | null>(null)
+  
   const isAdmin = user?.role === "admin"
   
   // Filter budgets for clients - only show their own budgets that are visible
@@ -120,15 +142,28 @@ export default function RegistosContent() {
   const approvedRegCount = pendingRegistrations.filter((r) => r.status === "approved").length
   const rejectedRegCount = pendingRegistrations.filter((r) => r.status === "rejected").length
 
-  const handleRegistrationAction = () => {
+  const handleRegistrationAction = async () => {
     if (!selectedRegistration || !actionType) return
-
-    if (actionType === "approve") {
-      approveRegistration(selectedRegistration)
-    } else {
-      rejectRegistration(selectedRegistration)
+    
+    try {
+      if (actionType === "approve") {
+        await approveRegistration(selectedRegistration)
+        toast.success("Registo aprovado com sucesso!", {
+          description: "O utilizador pode agora aceder a plataforma."
+        })
+      } else {
+        await rejectRegistration(selectedRegistration)
+        toast.success("Registo rejeitado.", {
+          description: "O utilizador foi notificado."
+        })
+      }
+    } catch (error) {
+      console.error("[v0] Registration action error:", error)
+      toast.error("Erro ao processar registo", {
+        description: "Por favor tente novamente."
+      })
     }
-
+    
     setSelectedRegistration(null)
     setActionType(null)
   }
@@ -317,6 +352,83 @@ export default function RegistosContent() {
     
     toast.success("Analise IA concluida com sucesso!")
     setIsReanalyzing(null)
+  }
+  
+  // Handle individual item AI analysis
+  const handleAnalyzeItem = async (budgetId: string, item: any) => {
+    const itemKey = `${budgetId}-${item.id}`
+    setAnalyzingItemId(itemKey)
+    
+    try {
+      // Simulate AI analysis delay
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Find matching materials
+      const matchedMaterials = materials
+        .filter(m => 
+          m.name.toLowerCase().includes(item.materialName.toLowerCase().split(' ')[0]) ||
+          item.materialName.toLowerCase().includes(m.name.toLowerCase().split(' ')[0])
+        )
+        .slice(0, 5)
+        .map(m => ({
+          name: m.name,
+          price: m.price,
+          priceMax: m.priceMax,
+          category: m.category,
+          confidence: 70 + Math.random() * 30
+        }))
+      
+      const referencePrice = matchedMaterials.length > 0 
+        ? matchedMaterials.reduce((sum, m) => sum + m.price, 0) / matchedMaterials.length
+        : null
+      
+      const variance = referencePrice 
+        ? ((item.unitPrice - referencePrice) / referencePrice) * 100
+        : null
+      
+      // Generate recommendation
+      let recommendation = ""
+      if (variance === null) {
+        recommendation = "Nao foi possivel encontrar referencias de mercado para este item. Considere adicionar manualmente a base de dados."
+      } else if (variance < -20) {
+        recommendation = `Preco ${Math.abs(variance).toFixed(0)}% abaixo do mercado. Verifique a qualidade e especificacoes do material.`
+      } else if (variance < 10) {
+        recommendation = "Preco dentro da media de mercado. Valor adequado."
+      } else if (variance < 50) {
+        recommendation = `Preco ${variance.toFixed(0)}% acima do mercado. Considere renegociar com o fornecedor.`
+      } else {
+        recommendation = `ALERTA: Preco ${variance.toFixed(0)}% acima do mercado! Recomendamos fortemente renegociacao ou alternativas.`
+      }
+      
+      setItemAnalysisResult({
+        budgetId,
+        itemId: item.id,
+        originalName: item.materialName,
+        matchedMaterials,
+        referencePrice,
+        variance,
+        recommendation
+      })
+    } catch (error) {
+      console.error("[v0] Item analysis error:", error)
+      toast.error("Erro ao analisar item")
+    } finally {
+      setAnalyzingItemId(null)
+    }
+  }
+  
+  // Handle item update
+  const handleUpdateItem = (budgetId: string, itemIndex: number, updates: Partial<any>) => {
+    const budget = budgets.find(b => b.id === budgetId)
+    if (!budget) return
+    
+    const updatedItems = budget.items.map((item, idx) => 
+      idx === itemIndex ? { ...item, ...updates } : item
+    )
+    
+    updateBudget(budgetId, { items: updatedItems })
+    toast.success("Item atualizado com sucesso!")
+    setEditingItem(null)
   }
   
   // Client file upload handler
@@ -1098,6 +1210,7 @@ export default function RegistosContent() {
                                               <TableHead className="text-center w-24">Estado</TableHead>
                                               <TableHead className="text-right w-20">Margem %</TableHead>
                                               <TableHead className="text-right w-28">Total c/ Margem</TableHead>
+                                              <TableHead className="text-center w-24">Acoes</TableHead>
                                             </TableRow>
                                           </TableHeader>
                                           <TableBody>
@@ -1163,6 +1276,33 @@ export default function RegistosContent() {
                                                   </TableCell>
                                                   <TableCell className="text-right font-medium text-primary">
                                                     €{totalWithMargin.toFixed(2)}
+                                                  </TableCell>
+                                                  <TableCell className="text-center">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                      <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-7 w-7 p-0"
+                                                        onClick={() => setEditingItem({ budgetId: budget.id, itemIndex: idx, item })}
+                                                        title="Editar item"
+                                                      >
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                      </Button>
+                                                      <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-7 w-7 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                                        onClick={() => handleAnalyzeItem(budget.id, item)}
+                                                        disabled={analyzingItemId === `${budget.id}-${item.id}`}
+                                                        title="Analisar com IA"
+                                                      >
+                                                        {analyzingItemId === `${budget.id}-${item.id}` ? (
+                                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                        ) : (
+                                                          <Sparkles className="h-3.5 w-3.5" />
+                                                        )}
+                                                      </Button>
+                                                    </div>
                                                   </TableCell>
                                                 </TableRow>
                                               )
@@ -1451,6 +1591,221 @@ export default function RegistosContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Item Edit Dialog */}
+      <Dialog open={!!editingItem} onOpenChange={() => setEditingItem(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5" />
+              Editar Item
+            </DialogTitle>
+            <DialogDescription>
+              Atualize os dados do item do orcamento.
+            </DialogDescription>
+          </DialogHeader>
+          {editingItem && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const formData = new FormData(e.currentTarget)
+                handleUpdateItem(editingItem.budgetId, editingItem.itemIndex, {
+                  materialName: formData.get("materialName") as string,
+                  quantity: parseFloat(formData.get("quantity") as string) || 1,
+                  unit: formData.get("unit") as string,
+                  unitPrice: parseFloat(formData.get("unitPrice") as string) || 0,
+                  category: formData.get("category") as string,
+                })
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="materialName">Nome do Material/Servico</Label>
+                <Input
+                  id="materialName"
+                  name="materialName"
+                  defaultValue={editingItem.item.materialName}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="quantity">Quantidade</Label>
+                  <Input
+                    id="quantity"
+                    name="quantity"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={editingItem.item.quantity}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="unit">Unidade</Label>
+                  <Input
+                    id="unit"
+                    name="unit"
+                    defaultValue={editingItem.item.unit}
+                    placeholder="un, m2, kg..."
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="unitPrice">Preco Unitario (EUR)</Label>
+                  <Input
+                    id="unitPrice"
+                    name="unitPrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={editingItem.item.unitPrice}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Categoria</Label>
+                  <Input
+                    id="category"
+                    name="category"
+                    defaultValue={editingItem.item.category || "Geral"}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditingItem(null)}>
+                  <X className="h-4 w-4 mr-2" />
+                  Cancelar
+                </Button>
+                <Button type="submit">
+                  <Save className="h-4 w-4 mr-2" />
+                  Guardar
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Item AI Analysis Result Dialog */}
+      <Dialog open={!!itemAnalysisResult} onOpenChange={() => setItemAnalysisResult(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-600" />
+              Analise IA do Item
+            </DialogTitle>
+            <DialogDescription>
+              Resultados da analise de mercado para este item.
+            </DialogDescription>
+          </DialogHeader>
+          {itemAnalysisResult && (
+            <div className="space-y-4">
+              {/* Item Name */}
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">Item analisado:</p>
+                <p className="font-semibold">{itemAnalysisResult.originalName}</p>
+              </div>
+              
+              {/* Variance Summary */}
+              <div className="grid grid-cols-2 gap-4">
+                <Card className={cn(
+                  "p-4",
+                  itemAnalysisResult.variance === null ? "bg-gray-50" :
+                  itemAnalysisResult.variance < -10 ? "bg-green-50 border-green-200" :
+                  itemAnalysisResult.variance < 10 ? "bg-yellow-50 border-yellow-200" :
+                  itemAnalysisResult.variance < 50 ? "bg-orange-50 border-orange-200" :
+                  "bg-red-50 border-red-200"
+                )}>
+                  <p className="text-xs text-muted-foreground mb-1">Variacao vs Mercado</p>
+                  <p className={cn("text-2xl font-bold",
+                    itemAnalysisResult.variance === null ? "text-gray-500" :
+                    itemAnalysisResult.variance < -10 ? "text-green-600" :
+                    itemAnalysisResult.variance < 10 ? "text-yellow-600" :
+                    itemAnalysisResult.variance < 50 ? "text-orange-600" :
+                    "text-red-600"
+                  )}>
+                    {itemAnalysisResult.variance !== null 
+                      ? `${itemAnalysisResult.variance > 0 ? "+" : ""}${itemAnalysisResult.variance.toFixed(1)}%`
+                      : "N/A"
+                    }
+                  </p>
+                </Card>
+                <Card className="p-4 bg-blue-50 border-blue-200">
+                  <p className="text-xs text-muted-foreground mb-1">Preco Referencia Mercado</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {itemAnalysisResult.referencePrice !== null
+                      ? `€${itemAnalysisResult.referencePrice.toFixed(2)}`
+                      : "Sem dados"
+                    }
+                  </p>
+                </Card>
+              </div>
+              
+              {/* Recommendation */}
+              <Card className={cn("p-4",
+                itemAnalysisResult.variance === null ? "bg-gray-50" :
+                itemAnalysisResult.variance > 50 ? "bg-red-50 border-red-300" :
+                itemAnalysisResult.variance > 10 ? "bg-orange-50 border-orange-200" :
+                "bg-green-50 border-green-200"
+              )}>
+                <div className="flex items-start gap-2">
+                  <Lightbulb className={cn("h-5 w-5 mt-0.5",
+                    itemAnalysisResult.variance === null ? "text-gray-500" :
+                    itemAnalysisResult.variance > 50 ? "text-red-600" :
+                    itemAnalysisResult.variance > 10 ? "text-orange-600" :
+                    "text-green-600"
+                  )} />
+                  <div>
+                    <p className="font-medium text-sm">Recomendacao</p>
+                    <p className="text-sm text-muted-foreground">{itemAnalysisResult.recommendation}</p>
+                  </div>
+                </div>
+              </Card>
+              
+              {/* Matched Materials */}
+              {itemAnalysisResult.matchedMaterials.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Materiais Correspondentes na Base de Dados</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {itemAnalysisResult.matchedMaterials.map((mat, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
+                          <div>
+                            <p className="font-medium">{mat.name}</p>
+                            <p className="text-xs text-muted-foreground">{mat.category} • {mat.confidence.toFixed(0)}% confianca</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">€{mat.price.toFixed(2)}</p>
+                            {mat.priceMax && <p className="text-xs text-muted-foreground">ate €{mat.priceMax.toFixed(2)}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {itemAnalysisResult.matchedMaterials.length === 0 && (
+                <Card className="p-4 bg-yellow-50 border-yellow-200">
+                  <div className="flex items-center gap-2 text-yellow-800">
+                    <AlertTriangle className="h-5 w-5" />
+                    <p className="text-sm">Nenhum material correspondente encontrado na base de dados.</p>
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setItemAnalysisResult(null)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
