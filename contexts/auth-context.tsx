@@ -161,10 +161,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             })
           }
         }
+        // Load pending registrations for admins
+        if (profile?.role === "admin") {
+          await loadPendingRegistrationsFromDb()
+        }
       } catch (error) {
         console.error("Error initializing auth:", error)
       } finally {
         setIsLoading(false)
+      }
+    }
+    
+    // Function to load pending registrations from database
+    const loadPendingRegistrationsFromDb = async () => {
+      try {
+        const { data: dbPending } = await supabase
+          .from("pending_registrations")
+          .select("*")
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+        
+        if (dbPending && dbPending.length > 0) {
+          const mapped: PendingRegistration[] = dbPending.map(p => ({
+            id: p.id,
+            data: {
+              name: p.name,
+              email: p.email,
+              password: p.password_hash,
+              company: p.company,
+              phone: p.phone,
+              role: p.role as UserRole,
+            },
+            status: p.status as "pending" | "approved" | "rejected",
+            createdAt: p.created_at,
+          }))
+          setPendingRegistrations(mapped)
+        } else {
+          // Fallback to localStorage
+          const stored = localStorage.getItem("moap_pending_registrations")
+          if (stored) {
+            setPendingRegistrations(JSON.parse(stored))
+          }
+        }
+      } catch {
+        // Fallback to localStorage
+        const stored = localStorage.getItem("moap_pending_registrations")
+        if (stored) {
+          setPendingRegistrations(JSON.parse(stored))
+        }
       }
     }
 
@@ -269,44 +313,94 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (data: RegisterData): Promise<{ success: boolean; message: string }> => {
     try {
-      const { error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-            `${window.location.origin}/dashboard`,
-          data: {
-            name: data.name,
-            role: data.role,
-            company: data.company,
-            phone: data.phone,
-          },
-        },
-      })
-
-      if (authError) {
-        if (authError.message.includes("already registered")) {
-          return { success: false, message: "emailExists" }
+      // First check if email already exists in pending registrations
+      const { data: existingPending } = await supabase
+        .from("pending_registrations")
+        .select("id")
+        .eq("email", data.email)
+        .single()
+      
+      if (existingPending) {
+        return { success: false, message: "emailExists" }
+      }
+      
+      // Create pending registration in database (not Supabase Auth yet)
+      // Admin will create the actual user after approval
+      const registrationId = `reg_${Date.now()}`
+      const { error: insertError } = await supabase
+        .from("pending_registrations")
+        .insert({
+          id: registrationId,
+          name: data.name,
+          email: data.email,
+          password_hash: data.password, // In production, hash this server-side
+          company: data.company,
+          phone: data.phone,
+          role: data.role,
+          status: "pending",
+          created_at: new Date().toISOString(),
+        })
+      
+      if (insertError) {
+        console.error("Insert error:", insertError)
+        // Fallback to localStorage if table doesn't exist
+        const registration: PendingRegistration = {
+          id: registrationId,
+          data,
+          status: "pending",
+          createdAt: new Date().toISOString(),
         }
-        return { success: false, message: "registrationFailed" }
+        const newPending = [...pendingRegistrations, registration]
+        setPendingRegistrations(newPending)
+        localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
+      } else {
+        // Refresh pending registrations from database
+        await loadPendingRegistrations()
       }
-
-      // Create pending registration record
-      const registration: PendingRegistration = {
-        id: `reg_${Date.now()}`,
-        data,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      }
-
-      const newPending = [...pendingRegistrations, registration]
-      setPendingRegistrations(newPending)
-      localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
 
       return { success: true, message: "registrationPending" }
     } catch (error) {
       console.error("Registration error:", error)
       return { success: false, message: "registrationFailed" }
+    }
+  }
+  
+  const loadPendingRegistrations = async () => {
+    try {
+      const { data: dbPending } = await supabase
+        .from("pending_registrations")
+        .select("*")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+      
+      if (dbPending && dbPending.length > 0) {
+        const mapped: PendingRegistration[] = dbPending.map(p => ({
+          id: p.id,
+          data: {
+            name: p.name,
+            email: p.email,
+            password: p.password_hash,
+            company: p.company,
+            phone: p.phone,
+            role: p.role as UserRole,
+          },
+          status: p.status as "pending" | "approved" | "rejected",
+          createdAt: p.created_at,
+        }))
+        setPendingRegistrations(mapped)
+      } else {
+        // Fallback to localStorage
+        const stored = localStorage.getItem("moap_pending_registrations")
+        if (stored) {
+          setPendingRegistrations(JSON.parse(stored))
+        }
+      }
+    } catch {
+      // Fallback to localStorage
+      const stored = localStorage.getItem("moap_pending_registrations")
+      if (stored) {
+        setPendingRegistrations(JSON.parse(stored))
+      }
     }
   }
 
@@ -315,15 +409,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const registration = pendingRegistrations.find((r) => r.id === id)
       if (!registration) return
 
-      // Update profile role in database
+      // Create the actual user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: registration.data.email,
+        password: registration.data.password,
+        options: {
+          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
+            `${window.location.origin}/dashboard`,
+          data: {
+            name: registration.data.name,
+            role: registration.data.role,
+            company: registration.data.company,
+            phone: registration.data.phone,
+          },
+        },
+      })
+      
+      if (authError) {
+        console.error("Error creating user:", authError)
+        return
+      }
+      
+      // If user was created, also create/update their profile
+      if (authData.user) {
+        await supabase
+          .from("profiles")
+          .upsert({
+            id: authData.user.id,
+            email: registration.data.email,
+            name: registration.data.name,
+            role: registration.data.role,
+            company: registration.data.company,
+            phone: registration.data.phone,
+          })
+      }
+      
+      // Update pending registration status in database
       await supabase
-        .from("profiles")
-        .update({ role: registration.data.role })
-        .eq("email", registration.data.email)
+        .from("pending_registrations")
+        .update({ status: "approved" })
+        .eq("id", id)
 
-      const newPending = pendingRegistrations.map((r) =>
-        r.id === id ? { ...r, status: "approved" as const } : r
-      )
+      // Update local state
+      const newPending = pendingRegistrations.filter((r) => r.id !== id)
       setPendingRegistrations(newPending)
       localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
     } catch (error) {
@@ -333,9 +461,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const rejectRegistration = async (id: string) => {
     try {
-      const newPending = pendingRegistrations.map((r) =>
-        r.id === id ? { ...r, status: "rejected" as const } : r
-      )
+      // Update pending registration status in database
+      await supabase
+        .from("pending_registrations")
+        .update({ status: "rejected" })
+        .eq("id", id)
+      
+      // Update local state
+      const newPending = pendingRegistrations.filter((r) => r.id !== id)
       setPendingRegistrations(newPending)
       localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
     } catch (error) {
