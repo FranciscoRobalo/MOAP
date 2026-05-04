@@ -78,7 +78,7 @@ export function UploadSection() {
     { value: "madeira", label: t("regionMadeira") },
   ]
 
-  const years = ["2024", "2023", "2022", "2021", "2020"]
+  const years = ["2026", "2025", "2024", "2023", "2022", "2021", "2020"]
 
   return (
     <section id="carregar" className="py-20 lg:py-32 scroll-mt-20">

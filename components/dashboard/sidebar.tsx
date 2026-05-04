@@ -46,7 +46,7 @@ const navigation: NavItem[] = [
   { nameKey: "messages", href: "/dashboard/messages", icon: MessageSquare, roles: ["admin", "cliente", "tecnico"] },
   { nameKey: "clients", href: "/dashboard/clientes", icon: Users, roles: ["admin"] },
   { nameKey: "builders", href: "/dashboard/construtores", icon: Users, roles: ["admin"] },
-  { nameKey: "contractors", href: "/dashboard/empreiteiros", icon: Users, roles: ["admin"] },
+  { nameKey: "technicians", href: "/dashboard/tecnicos", icon: Users, roles: ["admin"] },
   { nameKey: "help", href: "/dashboard/ajuda", icon: HelpCircle, roles: ["admin", "cliente", "tecnico"] },
   { nameKey: "notifications", href: "/dashboard/notificacoes", icon: Bell, roles: ["admin", "cliente", "tecnico"] },
   { nameKey: "settings", href: "/dashboard/definicoes", icon: Settings, roles: ["admin", "cliente", "tecnico"] },

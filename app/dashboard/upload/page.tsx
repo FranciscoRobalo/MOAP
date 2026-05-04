@@ -18,7 +18,7 @@ interface UploadedFile {
 
 const regions = ["Lisboa", "Porto", "Faro", "Coimbra", "Braga", "Aveiro", "Setúbal", "Leiria"]
 
-const years = ["2024", "2023", "2022", "2021", "2020"]
+const years = ["2026", "2025", "2024", "2023", "2022", "2021", "2020"]
 
 export default function UploadPage() {
   const [files, setFiles] = useState<UploadedFile[]>([])
