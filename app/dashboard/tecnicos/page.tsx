@@ -1,0 +1,155 @@
+"use client"
+
+import { useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Search, MessageSquare, UserPlus, MoreHorizontal } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import Link from "next/link"
+import { useLanguage } from "@/contexts/language-context"
+
+interface User {
+  id: string
+  name: string
+  email: string
+  avatar: string
+  role: string
+  company: string
+  status: "online" | "offline" | "away"
+  projects: number
+}
+
+const mockTecnicos: User[] = [
+  {
+    id: "4",
+    name: "Pedro Costa",
+    email: "pedro.costa@engenharia.pt",
+    avatar: "/man-construction-worker-portrait.jpg",
+    role: "Engenheiro Civil",
+    company: "Costa Engenharia",
+    status: "online",
+    projects: 15,
+  },
+  {
+    id: "7",
+    name: "Carla Mendes",
+    email: "carla.mendes@arquitectura.pt",
+    avatar: "/woman-engineer-portrait.jpg",
+    role: "Arquitecta",
+    company: "Mendes Arquitectura",
+    status: "away",
+    projects: 9,
+  },
+  {
+    id: "8",
+    name: "Rui Ferreira",
+    email: "rui.ferreira@tecnico.pt",
+    avatar: "/placeholder.svg",
+    role: "Engenheiro Mecânico",
+    company: "Ferreira & Associados",
+    status: "offline",
+    projects: 12,
+  },
+]
+
+export default function TecnicosPage() {
+  const [searchQuery, setSearchQuery] = useState("")
+  const { t, language } = useLanguage()
+
+  const filteredUsers = mockTecnicos.filter(
+    (user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.company.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t("technicians")}</h1>
+          <p className="text-muted-foreground">
+            {language === "pt" ? "Lista de técnicos registados na plataforma." : language === "es" ? "Lista de técnicos registrados en la plataforma." : "List of technicians registered on the platform."}
+          </p>
+        </div>
+        <Button>
+          <UserPlus className="mr-2 h-4 w-4" />
+          {language === "pt" ? "Convidar Técnico" : language === "es" ? "Invitar Técnico" : "Invite Technician"}
+        </Button>
+      </div>
+
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder={language === "pt" ? "Pesquisar por nome, email ou empresa..." : language === "es" ? "Buscar por nombre, email o empresa..." : "Search by name, email or company..."}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 bg-input/50"
+        />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredUsers.map((user) => (
+          <Card key={user.id} className="bg-card/50 overflow-hidden">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <img
+                      src={user.avatar || "/placeholder.svg"}
+                      alt={user.name}
+                      className="h-14 w-14 rounded-full object-cover"
+                    />
+                    <span
+                      className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-card ${
+                        user.status === "online"
+                          ? "bg-price-below"
+                          : user.status === "away"
+                            ? "bg-price-average"
+                            : "bg-muted-foreground"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base">{user.name}</CardTitle>
+                    <CardDescription className="text-sm">{user.role}</CardDescription>
+                  </div>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem>{language === "pt" ? "Ver Perfil" : language === "es" ? "Ver Perfil" : "View Profile"}</DropdownMenuItem>
+                    <DropdownMenuItem>{language === "pt" ? "Bloquear" : language === "es" ? "Bloquear" : "Block"}</DropdownMenuItem>
+                    <DropdownMenuItem>{language === "pt" ? "Reportar" : language === "es" ? "Reportar" : "Report"}</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1 text-sm">
+                <p className="text-muted-foreground">{user.email}</p>
+                <p className="font-medium">{user.company}</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <Badge variant="secondary" className="bg-primary/10 text-primary">
+                  {user.projects} {language === "pt" ? "projetos" : language === "es" ? "proyectos" : "projects"}
+                </Badge>
+                <Link href="/dashboard/messages">
+                  <Button size="sm" variant="outline">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    {language === "pt" ? "Mensagem" : language === "es" ? "Mensaje" : "Message"}
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}

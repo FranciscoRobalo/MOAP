@@ -547,32 +547,138 @@ export default function AnaliseContent() {
 
     // Skip header row if it looks like headers
     const startIndex = lines[0]?.toLowerCase().includes("nome") || lines[0]?.toLowerCase().includes("descri") ? 1 : 0
+    
+    // Detect column order from header
+    let colOrder: { name: number; unit: number; quantity: number; price: number; total: number } = {
+      name: 0, unit: 1, quantity: 2, price: 3, total: -1
+    }
+    
+    if (startIndex > 0 && lines[0]) {
+      const headerCols = lines[0].split(bestDelimiter).map((c) => c.trim().toLowerCase())
+      headerCols.forEach((col, idx) => {
+        if (col.includes("nome") || col.includes("descri") || col.includes("artigo") || col.includes("trabalho")) {
+          colOrder.name = idx
+        } else if (col.includes("unid") || col.includes("un.") || col === "un") {
+          colOrder.unit = idx
+        } else if (col.includes("quant") || col.includes("qtd") || col === "qt") {
+          colOrder.quantity = idx
+        } else if (col.includes("p.") && (col.includes("unit") || col.includes("unitário"))) {
+          colOrder.price = idx
+        } else if (col.includes("preco") || col.includes("preço") || col.includes("valor") && !col.includes("total")) {
+          colOrder.price = idx
+        } else if (col.includes("total") || col.includes("parcial")) {
+          colOrder.total = idx
+        }
+      })
+    }
 
     for (let i = startIndex; i < lines.length; i++) {
       const cols = lines[i].split(bestDelimiter).map((c) => c.trim().replace(/^["']|["']$/g, ""))
 
       if (cols.length >= 2) {
-        const name = cols[0] || ""
+        const name = cols[colOrder.name] || cols[0] || ""
         let unit = "un"
         let quantity = 1
         let price = 0
-
-        // Try to find price (number with decimals)
-        for (let j = 1; j < cols.length; j++) {
-          const val = cols[j].replace(/[€$\s]/g, "").replace(",", ".")
-          const num = Number.parseFloat(val)
-          if (!isNaN(num)) {
-            if (num > 0 && num < 1000 && quantity === 1) {
-              quantity = num
-            } else if (num >= 0) {
-              price = num
+        let total = 0
+        
+        // Parse unit if available
+        if (colOrder.unit >= 0 && cols[colOrder.unit]) {
+          const unitCol = cols[colOrder.unit]
+          if (unitCol.match(/^(un|m2|m²|m3|m³|ml|kg|vg|m|l|pc|cx|cj)\.?$/i)) {
+            unit = unitCol.toLowerCase().replace(".", "").replace("²", "2").replace("³", "3")
+          }
+        }
+        
+        // Parse quantity - look for column or detect
+        if (colOrder.quantity >= 0 && cols[colOrder.quantity]) {
+          const qtyVal = cols[colOrder.quantity].replace(/[€$\s]/g, "").replace(",", ".")
+          const qtyNum = Number.parseFloat(qtyVal)
+          if (!isNaN(qtyNum) && qtyNum > 0) {
+            quantity = qtyNum
+          }
+        }
+        
+        // Parse unit price - this is the key column
+        if (colOrder.price >= 0 && cols[colOrder.price]) {
+          const priceVal = cols[colOrder.price].replace(/[€$\s]/g, "").replace(",", ".")
+          const priceNum = Number.parseFloat(priceVal)
+          if (!isNaN(priceNum) && priceNum >= 0) {
+            price = priceNum
+          }
+        }
+        
+        // Parse total if available (for validation or as fallback)
+        if (colOrder.total >= 0 && cols[colOrder.total]) {
+          const totalVal = cols[colOrder.total].replace(/[€$\s]/g, "").replace(",", ".")
+          const totalNum = Number.parseFloat(totalVal)
+          if (!isNaN(totalNum) && totalNum >= 0) {
+            total = totalNum
+          }
+        }
+        
+        // Fallback: if no structured columns detected, try heuristic approach
+        if (price === 0 && quantity === 1 && colOrder.price === 3) {
+          const numbers: number[] = []
+          const units: string[] = []
+          
+          for (let j = 1; j < cols.length; j++) {
+            const val = cols[j].replace(/[€$\s]/g, "").replace(",", ".")
+            const num = Number.parseFloat(val)
+            if (!isNaN(num) && num >= 0) {
+              numbers.push(num)
+            } else if (cols[j].match(/^(un|m2|m²|m3|m³|ml|kg|vg|m|l|pc|cx|cj)\.?$/i)) {
+              units.push(cols[j].toLowerCase())
             }
-          } else if (cols[j].match(/^(un|m2|m3|ml|kg|vg|m|l)$/i)) {
-            unit = cols[j].toLowerCase()
+          }
+          
+          if (units.length > 0) unit = units[0].replace(".", "").replace("²", "2").replace("³", "3")
+          
+          // Improved logic: expect [quantity, unit_price, total] or [unit, quantity, unit_price]
+          // If we have 3 numbers, last is usually total, second-to-last is unit price
+          // If we have 2 numbers, assume [quantity, price] if first < second, else [price, quantity]
+          if (numbers.length >= 3) {
+            // Last is total, second to last is unit price, first numeric is quantity
+            total = numbers[numbers.length - 1]
+            price = numbers[numbers.length - 2]
+            quantity = numbers[0]
+            
+            // Validate: quantity * price should roughly equal total
+            if (quantity > 0 && price > 0 && total > 0) {
+              const expectedTotal = quantity * price
+              // If it doesn't match, try swapping quantity and price
+              if (Math.abs(expectedTotal - total) / total > 0.1) {
+                // Maybe the columns are [price, quantity, total]
+                const altQuantity = numbers[1] 
+                const altPrice = numbers[0]
+                const altExpected = altQuantity * altPrice
+                if (Math.abs(altExpected - total) / total < 0.1) {
+                  quantity = altQuantity
+                  price = altPrice
+                }
+              }
+            }
+          } else if (numbers.length === 2) {
+            // Assume smaller number is quantity, larger is price (usually unit price > quantity)
+            // But construction often has large quantities, so check if they're reasonable
+            const [a, b] = numbers
+            if (a < b && a <= 10000) {
+              quantity = a
+              price = b
+            } else if (b < a && b <= 10000) {
+              quantity = b
+              price = a
+            } else {
+              // Just take them in order: first is quantity, second is price
+              quantity = a
+              price = b
+            }
+          } else if (numbers.length === 1) {
+            price = numbers[0]
           }
         }
 
-        if (name && (price > 0 || quantity > 0)) {
+        if (name && name.length > 1 && (price > 0 || quantity > 0)) {
           items.push({ name, unit, quantity: quantity || 1, price: price || 0 })
         }
       }
@@ -2215,18 +2321,28 @@ www.moap.pt
               <CardDescription>PDF, Excel (XLS/XLSX), CSV ou TXT com orçamento de construção</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-lg bg-muted/50 p-4 font-mono text-sm">
-                <p className="text-muted-foreground mb-2"># Formato CSV recomendado:</p>
-                <p>Nome;Unidade;Quantidade;Preço</p>
-                <p>Demolição de paredes;m2;50;12.50</p>
-                <p>Betão C25/30;m3;10;95.00</p>
-                <p>Pintura interior;m2;200;8.75</p>
+              {/* CSV Format - More prominent */}
+              <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <p className="font-semibold text-primary">Formato CSV Recomendado</p>
+                </div>
+                <div className="bg-background/80 rounded-md p-3 font-mono text-sm space-y-1 border border-border/50">
+                  <p className="text-muted-foreground text-xs mb-2"># Separador: ponto e vírgula (;)</p>
+                  <p className="font-medium text-foreground">Nome;Unidade;Quantidade;Preço</p>
+                  <p className="text-muted-foreground">Demolição de paredes;m2;50;12.50</p>
+                  <p className="text-muted-foreground">Betão C25/30;m3;10;95.00</p>
+                  <p className="text-muted-foreground">Pintura interior;m2;200;8.75</p>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Pode também usar vírgula (,) como separador. O sistema detecta automaticamente.
+                </p>
               </div>
               
               <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-4 text-sm">
-                <p className="font-medium text-blue-400 mb-1">Ficheiros PDF</p>
+                <p className="font-medium text-blue-400 mb-1">Ficheiros PDF e Excel</p>
                 <p className="text-muted-foreground">
-                  PDFs de orçamentos são automaticamente processados. O sistema extrai texto e identifica itens, quantidades e preços.
+                  PDFs e ficheiros Excel são automaticamente processados. O sistema extrai texto e identifica itens, quantidades e preços.
                 </p>
               </div>
 
@@ -2265,7 +2381,13 @@ www.moap.pt
                     size="sm" 
                     variant="outline"
                     className="mt-3 border-price-critical/30 text-price-critical hover:bg-price-critical/10"
-                    onClick={() => setFilterRating("critical")}
+                    onClick={() => {
+                      setFilterRating("critical")
+                      // Scroll to items list after a brief delay
+                      setTimeout(() => {
+                        document.getElementById("items-list")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                      }, 100)
+                    }}
                   >
                     Ver Itens de Alto Risco
                   </Button>
@@ -2839,7 +2961,7 @@ www.moap.pt
               </div>
 
               {/* Tabs */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <Tabs id="items-list" value={activeTab} onValueChange={setActiveTab} className="w-full scroll-mt-20">
                 <TabsList className="mb-4 bg-muted/50">
                   <TabsTrigger value="all">Todos ({analysisResult.items.length})</TabsTrigger>
                   <TabsTrigger value="material">
