@@ -279,13 +279,13 @@ const translations = {
     step1Desc:
       "Faça upload do seu orçamento em formato PDF, Excel ou CSV. O sistema aceita diversos formatos e estruturas.",
     step2Number: "02",
-    step2Title: "Análise Automática",
+    step2Title: "Análise com IA",
     step2Desc:
-      "O nosso algoritmo interpreta os descritivos, categoriza os trabalhos e compara com a nossa base de dados.",
+      "A nossa IA extrai automaticamente os itens, identifica preços unitários e compara com a base de dados de referência.",
     step3Number: "03",
-    step3Title: "Relatório Detalhado",
+    step3Title: "Relatório Instantâneo",
     step3Desc:
-      "Receba um relatório completo com a análise de cada item e a comparação com os valores médios do mercado.",
+      "Receba um relatório detalhado com classificação de risco, variações de preço e recomendações automáticas.",
 
     // Landing Page - Report Legend
     reportTitle: "Relatório MOAP",

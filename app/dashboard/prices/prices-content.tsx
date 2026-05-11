@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Pencil, Trash2, Save, X, RefreshCw, TrendingUp, TrendingDown, CheckCircle2, Search, Sparkles, Loader2, Check } from "lucide-react"
+import { Plus, Pencil, Trash2, Save, X, CheckCircle2, Search, Sparkles, Loader2, Check } from "lucide-react"
 import { useData, type Material } from "@/contexts/data-context"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import {
   Dialog,
   DialogContent,
@@ -78,19 +77,7 @@ export default function PricesContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState<"materials" | "works">("materials")
 
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [syncProgress, setSyncProgress] = useState(0)
-  const [syncedItems, setSyncedItems] = useState<string[]>([])
-  const [showSyncResults, setShowSyncResults] = useState(false)
-  const [priceChanges, setPriceChanges] = useState<
-    Array<{
-      id: string
-      name: string
-      oldPrice: number
-      newPrice: number
-      change: number
-    }>
-  >([])
+
 
   // GPT Suggestions state
   const [showSuggestDialog, setShowSuggestDialog] = useState(false)
@@ -222,60 +209,6 @@ export default function PricesContent() {
     setSuggestionQuery("")
   }
 
-  const syncPricesWithMarket = async () => {
-    setIsSyncing(true)
-    setSyncProgress(0)
-    setSyncedItems([])
-    setShowSyncResults(false)
-    setPriceChanges([])
-
-    const typeToFilter = activeTab === "materials" ? "material" : "work"
-    const itemsToSync = materials.filter((m) => m.type === typeToFilter)
-
-    const changes: typeof priceChanges = []
-
-    if (itemsToSync.length === 0) {
-      setIsSyncing(false)
-      return
-    }
-
-    for (let i = 0; i < itemsToSync.length; i++) {
-      const material = itemsToSync[i]
-
-      await new Promise((resolve) => setTimeout(resolve, 100))
-
-      const variationPercent = -10 + Math.random() * 25
-      const newPrice = material.price * (1 + variationPercent / 100)
-      const roundedPrice = Math.round(newPrice * 100) / 100
-
-      if (Math.abs(variationPercent) > 3) {
-        const oldPrice = material.price
-        updateMaterial(material.id, {
-          price: roundedPrice,
-          priceMax: material.priceMax
-            ? Math.round(material.priceMax * (1 + variationPercent / 100) * 100) / 100
-            : undefined,
-          lastUpdated: new Date().toISOString().split("T")[0],
-        })
-
-        changes.push({
-          id: material.id,
-          name: material.name,
-          oldPrice,
-          newPrice: roundedPrice,
-          change: variationPercent,
-        })
-      }
-
-      setSyncedItems((prev) => [...prev, material.id])
-      setSyncProgress(((i + 1) / itemsToSync.length) * 100)
-    }
-
-    setPriceChanges(changes)
-    setShowSyncResults(true)
-    setIsSyncing(false)
-  }
-
   const typeToFilter = activeTab === "materials" ? "material" : "work"
   const filteredItems = materials
     .filter((m) => m.type === typeToFilter)
@@ -334,60 +267,6 @@ export default function PricesContent() {
           </Button>
         </div>
       </div>
-
-      {/* Prices auto-synced from database - no manual sync needed */}
-
-      {showSyncResults && (
-        <Card className={priceChanges.length > 0 ? "bg-green-500/5 border-green-500/20" : "bg-muted/50"}>
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  Sincronização Concluída
-                </CardTitle>
-                <CardDescription>
-                  {priceChanges.length > 0
-                    ? `${priceChanges.length} preços atualizados com base no mercado português`
-                    : "Nenhuma alteração significativa de preços encontrada"}
-                </CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => setShowSyncResults(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          {priceChanges.length > 0 && (
-            <CardContent>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {priceChanges.map((change) => (
-                  <div key={change.id} className="flex items-center justify-between p-3 rounded-lg bg-card/50">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm line-clamp-1">{change.name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-muted-foreground line-through">
-                          €{change.oldPrice.toFixed(2)}
-                        </span>
-                        <span className="text-xs font-semibold">→</span>
-                        <span className="text-xs font-semibold">€{change.newPrice.toFixed(2)}</span>
-                      </div>
-                    </div>
-                    <Badge variant={change.change > 0 ? "destructive" : "default"} className="ml-4">
-                      {change.change > 0 ? (
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                      ) : (
-                        <TrendingDown className="h-3 w-3 mr-1" />
-                      )}
-                      {change.change > 0 ? "+" : ""}
-                      {change.change.toFixed(1)}%
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          )}
-        </Card>
-      )}
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "materials" | "works")} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">

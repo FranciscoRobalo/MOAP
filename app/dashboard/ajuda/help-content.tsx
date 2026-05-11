@@ -105,10 +105,10 @@ export function HelpContent() {
               : "How to upload a budget for analysis?",
         a:
           language === "pt"
-            ? "Vá a 'Análise de Orçamentos', clique em 'Carregar CSV', selecione o ficheiro no formato correto (Nome;Unidade;Quantidade;Preço) e clique em 'Analisar'."
+            ? "Vá a 'Análise de Orçamentos' e arraste o seu ficheiro (PDF, Excel ou CSV) para a área de upload. A IA analisa automaticamente o documento, extrai os itens e compara com a base de dados de preços de referência."
             : language === "es"
-              ? "Vaya a 'Análisis de Presupuestos', haga clic en 'Cargar CSV', seleccione el archivo en el formato correcto (Nombre;Unidad;Cantidad;Precio) y haga clic en 'Analizar'."
-              : "Go to 'Budget Analysis', click 'Upload CSV', select the file in the correct format (Name;Unit;Quantity;Price) and click 'Analyze'.",
+              ? "Vaya a 'Análisis de Presupuestos' y arrastre su archivo (PDF, Excel o CSV) al área de carga. La IA analiza automáticamente el documento, extrae los artículos y los compara con la base de datos de precios de referencia."
+              : "Go to 'Budget Analysis' and drag your file (PDF, Excel or CSV) to the upload area. The AI automatically analyzes the document, extracts items and compares them with the reference price database.",
       },
       {
         q:
@@ -127,16 +127,16 @@ export function HelpContent() {
       {
         q:
           language === "pt"
-            ? "Posso exportar o relatório de análise?"
+            ? "Como funciona a análise automática com IA?"
             : language === "es"
-              ? "¿Puedo exportar el informe de análisis?"
-              : "Can I export the analysis report?",
+              ? "¿Cómo funciona el análisis automático con IA?"
+              : "How does the automatic AI analysis work?",
         a:
           language === "pt"
-            ? "Sim, após a análise pode clicar em 'Exportar CSV' para descarregar o relatório completo com todos os itens e classificações."
+            ? "A IA extrai automaticamente todos os itens do orçamento, identifica se são preços unitários ou globais, compara com a base de dados de materiais e calcula variações. Também distingue entre capítulos/categorias e itens reais."
             : language === "es"
-              ? "Sí, después del análisis puede hacer clic en 'Exportar CSV' para descargar el informe completo con todos los artículos y clasificaciones."
-              : "Yes, after analysis you can click 'Export CSV' to download the complete report with all items and classifications.",
+              ? "La IA extrae automáticamente todos los artículos del presupuesto, identifica si son precios unitarios o globales, los compara con la base de datos de materiales y calcula las variaciones."
+              : "The AI automatically extracts all budget items, identifies whether they are unit or global prices, compares them with the materials database and calculates variances.",
       },
     ],
     projectManagement: [
@@ -207,55 +207,55 @@ export function HelpContent() {
         language === "pt" ? "Guia de Início Rápido" : language === "es" ? "Guía de Inicio Rápido" : "Quick Start Guide",
       description:
         language === "pt"
-          ? "Aprenda os conceitos básicos da plataforma em 5 minutos"
+          ? "Carregue um PDF, Excel ou CSV e obtenha análise IA instantânea"
           : language === "es"
-            ? "Aprenda los conceptos básicos de la plataforma en 5 minutos"
-            : "Learn platform basics in 5 minutes",
+            ? "Cargue un PDF, Excel o CSV y obtenga análisis IA instantáneo"
+            : "Upload a PDF, Excel or CSV and get instant AI analysis",
       icon: Lightbulb,
-      duration: "5 min",
+      duration: "2 min",
     },
     {
       title:
         language === "pt"
-          ? "Análise de Orçamentos"
+          ? "Análise IA de Orçamentos"
           : language === "es"
-            ? "Análisis de Presupuestos"
-            : "Budget Analysis",
+            ? "Análisis IA de Presupuestos"
+            : "AI Budget Analysis",
       description:
         language === "pt"
-          ? "Como carregar e analisar orçamentos de construção"
+          ? "Como a IA extrai e analisa automaticamente os seus orçamentos"
           : language === "es"
-            ? "Cómo cargar y analizar presupuestos de construcción"
-            : "How to upload and analyze construction budgets",
+            ? "Cómo la IA extrae y analiza automáticamente sus presupuestos"
+            : "How AI automatically extracts and analyzes your budgets",
       icon: BarChart3,
-      duration: "10 min",
+      duration: "5 min",
     },
     {
-      title: language === "pt" ? "Gestão de Preços" : language === "es" ? "Gestión de Precios" : "Price Management",
+      title: language === "pt" ? "Base de Dados de Preços" : language === "es" ? "Base de Datos de Precios" : "Price Database",
       description:
         language === "pt"
-          ? "Adicionar e gerir preços de materiais e trabalhos"
+          ? "Preços de referência sincronizados automaticamente"
           : language === "es"
-            ? "Añadir y gestionar precios de materiales y trabajos"
-            : "Add and manage material and work prices",
+            ? "Precios de referencia sincronizados automáticamente"
+            : "Reference prices automatically synced",
       icon: Calculator,
-      duration: "8 min",
+      duration: "3 min",
     },
     {
       title:
         language === "pt"
-          ? "Comunicação na Plataforma"
+          ? "Guardar e Aprovar"
           : language === "es"
-            ? "Comunicación en la Plataforma"
-            : "Platform Communication",
+            ? "Guardar y Aprobar"
+            : "Save and Approve",
       description:
         language === "pt"
-          ? "Como usar o sistema de mensagens"
+          ? "Como guardar análises e aprovar orçamentos"
           : language === "es"
-            ? "Cómo usar el sistema de mensajes"
-            : "How to use the messaging system",
+            ? "Cómo guardar análisis y aprobar presupuestos"
+            : "How to save analyses and approve budgets",
       icon: MessageSquare,
-      duration: "5 min",
+      duration: "3 min",
     },
   ]
 
