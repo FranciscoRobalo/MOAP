@@ -2903,24 +2903,24 @@ www.moap.pt
                 </div>
               )}
 
-              {/* Filters */}
-              <div className="flex flex-col gap-3 mb-4">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              {/* Filters - Compact */}
+              <div className="flex flex-col gap-2 mb-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative flex-1 min-w-[180px] max-w-[300px]">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <Input
-                      placeholder="Pesquisar itens..."
+                      placeholder="Pesquisar..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9 bg-input/50"
+                      className="pl-8 h-8 text-sm bg-input/50"
                     />
                   </div>
                   <Select value={filterRating} onValueChange={setFilterRating}>
-                    <SelectTrigger className="w-[180px] bg-input/50">
-                      <SelectValue placeholder="Filtrar por..." />
+                    <SelectTrigger className="w-[140px] h-8 text-sm bg-input/50">
+                      <SelectValue placeholder="Filtrar..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todas Classificações</SelectItem>
+                      <SelectItem value="all">Todas</SelectItem>
                       {Object.entries(ratingConfig).map(([key, config]) => (
                         <SelectItem key={key} value={key}>
                           {config.label}
@@ -2928,68 +2928,68 @@ www.moap.pt
                       ))}
                     </SelectContent>
                   </Select>
-                  <div className="flex border rounded-md overflow-hidden">
+                  <div className="flex border rounded-md overflow-hidden h-8">
                     <Button 
                       size="sm" 
                       variant={viewMode === "table" ? "default" : "ghost"}
-                      className="rounded-none px-3"
+                      className="rounded-none px-2 h-full"
                       onClick={() => setViewMode("table")}
                     >
-                      <List className="h-4 w-4" />
+                      <List className="h-3.5 w-3.5" />
                     </Button>
                     <Button 
                       size="sm" 
                       variant={viewMode === "cards" ? "default" : "ghost"}
-                      className="rounded-none px-3"
+                      className="rounded-none px-2 h-full"
                       onClick={() => setViewMode("cards")}
                     >
-                      <LayoutGrid className="h-4 w-4" />
+                      <LayoutGrid className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
                 
-                {/* Quick Filters */}
-                <div className="flex flex-wrap gap-2">
+                {/* Quick Filters - Compact */}
+                <div className="flex flex-wrap items-center gap-1.5">
                   <Button 
                     size="sm" 
                     variant={filterRating === "critical" ? "default" : "outline"}
-                    className="gap-1.5 text-xs"
+                    className="gap-1 text-[11px] h-7 px-2"
                     onClick={() => setFilterRating(filterRating === "critical" ? "all" : "critical")}
                   >
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    Alto Risco ({analysisResult.stats.critical})
+                    <AlertTriangle className="h-3 w-3" />
+                    Risco ({analysisResult.stats.critical})
                   </Button>
                   <Button 
                     size="sm" 
                     variant={filterRating === "unknown" ? "default" : "outline"}
-                    className="gap-1.5 text-xs"
+                    className="gap-1 text-[11px] h-7 px-2"
                     onClick={() => setFilterRating(filterRating === "unknown" ? "all" : "unknown")}
                   >
-                    <HelpCircle className="h-3.5 w-3.5" />
-                    Sem Referência ({analysisResult.stats.unknown})
+                    <HelpCircle className="h-3 w-3" />
+                    S/Ref ({analysisResult.stats.unknown})
                   </Button>
                   <Button 
                     size="sm" 
                     variant={filterRating === "above" ? "default" : "outline"}
-                    className="gap-1.5 text-xs"
+                    className="gap-1 text-[11px] h-7 px-2"
                     onClick={() => setFilterRating(filterRating === "above" ? "all" : "above")}
                   >
-                    <TrendingUp className="h-3.5 w-3.5" />
-                    Acima Média ({analysisResult.stats.aboveAverage})
+                    <TrendingUp className="h-3 w-3" />
+                    Acima ({analysisResult.stats.aboveAverage})
                   </Button>
                   <Button 
                     size="sm" 
                     variant={filterRating === "below" ? "default" : "outline"}
-                    className="gap-1.5 text-xs"
+                    className="gap-1 text-[11px] h-7 px-2"
                     onClick={() => setFilterRating(filterRating === "below" ? "all" : "below")}
                   >
-                    <TrendingDown className="h-3.5 w-3.5" />
-                    Abaixo Média ({analysisResult.stats.belowAverage})
+                    <TrendingDown className="h-3 w-3" />
+                    Abaixo ({analysisResult.stats.belowAverage})
                   </Button>
                   {selectedItems.size > 0 && (
-                    <div className="ml-auto flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{selectedItems.size} selecionado(s)</span>
-                      <Button size="sm" variant="ghost" className="text-xs h-7" onClick={clearSelection}>
+                    <div className="ml-auto flex items-center gap-1.5">
+                      <span className="text-[11px] text-muted-foreground">{selectedItems.size} sel.</span>
+                      <Button size="sm" variant="ghost" className="text-[11px] h-6 px-1.5" onClick={clearSelection}>
                         Limpar
                       </Button>
                     </div>
@@ -3013,51 +3013,46 @@ www.moap.pt
                   {viewMode === "table" ? (
                   <div className="rounded-lg border border-border/50 overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className="w-full">
+                      <table className="w-full text-sm">
                         <thead className="bg-muted/50">
                           <tr>
-                            <th className="px-4 py-3 text-center text-sm font-medium w-10">
+                            <th className="px-2 py-2 text-center font-medium w-8">
                               <button
                                 onClick={() => selectedItems.size === filteredItems.length ? clearSelection() : selectAllItems()}
-                                className="p-1 hover:bg-muted rounded transition-colors"
+                                className="p-0.5 hover:bg-muted rounded transition-colors"
                                 title="Selecionar tudo"
                               >
                                 {selectedItems.size === filteredItems.length && filteredItems.length > 0 ? (
-                                  <CheckSquare className="h-4 w-4" />
+                                  <CheckSquare className="h-3.5 w-3.5" />
                                 ) : (
-                                  <Square className="h-4 w-4 text-muted-foreground" />
+                                  <Square className="h-3.5 w-3.5 text-muted-foreground" />
                                 )}
                               </button>
                             </th>
-                            <th className="px-4 py-3 text-left text-sm font-medium">
-                              <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-primary transition-colors">
+                            <th className="px-2 py-2 text-left font-medium min-w-[180px]">
+                              <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-primary transition-colors text-xs">
                                 Item
                                 {sortField === "name" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
                               </button>
                             </th>
-                            <th className="px-4 py-3 text-left text-sm font-medium">Correspondência</th>
-                            <th className="px-4 py-3 text-center text-sm font-medium w-20">
-                              <button onClick={() => handleSort("confidence")} className="flex items-center gap-1 hover:text-primary transition-colors mx-auto">
-                                Confiança
-                                {sortField === "confidence" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
-                              </button>
-                            </th>
-                            <th className="px-4 py-3 text-right text-sm font-medium">Qtd</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium">
-                              <button onClick={() => handleSort("price")} className="flex items-center gap-1 hover:text-primary transition-colors ml-auto">
-                                Preço Orç.
+                            <th className="px-2 py-2 text-left font-medium text-xs hidden lg:table-cell">Corresp.</th>
+                            <th className="px-2 py-2 text-center font-medium w-16 text-xs hidden md:table-cell">Conf.</th>
+                            <th className="px-2 py-2 text-right font-medium w-14 text-xs">Qtd</th>
+                            <th className="px-2 py-2 text-right font-medium w-20">
+                              <button onClick={() => handleSort("price")} className="flex items-center gap-1 hover:text-primary transition-colors ml-auto text-xs">
+                                P.Orç.
                                 {sortField === "price" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
                               </button>
                             </th>
-                            <th className="px-4 py-3 text-right text-sm font-medium">Preço Ref.</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium">
-                              <button onClick={() => handleSort("variance")} className="flex items-center gap-1 hover:text-primary transition-colors ml-auto">
-                                Variação
+                            <th className="px-2 py-2 text-right font-medium w-20 text-xs hidden sm:table-cell">P.Ref.</th>
+                            <th className="px-2 py-2 text-right font-medium w-16">
+                              <button onClick={() => handleSort("variance")} className="flex items-center gap-1 hover:text-primary transition-colors ml-auto text-xs">
+                                Var.
                                 {sortField === "variance" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
                               </button>
                             </th>
-                            <th className="px-4 py-3 text-center text-sm font-medium">Classif.</th>
-                            <th className="px-4 py-3 text-center text-sm font-medium">Ações</th>
+                            <th className="px-2 py-2 text-center font-medium w-16 text-xs">Class.</th>
+                            <th className="px-2 py-2 text-center font-medium w-16 text-xs">Ações</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
@@ -3069,153 +3064,113 @@ www.moap.pt
                             return (
                               <React.Fragment key={item.id}>
                                 <tr className={cn(
-                                "hover:bg-muted/30 transition-colors", 
+                                "hover:bg-muted/30 transition-colors text-xs", 
                                 isSelected && "bg-primary/10",
-                                highlightRisks && item.rating === "critical" && "bg-price-critical/5 border-l-2 border-price-critical",
-                                compactMode ? "text-xs" : ""
+                                highlightRisks && item.rating === "critical" && "bg-price-critical/5 border-l-2 border-price-critical"
                               )}>
-                                  <td className="px-4 py-3 text-center">
+                                  <td className="px-2 py-1.5 text-center">
                                     <button
                                       onClick={() => toggleItemSelection(item.id)}
-                                      className="p-1 hover:bg-muted rounded transition-colors"
+                                      className="p-0.5 hover:bg-muted rounded transition-colors"
                                     >
                                       {isSelected ? (
-                                        <CheckSquare className="h-4 w-4 text-primary" />
+                                        <CheckSquare className="h-3.5 w-3.5 text-primary" />
                                       ) : (
-                                        <Square className="h-4 w-4 text-muted-foreground" />
+                                        <Square className="h-3.5 w-3.5 text-muted-foreground" />
                                       )}
                                     </button>
                                   </td>
-                                  <td className="px-4 py-3">
-                                    <div className="font-medium text-sm">{item.originalName}</div>
-                                    <div className="text-xs text-muted-foreground">{item.unit}</div>
+                                  <td className="px-2 py-1.5">
+                                    <div className="font-medium truncate max-w-[200px]" title={item.originalName}>{item.originalName}</div>
+                                    <div className="text-[10px] text-muted-foreground">{item.unit}</div>
                                   </td>
-                                  <td className="px-4 py-3">
+                                  <td className="px-2 py-1.5 hidden lg:table-cell">
                                     {item.matchedName ? (
-                                      <div>
-                                        <div className="text-sm">{item.matchedName}</div>
-                                        <div className="text-xs text-muted-foreground">{item.category}</div>
+                                      <div className="truncate max-w-[140px]" title={item.matchedName}>
+                                        <div>{item.matchedName}</div>
+                                        <div className="text-[10px] text-muted-foreground">{item.category}</div>
                                       </div>
                                     ) : suggestions.length > 0 ? (
                                       <button
                                         onClick={() => setShowSuggestions(showSuggestions === item.id ? null : item.id)}
-                                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                                        className="text-primary hover:underline flex items-center gap-1"
                                       >
                                         <Lightbulb className="h-3 w-3" />
-                                        {suggestions.length} sugestões
+                                        {suggestions.length}
                                       </button>
                                     ) : (
-                                      <span className="text-sm text-muted-foreground">Sem correspondência</span>
+                                      <span className="text-muted-foreground">-</span>
                                     )}
                                   </td>
-                                  <td className={cn("px-4 text-center", compactMode ? "py-2" : "py-3")}>
-                                    <div className="flex items-center justify-center gap-1">
-                                      {showConfidenceBars && (
-                                        <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
-                                          <div
-                                            className={cn(
-                                              "h-full transition-all",
-                                              item.matchConfidence >= 0.8 ? "bg-green-500" :
-                                              item.matchConfidence >= 0.6 ? "bg-yellow-500" :
-                                              item.matchConfidence >= 0.4 ? "bg-orange-500" :
-                                              "bg-red-500"
-                                            )}
-                                            style={{ width: `${item.matchConfidence * 100}%` }}
-                                          />
-                                        </div>
-                                      )}
-                                      <span className="text-xs font-medium w-7 text-right">{(item.matchConfidence * 100).toFixed(0)}%</span>
-                                    </div>
+                                  <td className="px-2 py-1.5 text-center hidden md:table-cell">
+                                    <span className={cn(
+                                      "text-[10px] font-medium",
+                                      item.matchConfidence >= 0.8 ? "text-green-600" :
+                                      item.matchConfidence >= 0.6 ? "text-yellow-600" :
+                                      "text-muted-foreground"
+                                    )}>{(item.matchConfidence * 100).toFixed(0)}%</span>
                                   </td>
-                                  <td className="px-4 py-3 text-right text-sm">{item.quantity}</td>
-                                  <td className="px-4 py-3 text-right text-sm font-medium">
-                                    {item.budgetPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                                  <td className="px-2 py-1.5 text-right">{item.quantity}</td>
+                                  <td className="px-2 py-1.5 text-right font-medium">
+                                    {item.budgetPrice.toLocaleString("pt-PT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}€
                                   </td>
-                                  <td className={cn("px-4 text-right text-sm", compactMode ? "py-2" : "py-3")}>
+                                  <td className="px-2 py-1.5 text-right hidden sm:table-cell">
                                     {item.referenceAvgPrice ? (
-                                      <div>
-                                        <div>{item.referenceAvgPrice.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
-                                        {showPriceRange && (
-                                          <div className="text-xs text-muted-foreground">
-                                            {item.referenceMinPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} - {item.referenceMaxPrice?.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
-                                          </div>
-                                        )}
-                                      </div>
+                                      <span>{item.referenceAvgPrice.toLocaleString("pt-PT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}€</span>
                                     ) : (
-                                      <span className="text-muted-foreground">N/A</span>
+                                      <span className="text-muted-foreground">-</span>
                                     )}
                                   </td>
-                                  <td className={cn("px-4 py-3 text-right text-sm font-medium", config.color)}>
+                                  <td className={cn("px-2 py-1.5 text-right font-medium", config.color)}>
                                     {item.variance !== null && !isNaN(item.variance) ? (
-                                      <div className="flex items-center justify-end gap-1.5">
+                                      <div className="flex items-center justify-end gap-0.5">
                                         <span>
                                           {item.variance > 0 ? "+" : ""}
-                                          {item.variance.toFixed(1)}%
+                                          {item.variance.toFixed(0)}%
                                         </span>
                                         {Math.abs(item.variance) > 65 && (
-                                          <AlertTriangle className="h-4 w-4 text-orange-500 animate-pulse" title="Variacao superior a 65%" />
+                                          <AlertTriangle className="h-3 w-3 text-orange-500" title="Variação > 65%" />
                                         )}
                                       </div>
                                     ) : (
-                                      "N/A"
+                                      "-"
                                     )}
                                   </td>
-                                  <td className="px-4 py-3">
+                                  <td className="px-2 py-1.5">
                                     <div className="flex justify-center">
-                                      <Badge className={cn(config.bg, config.color, "gap-1")}>
-                                        <Icon className="h-3 w-3" />
+                                      <Badge className={cn(config.bg, config.color, "gap-0.5 text-[10px] px-1.5 py-0.5")}>
+                                        <Icon className="h-2.5 w-2.5" />
                                         {config.shortLabel}
                                       </Badge>
                                     </div>
                                   </td>
-                                  <td className="px-4 py-3">
-                                    <div className="flex justify-center gap-1">
+                                  <td className="px-2 py-1.5">
+                                    <div className="flex justify-center gap-0.5">
                                       <Button
                                         variant="ghost"
-                                        size="sm"
+                                        size="icon"
+                                        className="h-6 w-6"
                                         onClick={() => openEditDialog(item)}
                                         disabled={isReanalyzing === item.id}
-                                        title="Editar item"
+                                        title="Editar"
                                       >
-                                        <Pencil className="h-4 w-4" />
+                                        <Pencil className="h-3 w-3" />
                                       </Button>
                                       {isAdmin && (
-                                        <>
-                                          {Math.abs(item.variance || 0) > 65 ? (
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() => reanalyzeItem(item)}
-                                              disabled={isReanalyzing === item.id}
-                                              title="ALERTA: Variacao > 65%! Clique para re-analisar com IA"
-                                              className="text-orange-500 border-orange-500 hover:bg-orange-50 hover:text-orange-600 animate-pulse"
-                                            >
-                                              {isReanalyzing === item.id ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                              ) : (
-                                                <>
-                                                  <AlertTriangle className="h-4 w-4 mr-1" />
-                                                  <Sparkles className="h-4 w-4" />
-                                                </>
-                                              )}
-                                            </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className={cn("h-6 w-6", Math.abs(item.variance || 0) > 65 && "text-orange-500")}
+                                          onClick={() => reanalyzeItem(item)}
+                                          disabled={isReanalyzing === item.id}
+                                          title="Re-analisar IA"
+                                        >
+                                          {isReanalyzing === item.id ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
                                           ) : (
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() => reanalyzeItem(item)}
-                                              disabled={isReanalyzing === item.id}
-                                              title="Re-analisar com IA"
-                                              className={item.rating === "unknown" ? "text-yellow-500 hover:text-yellow-600" : ""}
-                                            >
-                                              {isReanalyzing === item.id ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                              ) : (
-                                                <Sparkles className="h-4 w-4" />
-                                              )}
-                                            </Button>
+                                            <Sparkles className="h-3 w-3" />
                                           )}
-                                        </>
+                                        </Button>
                                       )}
                                     </div>
                                   </td>
