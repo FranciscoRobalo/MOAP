@@ -897,7 +897,7 @@ export default function AnaliseContent() {
     } catch (err) {
       // Log the error type for debugging
       if (err instanceof Error && err.name === "AbortError") {
-        console.log("[v0] PDF parsing timed out after 30s, trying fallback...")
+        console.log("[v0] PDF parsing timed out after 60s, trying fallback...")
       } else {
         console.log("[v0] PDF API failed, trying fallback...", err)
       }

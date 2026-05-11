@@ -4,6 +4,9 @@ import OpenAI from "openai"
 import * as XLSX from "xlsx"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+// Increase timeout for this API route (Vercel Pro allows up to 300s)
+export const maxDuration = 60
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -65,8 +68,15 @@ interface AnalysisResponse {
 // ============================================================================
 
 const getOpenAIClient = () => {
-  if (!process.env.OPENAI_API_KEY) return null
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("[API] OPENAI_API_KEY not found in environment")
+    return null
+  }
+  return new OpenAI({ 
+    apiKey: process.env.OPENAI_API_KEY,
+    timeout: 60000, // 60 second timeout
+    maxRetries: 2,  // Retry up to 2 times on failure
+  })
 }
 
 // ============================================================================
@@ -262,12 +272,19 @@ async function analyzeWithGPT(
   materials: MaterialRef[], 
   debugInfo: string[]
 ): Promise<AnalyzedItem[]> {
+  console.log("[API] Checking OpenAI API key...")
+  const hasKey = !!process.env.OPENAI_API_KEY
+  const keyPrefix = process.env.OPENAI_API_KEY?.substring(0, 10) || "NOT_SET"
+  console.log(`[API] OPENAI_API_KEY present: ${hasKey}, prefix: ${keyPrefix}...`)
+  
   const openai = getOpenAIClient()
   if (!openai) {
-    debugInfo.push("OpenAI API key not configured")
+    console.error("[API] OpenAI client creation failed - API key not configured!")
+    debugInfo.push("OpenAI API key not configured - check OPENAI_API_KEY env var")
     return []
   }
   
+  console.log("[API] OpenAI client created successfully")
   debugInfo.push("Starting world-class GPT analysis...")
   const startTime = Date.now()
   
@@ -407,10 +424,10 @@ INSTRUÇÕES DE EXTRAÇÃO E ANÁLISE
 
 ═══════════════════════════════════════════════════════════════════════════════
 BASE DE DADOS DE MATERIAIS/SERVIÇOS (usar para correspondência):
-═══════════════════════════════════════════════════════════════════════════════
+══════════════════════════��════════════════════════════════════════════════════
 ${materialSummary}
 
-══════════════════════════════════════���════════════════════════════════════════
+═════════════════════════════════════������════════════════════════════════════════
 FORMATO DE RESPOSTA (JSON obrigatório):
 ═══════════════════════════════════════════════════════════════════════════════
 {
@@ -440,16 +457,28 @@ FORMATO DE RESPOSTA (JSON obrigatório):
 }`
 
   try {
-    const response = await openai.chat.completions.create({
+    console.log("[API] Starting OpenAI GPT-4o-mini analysis...")
+    const startGPT = Date.now()
+    
+    // Create a promise that rejects after 55 seconds (Vercel has 60s limit)
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("OpenAI timeout after 55s")), 55000)
+    })
+    
+    const gptPromise = openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Analise este orçamento de construção portuguesa com máxima precisão e profundidade:\n\n${truncatedText}` }
+        { role: "user", content: `Analise este orçamento de construção portuguesa:\n\n${truncatedText}` }
       ],
       temperature: 0.1,
-      max_tokens: 16000,
+      max_tokens: 8000, // Reduced for faster response
       response_format: { type: "json_object" },
     })
+    
+    // Race between GPT call and timeout
+    const response = await Promise.race([gptPromise, timeoutPromise])
+    console.log(`[API] OpenAI response received in ${Date.now() - startGPT}ms`)
 
     const content = response.choices[0]?.message?.content || "{}"
     debugInfo.push(`GPT response received in ${Date.now() - startTime}ms`)
@@ -513,7 +542,19 @@ FORMATO DE RESPOSTA (JSON obrigatório):
     return items
     
   } catch (error) {
-    debugInfo.push(`GPT error: ${error instanceof Error ? error.message : "Unknown"}`)
+    const errorMsg = error instanceof Error ? error.message : "Unknown error"
+    console.error(`[API] GPT analysis failed: ${errorMsg}`)
+    debugInfo.push(`GPT error: ${errorMsg}`)
+    
+    // Log specific OpenAI errors for debugging
+    if (errorMsg.includes("timeout")) {
+      debugInfo.push("HINT: OpenAI API timed out. Consider smaller documents or check API quota.")
+    } else if (errorMsg.includes("429")) {
+      debugInfo.push("HINT: Rate limited. Check OpenAI API usage limits.")
+    } else if (errorMsg.includes("401")) {
+      debugInfo.push("HINT: Invalid API key. Check OPENAI_API_KEY environment variable.")
+    }
+    
     return []
   }
 }
