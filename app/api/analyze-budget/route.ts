@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { extractText } from "unpdf"
 import OpenAI from "openai"
 import * as XLSX from "xlsx"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 // ============================================================================
 // TYPES
@@ -75,7 +75,7 @@ const getOpenAIClient = () => {
 
 async function fetchMaterialsFromDB(): Promise<MaterialRef[]> {
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     const { data: materials, error } = await supabase
       .from("materials")
       .select("id, name, unit, avg_price, min_price, max_price, category")
@@ -410,7 +410,7 @@ BASE DE DADOS DE MATERIAIS/SERVIÇOS (usar para correspondência):
 ═══════════════════════════════════════════════════════════════════════════════
 ${materialSummary}
 
-═══════════════════════════════════════════════════════════════════════════════
+══════════════════════════════════════���════════════════════════════════════════
 FORMATO DE RESPOSTA (JSON obrigatório):
 ═══════════════════════════════════════════════════════════════════════════════
 {

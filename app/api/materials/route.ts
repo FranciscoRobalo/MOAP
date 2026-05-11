@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 // GET - Fetch all materials from database (auto-sync)
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     
     const { data: materials, error } = await supabase
       .from("materials")
