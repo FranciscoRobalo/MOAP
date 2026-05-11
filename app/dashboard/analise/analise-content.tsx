@@ -1259,36 +1259,63 @@ www.moap.pt
   const analyzeFile = async (file: File, lineLimit: number | null = null) => {
     setIsAnalyzing(true)
     setAnalyzeProgress(0)
-    setAnalyzeStatus("A iniciar analise com IA...")
+    const startTime = Date.now()
+    
+    // Detailed progress updates for better UX
+    const updateProgress = (percent: number, status: string) => {
+      setAnalyzeProgress(percent)
+      setAnalyzeStatus(status)
+    }
 
     try {
       const fileName = file.name.toLowerCase()
+      const fileSize = (file.size / 1024).toFixed(1)
+      const fileType = fileName.endsWith(".pdf") ? "PDF" : fileName.endsWith(".xlsx") || fileName.endsWith(".xls") ? "Excel" : "CSV"
       
-      // Use the new unified analysis API
-      setAnalyzeStatus("A processar documento com analise unificada IA...")
-      setAnalyzeProgress(5)
+      updateProgress(2, `A carregar ${fileType} (${fileSize} KB)...`)
+      await new Promise(r => setTimeout(r, 200)) // Small delay for UI feedback
       
-      // Prepare materials data for the API
-      const materialRefs = materials.map(m => ({
-        id: m.id,
-        name: m.name,
-        unit: m.unit,
-        price: m.price,
-        priceMax: m.priceMax || m.price,
-        category: m.category
-      }))
+      updateProgress(5, `Documento ${file.name} carregado. A preparar analise...`)
+      await new Promise(r => setTimeout(r, 300))
       
-      // Create form data with file and materials
+      // Create form data with file (materials fetched from DB automatically)
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("materials", JSON.stringify(materialRefs))
       
       // Call the unified analysis API with increased timeout
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minute timeout
+      const timeoutId = setTimeout(() => controller.abort(), 180000) // 3 minute timeout
       
-      setAnalyzeProgress(10)
-      setAnalyzeStatus("A extrair itens e calcular correspondencias (IA)...")
+      updateProgress(10, `A enviar ${fileType} para analise IA...`)
+      await new Promise(r => setTimeout(r, 200))
+      
+      // Progress simulation while waiting for API
+      const progressInterval = setInterval(() => {
+        setAnalyzeProgress(prev => {
+          if (prev < 50) return prev + 2
+          if (prev < 70) return prev + 1
+          if (prev < 85) return prev + 0.5
+          return prev
+        })
+      }, 800)
+      
+      // Status updates during analysis
+      const statusMessages = [
+        "A extrair texto do documento...",
+        "A identificar itens de orcamento...",
+        "A analisar precos e quantidades...",
+        "A comparar com base de dados de materiais...",
+        "A calcular variacoes de preco...",
+        "A classificar riscos financeiros...",
+        "A gerar recomendacoes IA..."
+      ]
+      let statusIndex = 0
+      const statusInterval = setInterval(() => {
+        if (statusIndex < statusMessages.length) {
+          setAnalyzeStatus(statusMessages[statusIndex])
+          statusIndex++
+        }
+      }, 2500)
       
       let apiResponse
       try {
@@ -1298,9 +1325,12 @@ www.moap.pt
           signal: controller.signal
         })
         clearTimeout(timeoutId)
+        clearInterval(progressInterval)
+        clearInterval(statusInterval)
         
         if (!response.ok) {
-          throw new Error(`API error: ${response.status}`)
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.error || `Erro API: ${response.status}`)
         }
         
         apiResponse = await response.json()
@@ -1309,14 +1339,16 @@ www.moap.pt
           throw new Error(apiResponse.error || "Falha na analise")
         }
         
-        setAnalyzeProgress(60)
-        setAnalyzeStatus(`${apiResponse.items.length} itens analisados. A processar resultados...`)
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
+        updateProgress(85, `${apiResponse.items.length} itens encontrados em ${elapsed}s. A finalizar...`)
         
-      } catch (fetchError) {
+      } catch (fetchError: any) {
         clearTimeout(timeoutId)
+        clearInterval(progressInterval)
+        clearInterval(statusInterval)
         // Fallback to local parsing if API fails
-        console.log("[v0] Unified API failed, using fallback...")
-        setAnalyzeStatus("API indisponivel, a processar localmente...")
+        console.log("[v0] API failed:", fetchError?.message || fetchError)
+        updateProgress(30, "Servidor ocupado. A processar localmente...")
         
         let parsedItems: Array<{ name: string; unit: string; quantity: number; price: number }> = []
         
@@ -1625,10 +1657,11 @@ www.moap.pt
       
       qualityScore = Math.round(Math.min(100, Math.max(0, qualityScore)))
       
-      setAnalyzeProgress(95)
-      setAnalyzeStatus("A gerar relatorio final...")
-
-      setAnalysisResult({
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
+      updateProgress(95, `Analise concluida em ${elapsed}s. A preparar resultados...`)
+      
+      // Build the result object
+      const analysisResultData = {
         id: `analysis-${Date.now()}`,
         fileName: file.name,
         uploadDate: new Date().toISOString(),
@@ -1654,7 +1687,35 @@ www.moap.pt
         categoryBreakdown,
         recommendations,
         qualityScore,
+      }
+      
+      setAnalysisResult(analysisResultData)
+      
+      // AUTO-SAVE: Store analysis in localStorage for history
+      try {
+        const historyKey = "moap_analysis_history"
+        const existingHistory = JSON.parse(localStorage.getItem(historyKey) || "[]")
+        const historyEntry = {
+          id: analysisResultData.id,
+          fileName: file.name,
+          date: new Date().toISOString(),
+          totalBudget,
+          itemCount: totalItems,
+          qualityScore,
+          overallRating,
+        }
+        // Keep last 20 analyses
+        const updatedHistory = [historyEntry, ...existingHistory].slice(0, 20)
+        localStorage.setItem(historyKey, JSON.stringify(updatedHistory))
+      } catch (e) {
+        // Silent fail for localStorage
+      }
+      
+      // Show success toast with summary
+      toast.success(`Analise concluida em ${elapsed}s`, {
+        description: `${totalItems} itens analisados. Score: ${qualityScore}/100`,
       })
+      
     } catch (error) {
       console.error("Error analyzing file:", error)
       setIsAnalyzing(false)
@@ -2315,19 +2376,28 @@ www.moap.pt
               </div>
 
               {isAnalyzing && (
-                <div className="mt-4 space-y-2">
-  <div className="flex justify-between text-sm">
-  <span className="text-muted-foreground">{analyzeStatus || "A analisar..."}</span>
-  <span className="font-medium">{analyzeProgress}%</span>
-  </div>
-  <Progress value={analyzeProgress} className="h-2" />
-  <p className="text-xs text-muted-foreground mt-1">
-    {analyzeProgress < 5 && "A extrair itens do documento..."}
-    {analyzeProgress >= 5 && analyzeProgress < 10 && "A procurar correspondências na base de dados..."}
-    {analyzeProgress >= 10 && analyzeProgress < 50 && "A analisar itens e calcular variâncias..."}
-    {analyzeProgress >= 50 && analyzeProgress < 90 && "A processar categorias e estatísticas..."}
-    {analyzeProgress >= 90 && "A finalizar análise..."}
-  </p>
+                <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/20 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-[8px] font-bold text-primary">{Math.round(analyzeProgress)}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm text-primary">{analyzeStatus || "A analisar..."}</p>
+                      <p className="text-xs text-muted-foreground">Analise IA em progresso</p>
+                    </div>
+                    <span className="text-lg font-bold text-primary">{Math.round(analyzeProgress)}%</span>
+                  </div>
+                  <Progress value={analyzeProgress} className="h-2" />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Carregar</span>
+                    <span>Extrair</span>
+                    <span>Analisar</span>
+                    <span>Comparar</span>
+                    <span>Finalizar</span>
+                  </div>
                 </div>
               )}
 
