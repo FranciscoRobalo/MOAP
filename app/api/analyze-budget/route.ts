@@ -272,12 +272,19 @@ async function analyzeWithGPT(
   materials: MaterialRef[], 
   debugInfo: string[]
 ): Promise<AnalyzedItem[]> {
+  console.log("[API] Checking OpenAI API key...")
+  const hasKey = !!process.env.OPENAI_API_KEY
+  const keyPrefix = process.env.OPENAI_API_KEY?.substring(0, 10) || "NOT_SET"
+  console.log(`[API] OPENAI_API_KEY present: ${hasKey}, prefix: ${keyPrefix}...`)
+  
   const openai = getOpenAIClient()
   if (!openai) {
-    debugInfo.push("OpenAI API key not configured")
+    console.error("[API] OpenAI client creation failed - API key not configured!")
+    debugInfo.push("OpenAI API key not configured - check OPENAI_API_KEY env var")
     return []
   }
   
+  console.log("[API] OpenAI client created successfully")
   debugInfo.push("Starting world-class GPT analysis...")
   const startTime = Date.now()
   
@@ -417,7 +424,7 @@ INSTRUÇÕES DE EXTRAÇÃO E ANÁLISE
 
 ═══════════════════════════════════════════════════════════════════════════════
 BASE DE DADOS DE MATERIAIS/SERVIÇOS (usar para correspondência):
-═══════════════════════════════════════════════════════════════════════════════
+══════════════════════════��════════════════════════════════════════════════════
 ${materialSummary}
 
 ═════════════════════════════════════������════════════════════════════════════════
