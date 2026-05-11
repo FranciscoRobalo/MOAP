@@ -289,22 +289,57 @@ MISSÃO CRÍTICA: Analisar orçamentos de construção com precisão cirúrgica,
 - Correspondências semânticas inteligentes com a base de dados
 
 ═══════════════════════════════════════════════════════════════════════════════
+REGRA CRÍTICA: IDENTIFICAR TIPO DE PREÇO
+═══════════════════════════════════════════════════════════════════════════════
+
+ATENÇÃO MÁXIMA: Você DEVE identificar se cada item é:
+
+A) PREÇO UNITÁRIO (por m2, m3, un, ml, kg, etc.):
+   • O preço é POR UNIDADE de medida
+   • Exemplo: "Pintura interior - m2 - 200 m2 - €8.50/m2"
+   • Compare com preços de referência unitários
+
+B) PREÇO GLOBAL/TOTAL (vg = verba global):
+   • O preço é pelo TRABALHO TODO, não unitário
+   • Palavras-chave: "verba", "global", "conjunto", "total", "completo"
+   • Exemplo: "Demolições (verba global) - €5.000,00" = preço total de todas demolições
+   • NÃO compare diretamente com preços unitários!
+
+C) CATEGORIA/CAPÍTULO (NÃO É UM ITEM):
+   • Títulos como "1. DEMOLIÇÕES", "2. ESTRUTURA", "CAPÍTULO III"
+   • Estes são cabeçalhos, não itens de orçamento
+   • O valor associado é geralmente SUBTOTAL do capítulo
+   • IGNORE estes ou marque como "isChapterHeader": true
+
+COMO DISTINGUIR:
+• Se tem unidade específica (m2, m3, un, ml) → PREÇO UNITÁRIO
+• Se diz "vg", "verba", "global", "total" → PREÇO GLOBAL
+• Se o preço é muito alto (>€1000) sem quantidade clara → provavelmente GLOBAL
+• Se é só um nome de categoria sem detalhes → CABEÇALHO (ignorar)
+
+PARA PREÇOS GLOBAIS:
+• Não calcule variação % comparando com preços unitários
+• Estime se o valor global é razoável para o trabalho descrito
+• Marque "isGlobalPrice": true na resposta
+
+═══════════════════════════════════════════════════════════════════════════════
 INSTRUÇÕES DE EXTRAÇÃO E ANÁLISE
 ═══════════════════════════════════════════════════════════════════════════════
 
 1. EXTRAÇÃO DE ITENS:
-   • Identificar TODOS os artigos do orçamento
+   • Identificar TODOS os artigos individuais do orçamento
+   • IGNORAR linhas que são apenas títulos de capítulos/categorias
    • Artigos têm formato: número + descrição + unidade + quantidade + preço
    • Números de artigo: "1,01", "2,03", "Art. 5", "01.02.03"
    • Preços portugueses: "22 000,00" = 22000€, "1.234,56" = 1234.56€
 
 2. UNIDADES PADRÃO:
-   • vg = verba global (trabalho completo)
-   • m2 = metro quadrado
-   • m3 = metro cúbico
-   • ml = metro linear
-   • un = unidade
-   • kg = quilograma
+   • vg = verba global (trabalho completo, preço total)
+   • m2 = metro quadrado (preço por m2)
+   • m3 = metro cúbico (preço por m3)
+   • ml = metro linear (preço por metro)
+   • un = unidade (preço por peça)
+   • kg = quilograma (preço por kg)
    • mês = mensal
 
 3. CORRESPONDÊNCIA SEMÂNTICA INTELIGENTE:
@@ -384,16 +419,17 @@ FORMATO DE RESPOSTA (JSON obrigatório):
       "name": "descrição original completa do item",
       "unit": "unidade normalizada (vg, m2, m3, ml, un, kg)",
       "quantity": número,
-      "price": preço unitário do orçamento em euros,
+      "price": preço do orçamento em euros (unitário OU global dependendo da unidade),
+      "isGlobalPrice": true/false (true se é verba global, false se é preço unitário),
       "matchedMaterialId": "UUID do material correspondente ou null",
       "matchedMaterialName": "nome do material correspondente ou null",
       "confidence": 0-100 (confiança na correspondência),
-      "referenceMinPrice": preço mínimo de referência,
-      "referenceMaxPrice": preço máximo de referência,
-      "referenceAvgPrice": preço médio de referência,
+      "referenceMinPrice": preço mínimo de referência (ou null se global),
+      "referenceMaxPrice": preço máximo de referência (ou null se global),
+      "referenceAvgPrice": preço médio de referência (ou null se global),
       "category": "categoria do item",
-      "matchReason": "explicação clara da correspondência ou estimativa",
-      "aiInsight": "insight sobre este preço específico e recomendação"
+      "matchReason": "explicação clara - se global, explicar que é verba global",
+      "aiInsight": "insight sobre este preço - se global, avaliar se valor total é razoável"
     }
   ],
   "recommendations": [
