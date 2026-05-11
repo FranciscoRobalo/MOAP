@@ -304,9 +304,9 @@ export default function PricesContent() {
             <Sparkles className="mr-2 h-4 w-4" />
             Pesquisar com IA
           </Button>
-          <Button onClick={syncPricesWithMarket} disabled={isSyncing} variant="outline">
-            <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-            {isSyncing ? "A Sincronizar..." : "Sincronizar Preços IA"}
+          <Button variant="outline" className="gap-2" disabled>
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            Preços Sincronizados (Auto)
           </Button>
           <Button 
             onClick={() => {
@@ -335,23 +335,7 @@ export default function PricesContent() {
         </div>
       </div>
 
-      {isSyncing && (
-        <Card className="bg-primary/5 border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <RefreshCw className="h-5 w-5 animate-spin" />
-              Sincronização em Progresso
-            </CardTitle>
-            <CardDescription>A IA está a pesquisar preços atuais no mercado português...</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Progress value={syncProgress} className="h-2" />
-            <p className="text-sm text-muted-foreground mt-2">
-              {syncedItems.length} de {filteredItems.length} itens analisados
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Prices auto-synced from database - no manual sync needed */}
 
       {showSyncResults && (
         <Card className={priceChanges.length > 0 ? "bg-green-500/5 border-green-500/20" : "bg-muted/50"}>

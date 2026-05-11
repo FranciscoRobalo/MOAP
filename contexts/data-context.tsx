@@ -625,7 +625,7 @@ const initialMaterials: Material[] = [
   },
   {
     id: "work-012",
-    name: "Demolição de laje de betão armado até 12 cm",
+    name: "Demolição de laje de bet��o armado até 12 cm",
     unit: "m²",
     price: 101.6,
     priceMax: 169.4,
@@ -6408,16 +6408,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Renamed invites to invitations
   const [invitations, setInvitations] = useState<Invite[]>(initialInvitations)
 
-  // Load from localStorage on mount, but always use initialMaterials as base
+  // AUTO-FETCH materials from database on mount
   useEffect(() => {
+    const fetchMaterialsFromDB = async () => {
+      try {
+        const response = await fetch("/api/materials")
+        if (response.ok) {
+          const data = await response.json()
+          if (data.materials && data.materials.length > 0) {
+            console.log("[v0] Auto-loaded", data.materials.length, "materials from database")
+            setMaterials(data.materials)
+          } else {
+            console.log("[v0] No materials in DB, using initial materials")
+          }
+        }
+      } catch (error) {
+        console.log("[v0] Could not fetch materials from DB, using initial materials:", error)
+      }
+    }
+    
+    // Fetch from database
+    fetchMaterialsFromDB()
+    
+    // Also load other data from localStorage as backup
     const stored = localStorage.getItem("moap_data")
     if (stored) {
       try {
         const data = JSON.parse(stored)
-        // This ensures new initial data is used if user had empty/outdated data
-        if (data.materials && data.materials.length > initialMaterials.length) {
-          setMaterials(data.materials)
-        }
+        // Only load materials from localStorage if DB fetch failed (materials still equals initialMaterials)
         if (data.budgets) setBudgets(data.budgets)
         if (data.obras) setObras(data.obras)
         if (data.visitas) setVisitas(data.visitas)
@@ -6427,7 +6445,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error("Error loading data:", e)
       }
     }
-    // localStorage.removeItem("moap_data") // Removed this line to persist data across refreshes
   }, [])
 
   // Save to localStorage on change

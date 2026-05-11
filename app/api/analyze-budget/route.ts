@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { extractText } from "unpdf"
 import OpenAI from "openai"
 import * as XLSX from "xlsx"
+import { createClient } from "@/lib/supabase/server"
 
 // ============================================================================
 // TYPES
@@ -24,6 +25,9 @@ interface AnalyzedItem extends ParsedItem {
   variance: number | null
   category: string
   matchReason: string
+  rating: "below" | "average" | "above" | "critical" | "unknown"
+  riskLevel: "low" | "medium" | "high" | "critical"
+  aiInsight?: string
 }
 
 interface MaterialRef {
@@ -31,6 +35,7 @@ interface MaterialRef {
   name: string
   unit: string
   price: number
+  priceMin?: number
   priceMax?: number
   category: string
 }
@@ -43,7 +48,15 @@ interface AnalysisResponse {
     matchedItems: number
     avgConfidence: number
     processingTimeMs: number
+    totalBudget: number
+    totalReference: number
+    overallVariance: number
+    qualityScore: number
+    riskItems: number
+    potentialSavings: number
   }
+  recommendations: string[]
+  categoryBreakdown: { category: string; total: number; count: number; variance: number }[]
   debug?: string[]
 }
 
@@ -54,6 +67,38 @@ interface AnalysisResponse {
 const getOpenAIClient = () => {
   if (!process.env.OPENAI_API_KEY) return null
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+}
+
+// ============================================================================
+// AUTO-FETCH MATERIALS FROM DATABASE
+// ============================================================================
+
+async function fetchMaterialsFromDB(): Promise<MaterialRef[]> {
+  try {
+    const supabase = await createClient()
+    const { data: materials, error } = await supabase
+      .from("materials")
+      .select("id, name, unit, avg_price, min_price, max_price, category")
+      .order("category", { ascending: true })
+    
+    if (error || !materials) {
+      console.error("Error fetching materials from DB:", error)
+      return []
+    }
+    
+    return materials.map(m => ({
+      id: m.id,
+      name: m.name,
+      unit: m.unit,
+      price: m.avg_price,
+      priceMin: m.min_price,
+      priceMax: m.max_price,
+      category: m.category
+    }))
+  } catch (error) {
+    console.error("Failed to fetch materials:", error)
+    return []
+  }
 }
 
 // ============================================================================
@@ -83,8 +128,25 @@ function normalizeUnit(unit: string): string {
     "kg": "kg", "quilo": "kg",
     "m": "m", "metro": "m",
     "l": "l", "lt": "l", "litro": "l",
+    "mês": "mês", "mes": "mês", "hora": "hora", "h": "hora",
   }
   return unitMap[trimmed] || (trimmed.length <= 6 ? trimmed : "un")
+}
+
+function calculateRating(variance: number | null): "below" | "average" | "above" | "critical" | "unknown" {
+  if (variance === null) return "unknown"
+  if (variance < -10) return "below"
+  if (variance <= 10) return "average"
+  if (variance <= 50) return "above"
+  return "critical"
+}
+
+function calculateRiskLevel(variance: number | null, confidence: number): "low" | "medium" | "high" | "critical" {
+  if (variance === null || confidence < 60) return "medium"
+  if (variance > 50) return "critical"
+  if (variance > 25) return "high"
+  if (variance > 10) return "medium"
+  return "low"
 }
 
 // ============================================================================
@@ -192,7 +254,7 @@ function parseExcelFile(buffer: ArrayBuffer, debugInfo: string[]): ParsedItem[] 
 }
 
 // ============================================================================
-// UNIFIED GPT ANALYSIS - Parse + Match + Price in ONE call
+// WORLD-CLASS GPT ANALYSIS PROMPT
 // ============================================================================
 
 async function analyzeWithGPT(
@@ -206,75 +268,138 @@ async function analyzeWithGPT(
     return []
   }
   
-  debugInfo.push("Starting unified GPT analysis...")
+  debugInfo.push("Starting world-class GPT analysis...")
   const startTime = Date.now()
   
   // Limit text to avoid token limits
-  const maxChars = 15000
+  const maxChars = 20000
   const truncatedText = text.length > maxChars ? text.substring(0, maxChars) : text
   
-  // Create compact material database reference
-  const materialSummary = materials.slice(0, 150).map(m => 
-    `${m.id}|${m.name}|${m.unit}|${m.price}-${m.priceMax || m.price}|${m.category}`
+  // Create detailed material database reference
+  const materialSummary = materials.slice(0, 200).map(m => 
+    `${m.id}|${m.name}|${m.unit}|€${m.priceMin?.toFixed(2) || m.price.toFixed(2)}-€${m.priceMax?.toFixed(2) || m.price.toFixed(2)}|${m.category}`
   ).join("\n")
   
-  const systemPrompt = `Você é um sistema de análise de orçamentos de construção civil portuguesa de classe mundial.
+  const systemPrompt = `Você é o sistema de análise de orçamentos de construção civil mais avançado do mundo, especializado no mercado português.
 
-SUA TAREFA (execute em uma única resposta):
-1. EXTRAIR todos os itens do orçamento do texto fornecido
-2. Para cada item, CORRESPONDER com a base de dados de materiais/serviços OU estimar preços de mercado
-3. CALCULAR variação entre preço do orçamento e preço de referência
+MISSÃO CRÍTICA: Analisar orçamentos de construção com precisão cirúrgica, identificando:
+- Preços inflacionados ou abaixo do mercado
+- Itens com risco financeiro elevado
+- Oportunidades de poupança
+- Correspondências semânticas inteligentes com a base de dados
 
-FORMATO DO TEXTO DE ORÇAMENTO:
-- Itens podem estar em linhas separadas ou contínuos
-- Artigos identificados por números como "0,01", "1,02", "2,01"
-- Formato de preços português: "22 000,00" ou "1.234,56" = 22000 ou 1234.56 euros
-- Unidades comuns: vg (verba global), m2, m3, ml, un, kg
+═══════════════════════════════════════════════════════════════════════════════
+INSTRUÇÕES DE EXTRAÇÃO E ANÁLISE
+═══════════════════════════════════════════════════════════════════════════════
 
-REGRAS DE CORRESPONDÊNCIA:
-- Faça correspondência SEMÂNTICA (entenda o significado, não apenas palavras)
-- Sinónimos: "capoto" = "ETICS" = "isolamento térmico exterior"
-- Unidades devem ser compatíveis
-- Confiança mínima 60% para match válido
-- Se não houver match, ESTIME preços de mercado Portugal 2024-2025
+1. EXTRAÇÃO DE ITENS:
+   • Identificar TODOS os artigos do orçamento
+   • Artigos têm formato: número + descrição + unidade + quantidade + preço
+   • Números de artigo: "1,01", "2,03", "Art. 5", "01.02.03"
+   • Preços portugueses: "22 000,00" = 22000€, "1.234,56" = 1234.56€
 
-PREÇOS DE REFERÊNCIA PORTUGAL 2024-2025:
-- Pintura interior: €8-15/m2
-- Pintura exterior: €12-22/m2
-- Betão C25/30 fundações: €90-140/m3
-- Alvenaria tijolo: €40-75/m2
-- ETICS/Cappotto: €55-100/m2
-- Teto falso gesso: €28-50/m2
-- Portas interiores: €250-600/un
-- Caixilharia alumínio: €350-700/m2
-- Impermeabilização: €22-45/m2
-- Cerâmico pavimento: €30-60/m2
-- Estaleiro: €5000-30000/vg
-- Escavação: €10-25/m3
-- Eletricidade: €40-80/m2
-- Canalização: €30-60/m2
-- Demolições: €15-40/m3
+2. UNIDADES PADRÃO:
+   • vg = verba global (trabalho completo)
+   • m2 = metro quadrado
+   • m3 = metro cúbico
+   • ml = metro linear
+   • un = unidade
+   • kg = quilograma
+   • mês = mensal
 
-BASE DE DADOS DE MATERIAIS/SERVIÇOS:
+3. CORRESPONDÊNCIA SEMÂNTICA INTELIGENTE:
+   • Entender SIGNIFICADO, não apenas palavras
+   • "capoto" = "cappotto" = "ETICS" = "isolamento térmico exterior"
+   • "gesso cartonado" = "pladur" = "drywall"
+   • "pavimento cerâmico" = "azulejo pavimento" = "ladrilho cerâmico"
+   • Considerar contexto da frase para melhor match
+
+4. ESTIMATIVA DE PREÇOS (quando não há match na BD):
+   Use estes preços de referência Portugal 2025:
+
+   DEMOLIÇÕES:
+   • Demolição pavimento/revestimento: €8-15/m2
+   • Demolição alvenaria tijolo: €14-27/m2
+   • Remoção entulho: €25-50/m3
+   
+   ESTRUTURA:
+   • Betão C25/30 fundações: €90-140/m3
+   • Betão C30/37: €100-160/m3
+   • Armadura aço A500: €1.4-2.4/kg
+   • Cofragem: €20-55/m2
+   
+   ALVENARIAS:
+   • Tijolo 30x20x11: €22-38/m2
+   • Bloco térmico: €35-65/m2
+   • Pladur simples: €28-52/m2
+   
+   REVESTIMENTOS:
+   • Reboco tradicional: €8-18/m2
+   • Pintura interior: €6-16/m2
+   • Pintura exterior: €10-24/m2
+   • Pavimento cerâmico: €30-60/m2
+   • Pavimento flutuante: €18-42/m2
+   
+   INSTALAÇÕES:
+   • Elétrica completa T2: €3500-7500/vg
+   • Elétrica por m2: €35-78/m2
+   • Hidráulica completa T2: €2800-6200/vg
+   • Hidráulica por m2: €28-62/m2
+   
+   ISOLAMENTOS:
+   • ETICS/Cappotto: €55-100/m2
+   • Impermeabilização: €18-48/m2
+   
+   CARPINTARIAS:
+   • Porta interior: €280-650/un
+   • Porta segurança: €850-2200/un
+   • Armário roupeiro: €380-850/ml
+   
+   CAIXILHARIAS:
+   • Alumínio RPT: €320-720/m2
+   • PVC: €250-550/m2
+   • Vidro duplo: €55-125/m2
+   
+   OUTROS:
+   • Estaleiro pequeno: €2500-8000/vg
+   • Estaleiro médio: €8000-25000/vg
+   • Teto falso gesso: €28-52/m2
+
+5. INSIGHTS E RECOMENDAÇÕES:
+   • Para cada item, fornecer insight sobre o preço
+   • Identificar se está muito acima/abaixo do mercado
+   • Sugerir pontos de negociação
+
+═══════════════════════════════════════════════════════════════════════════════
+BASE DE DADOS DE MATERIAIS/SERVIÇOS (usar para correspondência):
+═══════════════════════════════════════════════════════════════════════════════
 ${materialSummary}
 
-RESPONDA COM JSON:
+═══════════════════════════════════════════════════════════════════════════════
+FORMATO DE RESPOSTA (JSON obrigatório):
+═══════════════════════════════════════════════════════════════════════════════
 {
   "items": [
     {
-      "name": "descrição original do item",
-      "unit": "unidade (vg, m2, m3, ml, un, kg)",
+      "name": "descrição original completa do item",
+      "unit": "unidade normalizada (vg, m2, m3, ml, un, kg)",
       "quantity": número,
-      "price": preço unitário do orçamento,
-      "matchedMaterialId": "ID do material correspondente ou null",
+      "price": preço unitário do orçamento em euros,
+      "matchedMaterialId": "UUID do material correspondente ou null",
       "matchedMaterialName": "nome do material correspondente ou null",
-      "confidence": 0-100,
+      "confidence": 0-100 (confiança na correspondência),
       "referenceMinPrice": preço mínimo de referência,
       "referenceMaxPrice": preço máximo de referência,
       "referenceAvgPrice": preço médio de referência,
       "category": "categoria do item",
-      "matchReason": "breve explicação da correspondência/estimativa"
+      "matchReason": "explicação clara da correspondência ou estimativa",
+      "aiInsight": "insight sobre este preço específico e recomendação"
     }
+  ],
+  "recommendations": [
+    "Recomendação 1 sobre o orçamento geral",
+    "Recomendação 2 sobre itens específicos",
+    "Recomendação 3 sobre negociação"
   ]
 }`
 
@@ -283,7 +408,7 @@ RESPONDA COM JSON:
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Analise este orçamento de construção portuguesa e extraia todos os itens com correspondências e preços:\n\n${truncatedText}` }
+        { role: "user", content: `Analise este orçamento de construção portuguesa com máxima precisão e profundidade:\n\n${truncatedText}` }
       ],
       temperature: 0.1,
       max_tokens: 16000,
@@ -295,19 +420,23 @@ RESPONDA COM JSON:
     
     // Parse JSON response
     let items: AnalyzedItem[] = []
+    let recommendations: string[] = []
+    
     try {
       const parsed = JSON.parse(content)
       items = parsed.items || []
+      recommendations = parsed.recommendations || []
     } catch {
       debugInfo.push("JSON parse failed, trying extraction...")
       const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0])
         items = parsed.items || []
+        recommendations = parsed.recommendations || []
       }
     }
     
-    // Validate and calculate variance for each item
+    // Validate and enrich items
     items = items
       .filter((item: AnalyzedItem) => item && item.name && item.name.length > 5)
       .map((item: AnalyzedItem) => {
@@ -319,6 +448,9 @@ RESPONDA COM JSON:
           variance = ((budgetPrice - refAvg) / refAvg) * 100
         }
         
+        const rating = calculateRating(variance)
+        const riskLevel = calculateRiskLevel(variance, item.confidence || 0)
+        
         return {
           ...item,
           name: String(item.name).trim(),
@@ -328,11 +460,20 @@ RESPONDA COM JSON:
           variance,
           confidence: item.confidence || 0,
           category: item.category || "Sem categoria",
-          matchReason: item.matchReason || ""
+          matchReason: item.matchReason || "",
+          rating,
+          riskLevel,
+          aiInsight: item.aiInsight || ""
         }
       })
     
-    debugInfo.push(`Unified analysis extracted ${items.length} items in ${Date.now() - startTime}ms`)
+    debugInfo.push(`World-class analysis extracted ${items.length} items with ${recommendations.length} recommendations in ${Date.now() - startTime}ms`)
+    
+    // Store recommendations in debug for later retrieval
+    if (recommendations.length > 0) {
+      debugInfo.push(`RECOMMENDATIONS:${JSON.stringify(recommendations)}`)
+    }
+    
     return items
     
   } catch (error) {
@@ -438,22 +579,99 @@ function matchLocally(
     
     const confidence = bestScore > 3 ? Math.min(bestScore * 15, 85) : 0
     const refAvg = bestMatch?.price || null
+    const refMin = bestMatch?.priceMin || refAvg
     const refMax = bestMatch?.priceMax || refAvg
     const variance = refAvg && item.price > 0 ? ((item.price - refAvg) / refAvg) * 100 : null
+    const rating = calculateRating(variance)
+    const riskLevel = calculateRiskLevel(variance, confidence)
     
     return {
       ...item,
       matchedMaterialId: confidence >= 60 ? bestMatch?.id || null : null,
       matchedMaterialName: confidence >= 60 ? bestMatch?.name || null : null,
       confidence,
-      referenceMinPrice: refAvg,
+      referenceMinPrice: refMin,
       referenceMaxPrice: refMax,
       referenceAvgPrice: refAvg,
       variance,
       category: bestMatch?.category || "Sem categoria",
-      matchReason: confidence >= 60 ? "Correspondência local por palavras-chave" : "Sem correspondência adequada"
+      matchReason: confidence >= 60 ? "Correspondência local por palavras-chave" : "Sem correspondência adequada",
+      rating,
+      riskLevel,
+      aiInsight: ""
     }
   })
+}
+
+// ============================================================================
+// CALCULATE ANALYSIS STATISTICS
+// ============================================================================
+
+function calculateStats(items: AnalyzedItem[]): {
+  totalBudget: number
+  totalReference: number
+  overallVariance: number
+  qualityScore: number
+  riskItems: number
+  potentialSavings: number
+  categoryBreakdown: { category: string; total: number; count: number; variance: number }[]
+} {
+  const totalBudget = items.reduce((sum, i) => sum + (i.price * i.quantity), 0)
+  const totalReference = items.reduce((sum, i) => {
+    const ref = i.referenceAvgPrice || 0
+    return sum + (ref * i.quantity)
+  }, 0)
+  
+  const overallVariance = totalReference > 0 
+    ? ((totalBudget - totalReference) / totalReference) * 100 
+    : 0
+  
+  // Quality score based on match rate and confidence
+  const matchedItems = items.filter(i => i.confidence >= 60).length
+  const avgConfidence = items.length > 0 
+    ? items.reduce((sum, i) => sum + i.confidence, 0) / items.length 
+    : 0
+  const qualityScore = Math.round((matchedItems / Math.max(items.length, 1)) * 50 + (avgConfidence / 100) * 50)
+  
+  // Risk items (above or critical)
+  const riskItems = items.filter(i => i.rating === "above" || i.rating === "critical").length
+  
+  // Potential savings (items above market)
+  const potentialSavings = items.reduce((sum, i) => {
+    if (i.variance && i.variance > 10 && i.referenceAvgPrice) {
+      const saving = (i.price - i.referenceAvgPrice) * i.quantity
+      return sum + Math.max(saving, 0)
+    }
+    return sum
+  }, 0)
+  
+  // Category breakdown
+  const categoryMap = new Map<string, { total: number; count: number; refTotal: number }>()
+  for (const item of items) {
+    const cat = item.category || "Sem categoria"
+    const existing = categoryMap.get(cat) || { total: 0, count: 0, refTotal: 0 }
+    existing.total += item.price * item.quantity
+    existing.count += 1
+    existing.refTotal += (item.referenceAvgPrice || 0) * item.quantity
+    categoryMap.set(cat, existing)
+  }
+  
+  const categoryBreakdown = Array.from(categoryMap.entries()).map(([category, data]) => ({
+    category,
+    total: data.total,
+    count: data.count,
+    variance: data.refTotal > 0 ? ((data.total - data.refTotal) / data.refTotal) * 100 : 0
+  })).sort((a, b) => b.total - a.total)
+  
+  return {
+    totalBudget,
+    totalReference,
+    overallVariance,
+    qualityScore,
+    riskItems,
+    potentialSavings,
+    categoryBreakdown
+  }
 }
 
 // ============================================================================
@@ -473,12 +691,21 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
     
+    // AUTO-FETCH materials from database (primary) or use provided (fallback)
     let materials: MaterialRef[] = []
-    if (materialsJson) {
+    
+    debugInfo.push("Auto-fetching materials from database...")
+    const dbMaterials = await fetchMaterialsFromDB()
+    
+    if (dbMaterials.length > 0) {
+      materials = dbMaterials
+      debugInfo.push(`Loaded ${dbMaterials.length} materials from database`)
+    } else if (materialsJson) {
       try {
         materials = JSON.parse(materialsJson)
+        debugInfo.push(`Using ${materials.length} provided materials (DB empty)`)
       } catch {
-        debugInfo.push("Failed to parse materials JSON")
+        debugInfo.push("Failed to parse materials JSON and DB is empty")
       }
     }
     
@@ -501,7 +728,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
           .map(name => XLSX.utils.sheet_to_csv(workbook.Sheets[name]))
           .join("\n\n")
         
-        // Try unified GPT analysis
+        // Try world-class GPT analysis
         items = await analyzeWithGPT(text, materials, debugInfo)
         
         // Fallback to local matching if GPT fails
@@ -518,7 +745,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
         text = result.text
         debugInfo.push(`PDF text extracted: ${text.length} chars`)
         
-        // Unified GPT analysis
+        // World-class GPT analysis
         items = await analyzeWithGPT(text, materials, debugInfo)
         
         // Fallback to regex + local matching
@@ -535,7 +762,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       debugInfo.push("Processing text file...")
       text = await file.text()
       
-      // Unified GPT analysis
+      // World-class GPT analysis
       items = await analyzeWithGPT(text, materials, debugInfo)
       
       // Fallback to regex + local matching
@@ -566,7 +793,33 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       return true
     })
     
-    // Calculate stats
+    // Calculate comprehensive stats
+    const stats = calculateStats(items)
+    
+    // Extract recommendations from debug
+    let recommendations: string[] = []
+    const recMatch = debugInfo.find(d => d.startsWith("RECOMMENDATIONS:"))
+    if (recMatch) {
+      try {
+        recommendations = JSON.parse(recMatch.replace("RECOMMENDATIONS:", ""))
+      } catch {
+        // Ignore parse errors
+      }
+    }
+    
+    // Add default recommendations if none
+    if (recommendations.length === 0) {
+      if (stats.riskItems > 0) {
+        recommendations.push(`Identificados ${stats.riskItems} itens com preços acima do mercado que merecem atenção especial.`)
+      }
+      if (stats.potentialSavings > 0) {
+        recommendations.push(`Potencial de poupança estimado: €${stats.potentialSavings.toFixed(2)} através de negociação.`)
+      }
+      if (stats.qualityScore < 70) {
+        recommendations.push("Recomendamos solicitar mais detalhes ao empreiteiro para melhor análise de alguns itens.")
+      }
+    }
+    
     const matchedItems = items.filter(i => i.matchedMaterialId || i.confidence >= 60).length
     const avgConfidence = items.length > 0 
       ? items.reduce((sum, i) => sum + (i.confidence || 0), 0) / items.length 
@@ -582,15 +835,39 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
         totalItems: items.length,
         matchedItems,
         avgConfidence: Math.round(avgConfidence),
-        processingTimeMs
+        processingTimeMs,
+        totalBudget: stats.totalBudget,
+        totalReference: stats.totalReference,
+        overallVariance: stats.overallVariance,
+        qualityScore: stats.qualityScore,
+        riskItems: stats.riskItems,
+        potentialSavings: stats.potentialSavings
       },
+      recommendations,
+      categoryBreakdown: stats.categoryBreakdown,
       debug: debugInfo
     })
     
   } catch (error) {
     debugInfo.push(`Fatal error: ${error instanceof Error ? error.message : "Unknown"}`)
-    return NextResponse.json({ 
-      error: "Failed to analyze budget"
+    return NextResponse.json({
+      success: false,
+      items: [],
+      stats: {
+        totalItems: 0,
+        matchedItems: 0,
+        avgConfidence: 0,
+        processingTimeMs: Date.now() - startTime,
+        totalBudget: 0,
+        totalReference: 0,
+        overallVariance: 0,
+        qualityScore: 0,
+        riskItems: 0,
+        potentialSavings: 0
+      },
+      recommendations: [],
+      categoryBreakdown: [],
+      debug: debugInfo
     }, { status: 500 })
   }
 }

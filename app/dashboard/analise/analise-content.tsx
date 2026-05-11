@@ -2156,32 +2156,69 @@ www.moap.pt
     }
   }
 
-  // Save budget to approval list
-  const handleSaveBudget = () => {
+  // Save budget to approval list - AUTO-SAVES TO DATABASE
+  const handleSaveBudget = async () => {
     if (!analysisResult || !saveBudgetName.trim()) return
     
     setIsSaving(true)
     
     try {
-      // Convert analysis items to budget items format
-      const budgetItems = analysisResult.items.map((item, index) => ({
-        id: `item-${index}`,
-        materialId: item.id,
-        materialName: item.matchedName || item.originalName,
-        unit: item.unit,
+      // Convert analysis items to budget items format for database
+      const budgetItems = analysisResult.items.map((item) => ({
+        originalName: item.originalName,
+        matchedName: item.matchedName || null,
+        matchedMaterialId: item.id || null,
+        matchConfidence: item.matchConfidence,
         quantity: item.quantity,
+        unit: item.unit,
         unitPrice: item.budgetPrice,
+        referenceAvgPrice: item.referenceAvgPrice,
+        referenceMinPrice: item.referenceMinPrice,
+        referenceMaxPrice: item.referenceMaxPrice,
+        variance: item.variance,
+        rating: item.rating,
         category: item.category,
       }))
       
-      // Add budget to the data context with "pendente" status for approval
+      // AUTO-SAVE to database
+      const response = await fetch("/api/budgets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: saveBudgetName.trim(),
+          fileName: analysisResult.fileName,
+          items: budgetItems,
+          totalValue: analysisResult.totalBudget,
+          analysisScore: analysisResult.qualityScore,
+          region: selectedRegion,
+          status: "pendente",
+          notes: `Análise automática - ${analysisResult.stats.matchedItems}/${analysisResult.stats.totalItems} itens correspondidos`
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error("Failed to save to database")
+      }
+      
+      const result = await response.json()
+      console.log("[v0] Budget saved to database:", result)
+      
+      // Also add to local data context for immediate UI update
       addBudget({
         name: saveBudgetName.trim(),
         obraId: "",
         obraName: saveBudgetLocation.trim() || "Localização não especificada",
         createdDate: new Date().toISOString().split("T")[0],
         status: "pendente",
-        items: budgetItems,
+        items: budgetItems.map((item, index) => ({
+          id: `item-${index}`,
+          materialId: item.matchedMaterialId || "",
+          materialName: item.matchedName || item.originalName,
+          unit: item.unit,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          category: item.category,
+        })),
         totalValue: analysisResult.totalBudget,
         analysisVariance: analysisResult.overallVariance,
       })
@@ -2192,13 +2229,13 @@ www.moap.pt
       setShowSaveDialog(false)
       
       // Show success toast
-      toast.success("Orçamento guardado", {
-        description: `"${saveBudgetName.trim()}" foi adicionado à lista de aprovação.`,
+      toast.success("Orçamento guardado automaticamente", {
+        description: `"${saveBudgetName.trim()}" foi guardado na base de dados e adicionado à lista de aprovação.`,
       })
     } catch (err) {
       console.error("Error saving budget:", err)
       toast.error("Erro ao guardar", {
-        description: "Ocorreu um erro ao guardar o orçamento.",
+        description: "Ocorreu um erro ao guardar o orçamento. Tente novamente.",
       })
     } finally {
       setIsSaving(false)
