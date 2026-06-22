@@ -265,7 +265,7 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
 
-const initialMaterials: Material[] = [
+export const initialMaterials: Material[] = [
   // ==================== MATERIAIS ====================
   // Consumíveis
   {
@@ -625,7 +625,7 @@ const initialMaterials: Material[] = [
   },
   {
     id: "work-012",
-    name: "Demolição de laje de bet��o armado até 12 cm",
+    name: "Demolição de laje de bet����o armado até 12 cm",
     unit: "m²",
     price: 101.6,
     priceMax: 169.4,
@@ -2611,7 +2611,7 @@ const initialMaterials: Material[] = [
   },
   {
     id: "work-190",
-    name: "Execução de sub-base até 30 cm",
+    name: "Execução de sub-base at�� 30 cm",
     unit: "m³",
     price: 3.4,
     priceMax: 5.0,
