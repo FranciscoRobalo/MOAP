@@ -265,7 +265,7 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
 
-const initialMaterials: Material[] = [
+export const initialMaterials: Material[] = [
   // ==================== MATERIAIS ====================
   // Consumíveis
   {
@@ -625,7 +625,7 @@ const initialMaterials: Material[] = [
   },
   {
     id: "work-012",
-    name: "Demolição de laje de bet��o armado até 12 cm",
+    name: "Demolição de laje de bet����o armado até 12 cm",
     unit: "m²",
     price: 101.6,
     priceMax: 169.4,
@@ -2611,7 +2611,7 @@ const initialMaterials: Material[] = [
   },
   {
     id: "work-190",
-    name: "Execução de sub-base até 30 cm",
+    name: "Execução de sub-base at�� 30 cm",
     unit: "m³",
     price: 3.4,
     priceMax: 5.0,
@@ -6408,52 +6408,100 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Renamed invites to invitations
   const [invitations, setInvitations] = useState<Invite[]>(initialInvitations)
 
-  // AUTO-FETCH materials from database on mount
+  // Tracks whether the initial DB load has completed (prevents the
+  // localStorage-save effect from overwriting cache before data arrives)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // LOAD ALL DATA FROM DATABASE ON MOUNT
   useEffect(() => {
-    const fetchMaterialsFromDB = async () => {
-      try {
-        const response = await fetch("/api/materials")
-        if (response.ok) {
-          const data = await response.json()
-          if (data.materials && data.materials.length > 0) {
-            console.log("[v0] Auto-loaded", data.materials.length, "materials from database")
-            setMaterials(data.materials)
-          } else {
-            console.log("[v0] No materials in DB, using initial materials")
-          }
-        }
-      } catch (error) {
-        console.log("[v0] Could not fetch materials from DB, using initial materials:", error)
-      }
-    }
-    
-    // Fetch from database
-    fetchMaterialsFromDB()
-    
-    // Also load other data from localStorage as backup
+    let cancelled = false
+
+    // 1. Optimistically hydrate from localStorage cache for instant UI
     const stored = localStorage.getItem("moap_data")
     if (stored) {
       try {
         const data = JSON.parse(stored)
-        // Only load materials from localStorage if DB fetch failed (materials still equals initialMaterials)
         if (data.budgets) setBudgets(data.budgets)
         if (data.obras) setObras(data.obras)
         if (data.visitas) setVisitas(data.visitas)
         if (data.notifications) setNotifications(data.notifications)
         if (data.invitations) setInvitations(data.invitations)
       } catch (e) {
-        console.error("Error loading data:", e)
+        console.error("Error loading cached data:", e)
       }
+    }
+
+    // 2. Load authoritative data from the database via the sync endpoint
+    const loadFromDB = async () => {
+      try {
+        const response = await fetch("/api/data/sync")
+        if (!response.ok) throw new Error(`sync failed: ${response.status}`)
+
+        const result = await response.json()
+        if (cancelled || !result?.success || !result.data) return
+
+        const d = result.data
+        console.log(
+          "[v0] Loaded from DB - materials:", d.materials?.length || 0,
+          "budgets:", d.budgets?.length || 0,
+          "obras:", d.obras?.length || 0,
+          "visitas:", d.visitas?.length || 0,
+        )
+
+        if (Array.isArray(d.materials) && d.materials.length > 0) setMaterials(d.materials)
+        if (Array.isArray(d.budgets)) setBudgets(d.budgets)
+        if (Array.isArray(d.obras)) setObras(d.obras)
+        if (Array.isArray(d.visitas)) setVisitas(d.visitas)
+        if (Array.isArray(d.notifications)) setNotifications(d.notifications)
+      } catch (error) {
+        console.log("[v0] DB sync unavailable, falling back to /api/materials + cache:", error)
+        // Fallback: at least load the global materials reference list
+        try {
+          const matRes = await fetch("/api/materials")
+          if (matRes.ok && !cancelled) {
+            const matData = await matRes.json()
+            if (matData.materials?.length > 0) setMaterials(matData.materials)
+          }
+        } catch {
+          // Keep initial materials
+        }
+      } finally {
+        if (!cancelled) setIsHydrated(true)
+      }
+    }
+
+    loadFromDB()
+
+    return () => {
+      cancelled = true
     }
   }, [])
 
-  // Save to localStorage on change
+  // Persist a mutation to the database via the sync endpoint (best-effort).
+  // Falls back silently to localStorage-only when the user is not authenticated.
+  const persistToDB = async (type: string, data: unknown) => {
+    try {
+      const res = await fetch("/api/data/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, data }),
+      })
+      if (!res.ok && res.status !== 401) {
+        console.log(`[v0] persistToDB(${type}) failed:`, res.status)
+      }
+    } catch (error) {
+      console.log(`[v0] persistToDB(${type}) error:`, error)
+    }
+  }
+
+  // Save to localStorage on change (offline cache) — only after initial DB load
   useEffect(() => {
+    if (!isHydrated) return
     localStorage.setItem(
       "moap_data",
       JSON.stringify({ materials, budgets, obras, visitas, notifications, invitations }),
     )
-  }, [materials, budgets, obras, visitas, notifications, invitations])
+  }, [isHydrated, materials, budgets, obras, visitas, notifications, invitations])
 
   const generateId = () => Math.random().toString(36).substr(2, 9)
 
@@ -6461,6 +6509,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addMaterial = (material: Omit<Material, "id">) => {
     const newMaterial = { ...material, id: generateId() }
     setMaterials((prev) => [...prev, newMaterial])
+    persistToDB("material", newMaterial)
     addNotification({
       type: "system",
       title: "Material Adicionado",
@@ -6469,11 +6518,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const updateMaterial = (id: string, material: Partial<Material>) => {
-    setMaterials((prev) => prev.map((m) => (m.id === id ? { ...m, ...material } : m)))
+    setMaterials((prev) => {
+      const next = prev.map((m) => (m.id === id ? { ...m, ...material } : m))
+      const updated = next.find((m) => m.id === id)
+      if (updated) persistToDB("material", updated)
+      return next
+    })
   }
 
   const deleteMaterial = (id: string) => {
     setMaterials((prev) => prev.filter((m) => m.id !== id))
+    persistToDB("delete", { table: "materials", id })
   }
 
   // Import budget items to materials database
@@ -6555,15 +6610,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addBudget = (budget: Omit<Budget, "id">) => {
     const newBudget = { ...budget, id: generateId() }
     setBudgets((prev) => [...prev, newBudget])
+    persistToDB("budget", newBudget)
     addNotification({ type: "budget", title: "Orçamento Criado", description: `${budget.name} foi criado.` })
   }
 
   const updateBudget = (id: string, budget: Partial<Budget>) => {
-    setBudgets((prev) => prev.map((b) => (b.id === id ? { ...b, ...budget } : b)))
+    setBudgets((prev) => {
+      const next = prev.map((b) => (b.id === id ? { ...b, ...budget } : b))
+      const updated = next.find((b) => b.id === id)
+      if (updated) persistToDB("budget", updated)
+      return next
+    })
   }
 
   const deleteBudget = (id: string) => {
     setBudgets((prev) => prev.filter((b) => b.id !== id))
+    persistToDB("delete", { table: "budgets", id })
   }
 
   // Obras
@@ -6578,6 +6640,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updatedAt: new Date().toISOString(),
     }
     setObras((prev) => [...prev, newObra])
+    persistToDB("obra", newObra)
     addNotification({
       type: "obra",
       title: "Nova Obra Submetida",
@@ -6586,11 +6649,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const updateObra = (id: string, obra: Partial<Obra>) => {
-    setObras((prev) => prev.map((o) => (o.id === id ? { ...o, ...obra, updatedAt: new Date().toISOString() } : o)))
+    setObras((prev) => {
+      const next = prev.map((o) => (o.id === id ? { ...o, ...obra, updatedAt: new Date().toISOString() } : o))
+      const updated = next.find((o) => o.id === id)
+      if (updated) persistToDB("obra", updated)
+      return next
+    })
   }
 
   const deleteObra = (id: string) => {
     setObras((prev) => prev.filter((o) => o.id !== id))
+    persistToDB("delete", { table: "obras", id })
   }
 
   // Visitas
@@ -6598,6 +6667,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // Removed default status from here, it's handled in the UI or by initial data
     const newVisita: Visita = { ...visita, id: generateId() }
     setVisitas((prev) => [...prev, newVisita])
+    persistToDB("visita", newVisita)
     addNotification({
       type: "visit",
       title: "Visita Agendada",
@@ -6606,16 +6676,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const updateVisita = (id: string, visita: Partial<Visita>) => {
-    setVisitas((prev) => prev.map((v) => (v.id === id ? { ...v, ...visita } : v)))
+    setVisitas((prev) => {
+      const next = prev.map((v) => (v.id === id ? { ...v, ...visita } : v))
+      const updated = next.find((v) => v.id === id)
+      if (updated) persistToDB("visita", updated)
+      return next
+    })
   }
 
   const deleteVisita = (id: string) => {
     setVisitas((prev) => prev.filter((v) => v.id !== id))
+    persistToDB("delete", { table: "visitas", id })
   }
 
   // Added cancelVisita
   const cancelVisita = (id: string) => {
-    setVisitas((prev) => prev.map((v) => (v.id === id ? { ...v, status: "cancelada" } : v)))
+    setVisitas((prev) => {
+      const next = prev.map((v) => (v.id === id ? { ...v, status: "cancelada" } : v))
+      const updated = next.find((v) => v.id === id)
+      if (updated) persistToDB("visita", updated)
+      return next
+    })
     addNotification({
       type: "visit",
       title: "Visita Cancelada",
@@ -6733,19 +6814,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
       read: false,
     }
     setNotifications((prev) => [newNotification, ...prev])
+    persistToDB("notification", newNotification)
   }
 
   const markNotificationAsRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    persistToDB("mark_notification_read", { id })
   }
 
   const markAllNotificationsAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    setNotifications((prev) => {
+      prev.forEach((n) => { if (!n.read) persistToDB("mark_notification_read", { id: n.id }) })
+      return prev.map((n) => ({ ...n, read: true }))
+    })
   }
 
   // Added deleteNotification
   const deleteNotification = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id))
+    persistToDB("delete_notification", { id })
   }
 
   const clearNotifications = () => {

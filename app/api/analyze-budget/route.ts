@@ -19,6 +19,9 @@ interface ParsedItem {
 }
 
 interface AnalyzedItem extends ParsedItem {
+  unitPrice: number
+  totalPrice: number
+  isGlobalPrice: boolean
   matchedMaterialId: string | null
   matchedMaterialName: string | null
   confidence: number
@@ -74,8 +77,8 @@ const getOpenAIClient = () => {
   }
   return new OpenAI({ 
     apiKey: process.env.OPENAI_API_KEY,
-    timeout: 60000, // 60 second timeout
-    maxRetries: 2,  // Retry up to 2 times on failure
+    timeout: 50000, // 50s timeout (under Vercel's 60s function limit)
+    maxRetries: 4,  // Retry on transient errors (ECONNRESET, 429, 5xx)
   })
 }
 
@@ -272,19 +275,11 @@ async function analyzeWithGPT(
   materials: MaterialRef[], 
   debugInfo: string[]
 ): Promise<AnalyzedItem[]> {
-  console.log("[API] Checking OpenAI API key...")
-  const hasKey = !!process.env.OPENAI_API_KEY
-  const keyPrefix = process.env.OPENAI_API_KEY?.substring(0, 10) || "NOT_SET"
-  console.log(`[API] OPENAI_API_KEY present: ${hasKey}, prefix: ${keyPrefix}...`)
-  
   const openai = getOpenAIClient()
   if (!openai) {
-    console.error("[API] OpenAI client creation failed - API key not configured!")
     debugInfo.push("OpenAI API key not configured - check OPENAI_API_KEY env var")
     return []
   }
-  
-  console.log("[API] OpenAI client created successfully")
   debugInfo.push("Starting world-class GPT analysis...")
   const startTime = Date.now()
   
@@ -319,7 +314,7 @@ A) PREÇO UNITÁRIO (por m2, m3, un, ml, kg, etc.):
 B) PREÇO GLOBAL/TOTAL (vg = verba global):
    • O preço é pelo TRABALHO TODO, não unitário
    • Palavras-chave: "verba", "global", "conjunto", "total", "completo"
-   • Exemplo: "Demolições (verba global) - €5.000,00" = preço total de todas demolições
+   • Exemplo: "Demoli��ões (verba global) - €5.000,00" = preço total de todas demolições
    • NÃO compare diretamente com preços unitários!
 
 C) CATEGORIA/CAPÍTULO (NÃO É UM ITEM):
@@ -424,7 +419,7 @@ INSTRUÇÕES DE EXTRAÇÃO E ANÁLISE
 
 ═══════════════════════════════════════════════════════════════════════════════
 BASE DE DADOS DE MATERIAIS/SERVIÇOS (usar para correspondência):
-══════════════════════════��════════════════════════════════════════════════════
+═���════════════════════════��════════════════════════════════════════════════════
 ${materialSummary}
 
 ═════════════════════════════════════������════════════════════════════════════════
@@ -435,15 +430,16 @@ FORMATO DE RESPOSTA (JSON obrigatório):
     {
       "name": "descrição original completa do item",
       "unit": "unidade normalizada (vg, m2, m3, ml, un, kg)",
-      "quantity": número,
-      "price": preço do orçamento em euros (unitário OU global dependendo da unidade),
-      "isGlobalPrice": true/false (true se é verba global, false se é preço unitário),
+      "quantity": número (quantidade do item),
+      "unitPrice": PREÇO POR UNIDADE em euros (NUNCA o total da linha! Ex: se "120 m2 x 18,50€" então unitPrice=18.50),
+      "totalPrice": preço total da linha em euros (quantity * unitPrice. Ex: 120 * 18.50 = 2220),
+      "isGlobalPrice": true/false (true se é verba global/vg, false se é preço unitário),
       "matchedMaterialId": "UUID do material correspondente ou null",
       "matchedMaterialName": "nome do material correspondente ou null",
       "confidence": 0-100 (confiança na correspondência),
-      "referenceMinPrice": preço mínimo de referência (ou null se global),
-      "referenceMaxPrice": preço máximo de referência (ou null se global),
-      "referenceAvgPrice": preço médio de referência (ou null se global),
+      "referenceMinPrice": preço mínimo de referência POR UNIDADE (ou null se global),
+      "referenceMaxPrice": preço máximo de referência POR UNIDADE (ou null se global),
+      "referenceAvgPrice": preço médio de referência POR UNIDADE (ou null se global),
       "category": "categoria do item",
       "matchReason": "explicação clara - se global, explicar que é verba global",
       "aiInsight": "insight sobre este preço - se global, avaliar se valor total é razoável"
@@ -454,18 +450,22 @@ FORMATO DE RESPOSTA (JSON obrigatório):
     "Recomendação 2 sobre itens específicos",
     "Recomendação 3 sobre negociação"
   ]
-}`
+}
+
+⚠️ REGRA ABSOLUTA SOBRE PREÇOS (LER COM ATENÇÃO):
+• "unitPrice" = preço POR UMA unidade (por m2, por m3, por un...). É o valor que comparamos com a referência.
+• "totalPrice" = unitPrice × quantity (o total da linha).
+• NUNCA coloque o total da linha no campo unitPrice! Isto causa erros graves de análise.
+• A referência (referenceAvgPrice) é SEMPRE por unidade, então unitPrice deve ser comparável a ela.
+• Exemplo correto: "Demolição 120 m2 a 18,50€/m2" → unitPrice=18.50, totalPrice=2220, quantity=120
+• Para verba global (vg): unitPrice = totalPrice = valor global, isGlobalPrice=true`
 
   try {
     console.log("[API] Starting OpenAI GPT-4o-mini analysis...")
     const startGPT = Date.now()
     
-    // Create a promise that rejects after 55 seconds (Vercel has 60s limit)
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error("OpenAI timeout after 55s")), 55000)
-    })
-    
-    const gptPromise = openai.chat.completions.create({
+    // Resilient call: retry on transient network errors (ECONNRESET, socket hang up, 5xx)
+    const callOpenAI = () => openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
@@ -475,9 +475,45 @@ FORMATO DE RESPOSTA (JSON obrigatório):
       max_tokens: 8000, // Reduced for faster response
       response_format: { type: "json_object" },
     })
-    
-    // Race between GPT call and timeout
-    const response = await Promise.race([gptPromise, timeoutPromise])
+
+    const isTransient = (err: unknown): boolean => {
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase()
+      return (
+        msg.includes("econnreset") ||
+        msg.includes("socket hang up") ||
+        msg.includes("etimedout") ||
+        msg.includes("econnrefused") ||
+        msg.includes("network") ||
+        msg.includes("fetch failed") ||
+        msg.includes("terminated") ||
+        msg.includes("timeout") ||
+        msg.includes("502") ||
+        msg.includes("503") ||
+        msg.includes("504")
+      )
+    }
+
+    let response: Awaited<ReturnType<typeof callOpenAI>> | null = null
+    let lastError: unknown = null
+    const maxAttempts = 3
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      // Per-attempt timeout (keep margin under the 60s route limit)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("OpenAI timeout")), 45000)
+      })
+      try {
+        response = await Promise.race([callOpenAI(), timeoutPromise])
+        break
+      } catch (err) {
+        lastError = err
+        const transient = isTransient(err)
+        debugInfo.push(`GPT attempt ${attempt}/${maxAttempts} failed: ${err instanceof Error ? err.message : "unknown"}`)
+        console.warn(`[API] GPT attempt ${attempt} failed (transient=${transient}): ${err instanceof Error ? err.message : err}`)
+        if (!transient || attempt === maxAttempts) throw err
+        await new Promise(r => setTimeout(r, attempt * 750)) // backoff: 750ms, 1500ms
+      }
+    }
+    if (!response) throw lastError ?? new Error("OpenAI returned no response")
     console.log(`[API] OpenAI response received in ${Date.now() - startGPT}ms`)
 
     const content = response.choices[0]?.message?.content || "{}"
@@ -505,23 +541,46 @@ FORMATO DE RESPOSTA (JSON obrigatório):
     items = items
       .filter((item: AnalyzedItem) => item && item.name && item.name.length > 5)
       .map((item: AnalyzedItem) => {
-        const refAvg = item.referenceAvgPrice || 0
-        const budgetPrice = item.price || 0
-        let variance: number | null = null
-        
-        if (refAvg > 0 && budgetPrice > 0) {
-          variance = ((budgetPrice - refAvg) / refAvg) * 100
+        const quantity = typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1
+
+        // Resolve unit price robustly. The AI may sometimes still put the line
+        // total in unitPrice; if unitPrice is missing but totalPrice exists,
+        // derive it. If only legacy "price" exists, treat it as unit price.
+        const rawUnit = typeof item.unitPrice === "number" ? item.unitPrice : NaN
+        const rawTotal = typeof item.totalPrice === "number" ? item.totalPrice : NaN
+        const legacy = typeof item.price === "number" ? item.price : 0
+
+        let unitPrice = !isNaN(rawUnit) && rawUnit > 0 ? rawUnit : legacy
+        let totalPrice = !isNaN(rawTotal) && rawTotal > 0 ? rawTotal : unitPrice * quantity
+
+        // Sanity correction: if unitPrice looks like a line total (≈ total and
+        // quantity > 1), divide it down so it's comparable to the reference.
+        if (!item.isGlobalPrice && quantity > 1 && !isNaN(rawTotal) && rawTotal > 0) {
+          if (Math.abs(unitPrice - rawTotal) < 0.01) {
+            unitPrice = rawTotal / quantity
+          }
         }
-        
-        const rating = calculateRating(variance)
+
+        const refAvg = item.referenceAvgPrice || 0
+        let variance: number | null = null
+        // Only compute variance for unit-priced items with a reference
+        if (!item.isGlobalPrice && refAvg > 0 && unitPrice > 0) {
+          variance = ((unitPrice - refAvg) / refAvg) * 100
+        }
+
+        const rating = calculateRating(item.isGlobalPrice ? null : variance)
         const riskLevel = calculateRiskLevel(variance, item.confidence || 0)
-        
+
         return {
           ...item,
           name: String(item.name).trim(),
           unit: normalizeUnit(String(item.unit || "un")),
-          quantity: typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1,
-          price: typeof item.price === "number" ? item.price : 0,
+          quantity,
+          unitPrice,
+          totalPrice,
+          // Keep "price" as the unit price for backward compatibility with the UI
+          price: unitPrice,
+          isGlobalPrice: !!item.isGlobalPrice,
           variance,
           confidence: item.confidence || 0,
           category: item.category || "Sem categoria",
@@ -562,6 +621,132 @@ FORMATO DE RESPOSTA (JSON obrigatório):
 // ============================================================================
 // REGEX FALLBACK PARSER (when GPT fails)
 // ============================================================================
+
+// ============================================================================
+// DELIMITED (CSV/TSV/TXT) PARSER — robust column detection for structured data
+// ============================================================================
+
+function parseDelimitedFile(text: string, debugInfo: string[]): ParsedItem[] {
+  debugInfo.push("Using delimited (CSV/TXT) parser...")
+  const items: ParsedItem[] = []
+
+  const rawLines = text.split(/\r?\n/).filter(l => l.trim().length > 0)
+  if (rawLines.length === 0) {
+    debugInfo.push("Delimited parser: no lines found")
+    return items
+  }
+
+  // Detect the most likely delimiter by counting occurrences in the first lines
+  const sample = rawLines.slice(0, Math.min(10, rawLines.length)).join("\n")
+  const delimiters = [";", "\t", ",", "|"]
+  let delimiter = ";"
+  let maxCount = 0
+  for (const d of delimiters) {
+    const count = (sample.match(new RegExp(d === "|" ? "\\|" : d, "g")) || []).length
+    if (count > maxCount) {
+      maxCount = count
+      delimiter = d
+    }
+  }
+  debugInfo.push(`Delimited parser: delimiter='${delimiter === "\t" ? "TAB" : delimiter}'`)
+
+  const splitLine = (line: string): string[] =>
+    line.split(delimiter).map(c => c.replace(/^["']|["']$/g, "").trim())
+
+  // Find header row + column indexes
+  let headerIdx = -1
+  let descCol = -1, unitCol = -1, qtyCol = -1, priceCol = -1, totalCol = -1
+  for (let i = 0; i < Math.min(rawLines.length, 15); i++) {
+    const cells = splitLine(rawLines[i])
+    let localDesc = -1, localUnit = -1, localQty = -1, localPrice = -1, localTotal = -1
+    cells.forEach((cell, j) => {
+      const c = cell.toLowerCase()
+      if (localDesc < 0 && (c.includes("descri") || c.includes("design") || c.includes("especific") || c.includes("artigo") || c.includes("trabalho") || c.includes("item"))) localDesc = j
+      else if (localUnit < 0 && (c === "un" || c === "und" || c === "unid" || c.includes("unidade") || c.includes("unid"))) localUnit = j
+      else if (localQty < 0 && (c.includes("quant") || c === "qt" || c === "qtd" || c === "qtde")) localQty = j
+      else if (localPrice < 0 && (c.includes("preç") || c.includes("prec") || c.includes("valor")) && (c.includes("unit") || c.includes("€") || c.includes("eur"))) localPrice = j
+      else if (localTotal < 0 && (c.includes("total") || c.includes("subtotal") || c.includes("import"))) localTotal = j
+    })
+    if (localDesc >= 0 && (localPrice >= 0 || localQty >= 0 || localUnit >= 0)) {
+      headerIdx = i
+      descCol = localDesc; unitCol = localUnit; qtyCol = localQty; priceCol = localPrice; totalCol = localTotal
+      break
+    }
+  }
+
+  const startRow = headerIdx >= 0 ? headerIdx + 1 : 0
+  if (headerIdx >= 0) {
+    debugInfo.push(`Delimited parser: header at row ${headerIdx} (desc=${descCol}, unit=${unitCol}, qty=${qtyCol}, price=${priceCol})`)
+  } else {
+    debugInfo.push("Delimited parser: no header detected, using heuristic column detection")
+  }
+
+  const unitPattern = /^(v\.?g\.?|vb|verba|m\.?l\.?|m2|m²|m3|m³|un\.?d?|unid(?:ade)?|kg|pc|pç|peça|m|l|lt|h|hora|mês|mes|dia)$/i
+
+  for (let i = startRow; i < rawLines.length; i++) {
+    const cells = splitLine(rawLines[i])
+    if (cells.length < 2) continue
+
+    let name = ""
+    let unit = "un"
+    let quantity = 1
+    let price = 0
+
+    if (headerIdx >= 0 && descCol >= 0) {
+      // Structured: use detected columns
+      name = (cells[descCol] || "").trim()
+      if (unitCol >= 0 && cells[unitCol]) unit = normalizeUnit(cells[unitCol])
+      if (qtyCol >= 0 && cells[qtyCol]) {
+        const q = parsePortugueseNumber(cells[qtyCol])
+        if (q > 0 && q < 1000000) quantity = q
+      }
+      if (priceCol >= 0 && cells[priceCol]) price = parsePortugueseNumber(cells[priceCol])
+      // Derive unit price from total if needed
+      if (price === 0 && totalCol >= 0 && cells[totalCol]) {
+        const total = parsePortugueseNumber(cells[totalCol])
+        if (total > 0 && quantity > 0) price = total / quantity
+      }
+    } else {
+      // Heuristic: longest non-numeric cell = description; detect unit + numbers
+      let maxLen = 0
+      const numericCells: number[] = []
+      cells.forEach(cell => {
+        const isNumeric = /^[\d.,€\s]+$/.test(cell) && /\d/.test(cell)
+        if (isNumeric) {
+          numericCells.push(parsePortugueseNumber(cell))
+        } else if (unitPattern.test(cell.trim())) {
+          unit = normalizeUnit(cell)
+        } else if (cell.length > maxLen && cell.length > 5) {
+          name = cell.trim()
+          maxLen = cell.length
+        }
+      })
+      // Assume: [quantity, unitPrice, ...] — pick first as qty, largest plausible as price
+      if (numericCells.length >= 2) {
+        if (numericCells[0] > 0 && numericCells[0] < 1000000) quantity = numericCells[0]
+        price = numericCells[1]
+      } else if (numericCells.length === 1) {
+        price = numericCells[0]
+      }
+    }
+
+    // Clean and validate
+    name = name.replace(/\s+/g, " ").trim()
+    if (!name || name.length < 4) continue
+    if (/^(n[ºo°]?|art\.?|designa|descri|pre[çc]o|total|subtotal|iva|observ|empresa|obra|cliente|data|ref\.?)$/i.test(name)) continue
+    if (price <= 0) continue
+
+    items.push({
+      name,
+      unit,
+      quantity: quantity > 0 && quantity < 1000000 ? quantity : 1,
+      price,
+    })
+  }
+
+  debugInfo.push(`Delimited parser found ${items.length} items`)
+  return items
+}
 
 function parseWithRegex(text: string, debugInfo: string[]): ParsedItem[] {
   debugInfo.push("Using regex fallback parser...")
@@ -662,8 +847,14 @@ function matchLocally(
     const rating = calculateRating(variance)
     const riskLevel = calculateRiskLevel(variance, confidence)
     
+    const isGlobalPrice = normalizeUnit(item.unit) === "vg"
+    const quantity = item.quantity > 0 ? item.quantity : 1
+
     return {
       ...item,
+      unitPrice: item.price,
+      totalPrice: isGlobalPrice ? item.price : item.price * quantity,
+      isGlobalPrice,
       matchedMaterialId: confidence >= 60 ? bestMatch?.id || null : null,
       matchedMaterialName: confidence >= 60 ? bestMatch?.name || null : null,
       confidence,
@@ -842,9 +1033,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       // World-class GPT analysis
       items = await analyzeWithGPT(text, materials, debugInfo)
       
-      // Fallback to regex + local matching
+      // Fallback: structured delimited parser first, then regex (for unstructured text)
       if (items.length === 0) {
-        const parsedItems = parseWithRegex(text, debugInfo)
+        let parsedItems = parseDelimitedFile(text, debugInfo)
+        if (parsedItems.length === 0) {
+          parsedItems = parseWithRegex(text, debugInfo)
+        }
         items = matchLocally(parsedItems, materials, debugInfo)
       }
     }
