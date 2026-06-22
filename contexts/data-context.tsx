@@ -6610,15 +6610,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addBudget = (budget: Omit<Budget, "id">) => {
     const newBudget = { ...budget, id: generateId() }
     setBudgets((prev) => [...prev, newBudget])
+    persistToDB("budget", newBudget)
     addNotification({ type: "budget", title: "Orçamento Criado", description: `${budget.name} foi criado.` })
   }
 
   const updateBudget = (id: string, budget: Partial<Budget>) => {
-    setBudgets((prev) => prev.map((b) => (b.id === id ? { ...b, ...budget } : b)))
+    setBudgets((prev) => {
+      const next = prev.map((b) => (b.id === id ? { ...b, ...budget } : b))
+      const updated = next.find((b) => b.id === id)
+      if (updated) persistToDB("budget", updated)
+      return next
+    })
   }
 
   const deleteBudget = (id: string) => {
     setBudgets((prev) => prev.filter((b) => b.id !== id))
+    persistToDB("delete", { table: "budgets", id })
   }
 
   // Obras
@@ -6633,6 +6640,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updatedAt: new Date().toISOString(),
     }
     setObras((prev) => [...prev, newObra])
+    persistToDB("obra", newObra)
     addNotification({
       type: "obra",
       title: "Nova Obra Submetida",
@@ -6641,11 +6649,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const updateObra = (id: string, obra: Partial<Obra>) => {
-    setObras((prev) => prev.map((o) => (o.id === id ? { ...o, ...obra, updatedAt: new Date().toISOString() } : o)))
+    setObras((prev) => {
+      const next = prev.map((o) => (o.id === id ? { ...o, ...obra, updatedAt: new Date().toISOString() } : o))
+      const updated = next.find((o) => o.id === id)
+      if (updated) persistToDB("obra", updated)
+      return next
+    })
   }
 
   const deleteObra = (id: string) => {
     setObras((prev) => prev.filter((o) => o.id !== id))
+    persistToDB("delete", { table: "obras", id })
   }
 
   // Visitas
@@ -6653,6 +6667,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // Removed default status from here, it's handled in the UI or by initial data
     const newVisita: Visita = { ...visita, id: generateId() }
     setVisitas((prev) => [...prev, newVisita])
+    persistToDB("visita", newVisita)
     addNotification({
       type: "visit",
       title: "Visita Agendada",
@@ -6661,16 +6676,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const updateVisita = (id: string, visita: Partial<Visita>) => {
-    setVisitas((prev) => prev.map((v) => (v.id === id ? { ...v, ...visita } : v)))
+    setVisitas((prev) => {
+      const next = prev.map((v) => (v.id === id ? { ...v, ...visita } : v))
+      const updated = next.find((v) => v.id === id)
+      if (updated) persistToDB("visita", updated)
+      return next
+    })
   }
 
   const deleteVisita = (id: string) => {
     setVisitas((prev) => prev.filter((v) => v.id !== id))
+    persistToDB("delete", { table: "visitas", id })
   }
 
   // Added cancelVisita
   const cancelVisita = (id: string) => {
-    setVisitas((prev) => prev.map((v) => (v.id === id ? { ...v, status: "cancelada" } : v)))
+    setVisitas((prev) => {
+      const next = prev.map((v) => (v.id === id ? { ...v, status: "cancelada" } : v))
+      const updated = next.find((v) => v.id === id)
+      if (updated) persistToDB("visita", updated)
+      return next
+    })
     addNotification({
       type: "visit",
       title: "Visita Cancelada",
@@ -6788,19 +6814,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
       read: false,
     }
     setNotifications((prev) => [newNotification, ...prev])
+    persistToDB("notification", newNotification)
   }
 
   const markNotificationAsRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    persistToDB("mark_notification_read", { id })
   }
 
   const markAllNotificationsAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    setNotifications((prev) => {
+      prev.forEach((n) => { if (!n.read) persistToDB("mark_notification_read", { id: n.id }) })
+      return prev.map((n) => ({ ...n, read: true }))
+    })
   }
 
   // Added deleteNotification
   const deleteNotification = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id))
+    persistToDB("delete_notification", { id })
   }
 
   const clearNotifications = () => {
