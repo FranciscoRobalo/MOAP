@@ -6408,52 +6408,100 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Renamed invites to invitations
   const [invitations, setInvitations] = useState<Invite[]>(initialInvitations)
 
-  // AUTO-FETCH materials from database on mount
+  // Tracks whether the initial DB load has completed (prevents the
+  // localStorage-save effect from overwriting cache before data arrives)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // LOAD ALL DATA FROM DATABASE ON MOUNT
   useEffect(() => {
-    const fetchMaterialsFromDB = async () => {
-      try {
-        const response = await fetch("/api/materials")
-        if (response.ok) {
-          const data = await response.json()
-          if (data.materials && data.materials.length > 0) {
-            console.log("[v0] Auto-loaded", data.materials.length, "materials from database")
-            setMaterials(data.materials)
-          } else {
-            console.log("[v0] No materials in DB, using initial materials")
-          }
-        }
-      } catch (error) {
-        console.log("[v0] Could not fetch materials from DB, using initial materials:", error)
-      }
-    }
-    
-    // Fetch from database
-    fetchMaterialsFromDB()
-    
-    // Also load other data from localStorage as backup
+    let cancelled = false
+
+    // 1. Optimistically hydrate from localStorage cache for instant UI
     const stored = localStorage.getItem("moap_data")
     if (stored) {
       try {
         const data = JSON.parse(stored)
-        // Only load materials from localStorage if DB fetch failed (materials still equals initialMaterials)
         if (data.budgets) setBudgets(data.budgets)
         if (data.obras) setObras(data.obras)
         if (data.visitas) setVisitas(data.visitas)
         if (data.notifications) setNotifications(data.notifications)
         if (data.invitations) setInvitations(data.invitations)
       } catch (e) {
-        console.error("Error loading data:", e)
+        console.error("Error loading cached data:", e)
       }
+    }
+
+    // 2. Load authoritative data from the database via the sync endpoint
+    const loadFromDB = async () => {
+      try {
+        const response = await fetch("/api/data/sync")
+        if (!response.ok) throw new Error(`sync failed: ${response.status}`)
+
+        const result = await response.json()
+        if (cancelled || !result?.success || !result.data) return
+
+        const d = result.data
+        console.log(
+          "[v0] Loaded from DB - materials:", d.materials?.length || 0,
+          "budgets:", d.budgets?.length || 0,
+          "obras:", d.obras?.length || 0,
+          "visitas:", d.visitas?.length || 0,
+        )
+
+        if (Array.isArray(d.materials) && d.materials.length > 0) setMaterials(d.materials)
+        if (Array.isArray(d.budgets)) setBudgets(d.budgets)
+        if (Array.isArray(d.obras)) setObras(d.obras)
+        if (Array.isArray(d.visitas)) setVisitas(d.visitas)
+        if (Array.isArray(d.notifications)) setNotifications(d.notifications)
+      } catch (error) {
+        console.log("[v0] DB sync unavailable, falling back to /api/materials + cache:", error)
+        // Fallback: at least load the global materials reference list
+        try {
+          const matRes = await fetch("/api/materials")
+          if (matRes.ok && !cancelled) {
+            const matData = await matRes.json()
+            if (matData.materials?.length > 0) setMaterials(matData.materials)
+          }
+        } catch {
+          // Keep initial materials
+        }
+      } finally {
+        if (!cancelled) setIsHydrated(true)
+      }
+    }
+
+    loadFromDB()
+
+    return () => {
+      cancelled = true
     }
   }, [])
 
-  // Save to localStorage on change
+  // Persist a mutation to the database via the sync endpoint (best-effort).
+  // Falls back silently to localStorage-only when the user is not authenticated.
+  const persistToDB = async (type: string, data: unknown) => {
+    try {
+      const res = await fetch("/api/data/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, data }),
+      })
+      if (!res.ok && res.status !== 401) {
+        console.log(`[v0] persistToDB(${type}) failed:`, res.status)
+      }
+    } catch (error) {
+      console.log(`[v0] persistToDB(${type}) error:`, error)
+    }
+  }
+
+  // Save to localStorage on change (offline cache) — only after initial DB load
   useEffect(() => {
+    if (!isHydrated) return
     localStorage.setItem(
       "moap_data",
       JSON.stringify({ materials, budgets, obras, visitas, notifications, invitations }),
     )
-  }, [materials, budgets, obras, visitas, notifications, invitations])
+  }, [isHydrated, materials, budgets, obras, visitas, notifications, invitations])
 
   const generateId = () => Math.random().toString(36).substr(2, 9)
 
@@ -6461,6 +6509,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addMaterial = (material: Omit<Material, "id">) => {
     const newMaterial = { ...material, id: generateId() }
     setMaterials((prev) => [...prev, newMaterial])
+    persistToDB("material", newMaterial)
     addNotification({
       type: "system",
       title: "Material Adicionado",
@@ -6469,11 +6518,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const updateMaterial = (id: string, material: Partial<Material>) => {
-    setMaterials((prev) => prev.map((m) => (m.id === id ? { ...m, ...material } : m)))
+    setMaterials((prev) => {
+      const next = prev.map((m) => (m.id === id ? { ...m, ...material } : m))
+      const updated = next.find((m) => m.id === id)
+      if (updated) persistToDB("material", updated)
+      return next
+    })
   }
 
   const deleteMaterial = (id: string) => {
     setMaterials((prev) => prev.filter((m) => m.id !== id))
+    persistToDB("delete", { table: "materials", id })
   }
 
   // Import budget items to materials database
