@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { extractText } from "unpdf"
 import OpenAI from "openai"
 import * as XLSX from "xlsx"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { db } from "@/lib/db"
+import { materials as materialsTable } from "@/lib/db/schema"
+import { asc } from "drizzle-orm"
 
 // Increase timeout for this API route (Vercel Pro allows up to 300s)
 export const maxDuration = 60
@@ -88,25 +90,27 @@ const getOpenAIClient = () => {
 
 async function fetchMaterialsFromDB(): Promise<MaterialRef[]> {
   try {
-    const supabase = createAdminClient()
-    const { data: materials, error } = await supabase
-      .from("materials")
-      .select("id, name, unit, avg_price, min_price, max_price, category")
-      .order("category", { ascending: true })
-    
-    if (error || !materials) {
-      console.error("Error fetching materials from DB:", error)
-      return []
-    }
-    
-    return materials.map(m => ({
+    const rows = await db
+      .select({
+        id: materialsTable.id,
+        name: materialsTable.name,
+        unit: materialsTable.unit,
+        avgPrice: materialsTable.avgPrice,
+        minPrice: materialsTable.minPrice,
+        maxPrice: materialsTable.maxPrice,
+        category: materialsTable.category,
+      })
+      .from(materialsTable)
+      .orderBy(asc(materialsTable.category))
+
+    return rows.map((m) => ({
       id: m.id,
       name: m.name,
       unit: m.unit,
-      price: m.avg_price,
-      priceMin: m.min_price,
-      priceMax: m.max_price,
-      category: m.category
+      price: m.avgPrice != null ? Number(m.avgPrice) : 0,
+      priceMin: m.minPrice != null ? Number(m.minPrice) : 0,
+      priceMax: m.maxPrice != null ? Number(m.maxPrice) : 0,
+      category: m.category,
     }))
   } catch (error) {
     console.error("Failed to fetch materials:", error)
@@ -417,7 +421,7 @@ INSTRUÇÕES DE EXTRAÇÃO E ANÁLISE
    • Identificar se está muito acima/abaixo do mercado
    • Sugerir pontos de negociação
 
-═══════════════════════════════════════════════════════════════════════════════
+═════════════════════════════════════════════════════════════════════════════��═
 BASE DE DADOS DE MATERIAIS/SERVIÇOS (usar para correspondência):
 ═���════════════════════════��════════════════════════════════════════════════════
 ${materialSummary}

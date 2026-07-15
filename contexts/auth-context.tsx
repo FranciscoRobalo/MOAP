@@ -1,7 +1,15 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { createClient } from "@/lib/supabase/client"
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { authClient } from "@/lib/auth-client"
+import {
+  getMyProfile,
+  createMyProfile,
+  listPendingProfiles,
+  approveProfile,
+  rejectProfile,
+  type ProfileData,
+} from "@/app/actions/auth"
 
 export type UserRole = "admin" | "cliente" | "tecnico"
 
@@ -47,472 +55,172 @@ interface PendingRegistration {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Development fallback users - these work when Supabase auth fails
-const DEV_USERS: Record<string, { password: string; user: User }> = {
-  "admin": {
-    password: "admin",
-    user: {
-      id: "dev-admin-1",
-      email: "admin@moap.pt",
-      name: "Administrador",
-      role: "admin",
-      company: "MOAP",
+function profileToUser(p: ProfileData): User {
+  return {
+    id: p.id,
+    email: p.email,
+    name: p.name,
+    role: p.role,
+    company: p.company ?? undefined,
+    phone: p.phone ?? undefined,
+    avatar_url: p.avatarUrl ?? undefined,
+    createdAt: p.createdAt,
+  }
+}
+
+function profileToPending(p: ProfileData): PendingRegistration {
+  return {
+    id: p.id,
+    data: {
+      name: p.name,
+      email: p.email,
+      password: "",
+      company: p.company ?? undefined,
+      phone: p.phone ?? undefined,
+      role: p.role,
     },
-  },
-  "admin@moap.pt": {
-    password: "admin",
-    user: {
-      id: "dev-admin-1",
-      email: "admin@moap.pt",
-      name: "Administrador",
-      role: "admin",
-      company: "MOAP",
-    },
-  },
-  "tecnico": {
-    password: "tecnico",
-    user: {
-      id: "dev-tecnico-1",
-      email: "tecnico@moap.pt",
-      name: "Tecnico MOAP",
-      role: "tecnico",
-      company: "MOAP",
-    },
-  },
-  "tecnico@moap.pt": {
-    password: "tecnico",
-    user: {
-      id: "dev-tecnico-1",
-      email: "tecnico@moap.pt",
-      name: "Tecnico MOAP",
-      role: "tecnico",
-      company: "MOAP",
-    },
-  },
-  "cliente": {
-    password: "cliente",
-    user: {
-      id: "dev-cliente-1",
-      email: "cliente@moap.pt",
-      name: "Cliente Demo",
-      role: "cliente",
-    },
-  },
-  "cliente@moap.pt": {
-    password: "cliente",
-    user: {
-      id: "dev-cliente-1",
-      email: "cliente@moap.pt",
-      name: "Cliente Demo",
-      role: "cliente",
-    },
-  },
-  "public": {
-    password: "public",
-    user: {
-      id: "dev-public-1",
-      email: "public@moap.pt",
-      name: "Utilizador Publico",
-      role: "cliente",
-    },
-  },
-  "public@moap.pt": {
-    password: "public",
-    user: {
-      id: "dev-public-1",
-      email: "public@moap.pt",
-      name: "Utilizador Publico",
-      role: "cliente",
-    },
-  },
+    status: "pending",
+    createdAt: p.createdAt ?? new Date().toISOString(),
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [pendingRegistrations, setPendingRegistrations] = useState<PendingRegistration[]>([])
-  const supabase = createClient()
 
-  // Function to load ALL registrations from database - defined BEFORE useEffect
-  const loadPendingRegistrationsFromDb = async () => {
+  const loadPendingRegistrations = useCallback(async () => {
     try {
-      console.log("[v0] Loading pending registrations from Supabase...")
-      const { data: dbPending, error } = await supabase
-        .from("pending_registrations")
-        .select("*")
-        .order("created_at", { ascending: false })
-      
-      if (error) {
-        console.error("[v0] Error loading registrations:", error)
-        return
-      }
-      
-      console.log("[v0] Loaded registrations from DB:", dbPending?.length || 0)
-      
-      if (dbPending && dbPending.length > 0) {
-        const mapped: PendingRegistration[] = dbPending.map(p => ({
-          id: p.id,
-          data: {
-            name: p.name,
-            email: p.email,
-            password: p.password_hash,
-            company: p.company,
-            phone: p.phone,
-            role: p.role as UserRole,
-          },
-          status: p.status as "pending" | "approved" | "rejected",
-          createdAt: p.created_at,
-        }))
-        setPendingRegistrations(mapped)
-        console.log("[v0] Set pending registrations:", mapped.length)
-      } else {
-        setPendingRegistrations([])
-      }
-    } catch (err) {
-      console.error("[v0] Exception loading registrations:", err)
+      const pending = await listPendingProfiles()
+      setPendingRegistrations(pending.map(profileToPending))
+    } catch {
+      // Not an admin or not signed in - nothing to load
+      setPendingRegistrations([])
     }
-  }
+  }, [])
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const profile = await getMyProfile()
+      if (profile) {
+        setUser(profileToUser(profile))
+        if (profile.role === "admin") {
+          await loadPendingRegistrations()
+        }
+      } else {
+        setUser(null)
+      }
+    } catch (error) {
+      console.error("Refresh user error:", error)
+      setUser(null)
+    }
+  }, [loadPendingRegistrations])
 
   // Initialize auth state on mount
   useEffect(() => {
-    const initializeAuth = async () => {
+    const initialize = async () => {
       try {
-        // Check for existing Supabase session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-
-        let userRole: UserRole | null = null
-
-        if (session?.user) {
-          // Fetch user profile from database
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single()
-
-          if (profile) {
-            userRole = profile.role as UserRole
-            setUser({
-              id: profile.id,
-              email: profile.email,
-              name: profile.name,
-              role: profile.role as UserRole,
-              company: profile.company,
-              phone: profile.phone,
-              avatar_url: profile.avatar_url,
-            })
-          }
-        }
-        
-        // Load pending registrations for admins (or always load for dev mode)
-        // In dev mode, admin users might be using DEV_USERS
-        await loadPendingRegistrationsFromDb()
-      } catch (error) {
-        console.error("Error initializing auth:", error)
+        await refreshUser()
       } finally {
         setIsLoading(false)
       }
     }
-
-    initializeAuth()
-
-    // Set up auth state listener
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session?.user) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single()
-
-          if (profile) {
-            setUser({
-              id: profile.id,
-              email: profile.email,
-              name: profile.name,
-              role: profile.role as UserRole,
-              company: profile.company,
-              phone: profile.phone,
-              avatar_url: profile.avatar_url,
-            })
-          }
-        } else {
-          setUser(null)
-        }
-      })
-
-    // Subscribe to real-time changes on pending_registrations table
-    const pendingRegChannel = supabase
-      .channel('pending_registrations_changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'pending_registrations' },
-        (payload) => {
-          console.log('[v0] Real-time pending_registrations change:', payload)
-          // Reload all registrations when any change happens
-          loadPendingRegistrationsFromDb()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      subscription?.unsubscribe()
-      pendingRegChannel.unsubscribe()
-    }
-  }, [supabase])
+    initialize()
+  }, [refreshUser])
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    console.log("[v0] Auth context login called with:", email)
     const normalizedEmail = email.toLowerCase().trim()
-    console.log("[v0] Normalized email:", normalizedEmail)
-    
-    // Check development fallback users FIRST for immediate login
-    const devUser = DEV_USERS[normalizedEmail]
-    console.log("[v0] DEV_USERS lookup result:", devUser ? "found" : "not found")
-    if (devUser && devUser.password === password) {
-      console.log("[v0] Dev user matched! Setting user and cookie...")
-      setUser(devUser.user)
-      // Set cookie so middleware allows access to dashboard
-      document.cookie = `moap_dev_user=${devUser.user.id}; path=/; max-age=${60 * 60 * 24 * 7}` // 7 days
-      return { success: true }
-    }
 
-    // Then try Supabase authentication
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await authClient.signIn.email({
         email: normalizedEmail,
         password,
       })
 
-      if (!error && data.session?.user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", data.session.user.id)
-          .single()
-
-        if (profile) {
-          setUser({
-            id: profile.id,
-            email: profile.email,
-            name: profile.name,
-            role: profile.role as UserRole,
-            company: profile.company,
-            phone: profile.phone,
-            avatar_url: profile.avatar_url,
-          })
-        }
-
-        return { success: true }
+      if (error) {
+        return { success: false, error: error.message || "Credenciais inválidas" }
       }
 
-      return { success: false, error: error?.message || "Invalid login credentials" }
+      const profile = await getMyProfile()
+
+      if (!profile) {
+        await authClient.signOut()
+        return { success: false, error: "Perfil não encontrado. Contacte o administrador." }
+      }
+
+      if (!profile.approved) {
+        await authClient.signOut()
+        return { success: false, error: "A sua conta aguarda aprovação pelo administrador." }
+      }
+
+      setUser(profileToUser(profile))
+      if (profile.role === "admin") {
+        await loadPendingRegistrations()
+      }
+      return { success: true }
     } catch (error) {
       console.error("Login error:", error)
-      return { success: false, error: "An error occurred during login" }
+      return { success: false, error: "Ocorreu um erro durante o login" }
     }
   }
 
   const logout = async () => {
     try {
-      await supabase.auth.signOut()
-      // Clear dev user cookie
-      document.cookie = 'moap_dev_user=; path=/; max-age=0'
-      setUser(null)
+      await authClient.signOut()
     } catch (error) {
       console.error("Logout error:", error)
-      document.cookie = 'moap_dev_user=; path=/; max-age=0'
+    } finally {
       setUser(null)
+      setPendingRegistrations([])
     }
   }
-  
+
   const register = async (data: RegisterData): Promise<{ success: boolean; message: string }> => {
     try {
-      // First check if email already exists in pending registrations
-      const { data: existingPending } = await supabase
-        .from("pending_registrations")
-        .select("id")
-        .eq("email", data.email)
-        .single()
-      
-      if (existingPending) {
-        return { success: false, message: "emailExists" }
-      }
-      
-      // Create pending registration in database (not Supabase Auth yet)
-      // Admin will create the actual user after approval
-      const registrationId = `reg_${Date.now()}`
-      const { error: insertError } = await supabase
-        .from("pending_registrations")
-        .insert({
-          id: registrationId,
-          name: data.name,
-          email: data.email,
-          password_hash: data.password, // In production, hash this server-side
-          company: data.company,
-          phone: data.phone,
-          role: data.role,
-          status: "pending",
-          created_at: new Date().toISOString(),
-        })
-      
-      if (insertError) {
-        console.error("Insert error:", insertError)
-        // Fallback to localStorage if table doesn't exist
-        const registration: PendingRegistration = {
-          id: registrationId,
-          data,
-          status: "pending",
-          createdAt: new Date().toISOString(),
+      // Create the auth user via Better Auth
+      const { error } = await authClient.signUp.email({
+        email: data.email.toLowerCase().trim(),
+        password: data.password,
+        name: data.name,
+      })
+
+      if (error) {
+        if (error.message?.toLowerCase().includes("exist")) {
+          return { success: false, message: "emailExists" }
         }
-        const newPending = [...pendingRegistrations, registration]
-        setPendingRegistrations(newPending)
-        localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
-      } else {
-        // Refresh pending registrations from database
-        await loadPendingRegistrationsFromDb()
+        return { success: false, message: "registrationFailed" }
       }
 
+      // Create the app profile (starts unapproved; first user becomes admin)
+      const profile = await createMyProfile({
+        role: data.role === "admin" ? "cliente" : data.role,
+        company: data.company,
+        phone: data.phone,
+      })
+
+      if (profile.approved) {
+        // First user (bootstrap admin) - signed in and ready
+        setUser(profileToUser(profile))
+        return { success: true, message: "registrationApproved" }
+      }
+
+      // Regular flow: sign out until an admin approves the account
+      await authClient.signOut()
       return { success: true, message: "registrationPending" }
     } catch (error) {
       console.error("Registration error:", error)
       return { success: false, message: "registrationFailed" }
     }
   }
-  
+
   const approveRegistration = async (id: string) => {
-    try {
-      console.log("[v0] approveRegistration called with id:", id)
-      console.log("[v0] Current pendingRegistrations:", pendingRegistrations.length)
-      
-      const registration = pendingRegistrations.find((r) => r.id === id)
-      console.log("[v0] Found registration:", registration)
-      
-      if (!registration) {
-        console.error("[v0] Registration not found for id:", id)
-        throw new Error("Registration not found")
-      }
-
-      console.log("[v0] Creating user in Supabase Auth for:", registration.data.email)
-      
-      // Create the actual user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: registration.data.email,
-        password: registration.data.password,
-        options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-            `${window.location.origin}/dashboard`,
-          data: {
-            name: registration.data.name,
-            role: registration.data.role,
-            company: registration.data.company,
-            phone: registration.data.phone,
-          },
-        },
-      })
-      
-      if (authError) {
-        console.error("[v0] Error creating user in Supabase Auth:", authError)
-        throw new Error(`Auth error: ${authError.message}`)
-      }
-      
-      console.log("[v0] User created successfully:", authData.user?.id)
-      
-      // If user was created, also create/update their profile
-      if (authData.user) {
-        await supabase
-          .from("profiles")
-          .upsert({
-            id: authData.user.id,
-            email: registration.data.email,
-            name: registration.data.name,
-            role: registration.data.role,
-            company: registration.data.company,
-            phone: registration.data.phone,
-          })
-      }
-      
-      // Update pending registration status in database
-      const { error: updateError } = await supabase
-        .from("pending_registrations")
-        .update({ status: "approved" })
-        .eq("id", id)
-      
-      if (updateError) {
-        console.error("[v0] Error updating registration status:", updateError)
-        throw new Error(`Database update error: ${updateError.message}`)
-      }
-      
-      console.log("[v0] Registration status updated to approved in database")
-
-      // Update local state - keep record with updated status
-      const newPending = pendingRegistrations.map((r) => 
-        r.id === id ? { ...r, status: "approved" as const } : r
-      )
-      setPendingRegistrations(newPending)
-      localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
-    } catch (error) {
-      console.error("[v0] Approval error:", error)
-      throw error // Re-throw so caller can handle
-    }
+    await approveProfile(id)
+    setPendingRegistrations((prev) => prev.filter((r) => r.id !== id))
   }
 
   const rejectRegistration = async (id: string) => {
-    try {
-      // Update pending registration status in database
-      const { error: updateError } = await supabase
-        .from("pending_registrations")
-        .update({ status: "rejected" })
-        .eq("id", id)
-      
-      if (updateError) {
-        console.error("[v0] Error updating registration status:", updateError)
-      }
-      
-      // Update local state - keep record with updated status
-      const newPending = pendingRegistrations.map((r) => 
-        r.id === id ? { ...r, status: "rejected" as const } : r
-      )
-      setPendingRegistrations(newPending)
-      localStorage.setItem("moap_pending_registrations", JSON.stringify(newPending))
-    } catch (error) {
-      console.error("[v0] Rejection error:", error)
-      throw error // Re-throw so caller can handle
-    }
-  }
-
-  const refreshUser = async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single()
-
-        if (profile) {
-          setUser({
-            id: profile.id,
-            email: profile.email,
-            name: profile.name,
-            role: profile.role as UserRole,
-            company: profile.company,
-            phone: profile.phone,
-            avatar_url: profile.avatar_url,
-          })
-        }
-      }
-    } catch (error) {
-      console.error("Refresh user error:", error)
-    }
+    await rejectProfile(id)
+    setPendingRegistrations((prev) => prev.filter((r) => r.id !== id))
   }
 
   return (
@@ -527,7 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         approveRegistration,
         rejectRegistration,
         refreshUser,
-        refreshPendingRegistrations: loadPendingRegistrationsFromDb,
+        refreshPendingRegistrations: loadPendingRegistrations,
       }}
     >
       {children}

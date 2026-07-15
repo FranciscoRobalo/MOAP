@@ -1,358 +1,428 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { db } from "@/lib/db"
+import {
+  materials,
+  budgets,
+  budgetItems,
+  obras,
+  visitas,
+  notifications,
+  profiles,
+  analiseSaved,
+} from "@/lib/db/schema"
+import { and, asc, desc, eq, inArray, or } from "drizzle-orm"
+import { getApiSession } from "@/lib/api-auth"
 
-// Sync all user data to/from Supabase
-export async function GET(req: Request) {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function asUuid(id: unknown): string | undefined {
+  return typeof id === "string" && UUID_RE.test(id) ? id : undefined
+}
+
+// Sync all user data from Neon
+export async function GET() {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    // Allow fetching even without auth for demo users
-    const userId = user?.id
-    
+    const session = await getApiSession()
+    const userId = session?.userId
+
     // Fetch materials (global, not user-specific)
-    const { data: materials } = await supabase
-      .from("materials")
-      .select("*")
-      .order("name")
-    
-    // Fetch user-specific data if authenticated
-    let budgets: any[] = []
-    let obras: any[] = []
-    let visitas: any[] = []
-    let notifications: any[] = []
-    let profiles: any[] = []
-    let analises: any[] = []
-    
+    const materialRows = await db.select().from(materials).orderBy(asc(materials.name))
+
+    let budgetRows: (typeof budgets.$inferSelect & { budget_items: (typeof budgetItems.$inferSelect)[] })[] = []
+    let obraRows: (typeof obras.$inferSelect)[] = []
+    let visitaRows: (typeof visitas.$inferSelect)[] = []
+    let notificationRows: (typeof notifications.$inferSelect)[] = []
+    let analiseRows: (typeof analiseSaved.$inferSelect)[] = []
+
     if (userId) {
-      // Fetch budgets
-      const { data: budgetsData } = await supabase
-        .from("budgets")
-        .select("*, budget_items(*)")
-        .or(`uploaded_by.eq.${userId},analyzed_by.eq.${userId}`)
-        .order("created_at", { ascending: false })
-      budgets = budgetsData || []
-      
-      // Fetch obras
-      const { data: obrasData } = await supabase
-        .from("obras")
-        .select("*")
-        .or(`client_id.eq.${userId},created_by.eq.${userId},assigned_to.eq.${userId}`)
-        .order("created_at", { ascending: false })
-      obras = obrasData || []
-      
-      // Fetch visitas
-      const { data: visitasData } = await supabase
-        .from("visitas")
-        .select("*")
-        .order("date", { ascending: false })
-      visitas = visitasData || []
-      
-      // Fetch notifications
-      const { data: notificationsData } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
+      const rawBudgets = await db
+        .select()
+        .from(budgets)
+        .where(or(eq(budgets.uploadedBy, userId), eq(budgets.analyzedBy, userId)))
+        .orderBy(desc(budgets.createdAt))
+
+      const budgetIds = rawBudgets.map((b) => b.id)
+      const itemRows = budgetIds.length
+        ? await db.select().from(budgetItems).where(inArray(budgetItems.budgetId, budgetIds))
+        : []
+
+      budgetRows = rawBudgets.map((b) => ({
+        ...b,
+        budget_items: itemRows.filter((i) => i.budgetId === b.id),
+      }))
+
+      obraRows = await db
+        .select()
+        .from(obras)
+        .where(
+          or(eq(obras.clientId, userId), eq(obras.createdBy, userId), eq(obras.assignedTo, userId)),
+        )
+        .orderBy(desc(obras.createdAt))
+
+      visitaRows = await db.select().from(visitas).orderBy(desc(visitas.date))
+
+      notificationRows = await db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.userId, userId))
+        .orderBy(desc(notifications.createdAt))
         .limit(50)
-      notifications = notificationsData || []
-      
-      // Fetch saved analyses
-      const { data: analisesData } = await supabase
-        .from("analise_saved")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-      analises = analisesData || []
+
+      analiseRows = await db
+        .select()
+        .from(analiseSaved)
+        .where(eq(analiseSaved.userId, userId))
+        .orderBy(desc(analiseSaved.createdAt))
     }
-    
+
     // Fetch all profiles for admin view
-    const { data: profilesData } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("name")
-    profiles = profilesData || []
-    
+    const profileRows = await db.select().from(profiles).orderBy(asc(profiles.name))
+
     return NextResponse.json({
       success: true,
       data: {
-        materials: (materials || []).map((m: any) => ({
+        materials: materialRows.map((m) => ({
           id: m.id,
           name: m.name,
           unit: m.unit,
-          price: parseFloat(m.min_price || m.avg_price),
-          priceMax: parseFloat(m.max_price || m.avg_price),
+          price: Number(m.minPrice ?? m.avgPrice ?? 0),
+          priceMax: Number(m.maxPrice ?? m.avgPrice ?? 0),
           category: m.category,
           type: "material",
           region: m.region || "Nacional",
-          lastUpdated: m.last_updated || m.created_at
+          lastUpdated: m.lastUpdated?.toISOString() || m.createdAt?.toISOString(),
         })),
-        budgets: budgets.map((b: any) => ({
+        budgets: budgetRows.map((b) => ({
           id: b.id,
           name: b.name,
-          obraId: b.obra_id,
-          obraName: obras.find((o: any) => o.id === b.obra_id)?.title || "Obra",
-          userId: b.uploaded_by,
-          createdDate: b.created_at,
+          obraId: b.obraId,
+          obraName: obraRows.find((o) => o.id === b.obraId)?.title || "Obra",
+          userId: b.uploadedBy,
+          createdDate: b.createdAt?.toISOString(),
           status: b.status,
-          items: b.budget_items || [],
-          totalValue: parseFloat(b.total_value || 0),
-          analysisVariance: null
+          items: b.budget_items,
+          totalValue: Number(b.totalValue ?? 0),
+          analysisVariance: null,
         })),
-        obras: obras.map((o: any) => ({
+        obras: obraRows.map((o) => ({
           id: o.id,
           title: o.title,
-          client: o.client_name,
+          client: o.clientName,
           location: o.location,
           category: o.category,
-          budget: parseFloat(o.budget || 0),
-          startDate: o.start_date,
-          endDate: o.end_date,
+          budget: Number(o.budget ?? 0),
+          startDate: o.startDate,
+          endDate: o.endDate,
           status: o.status,
           description: o.description,
           area: o.area,
           type: o.type,
           timeline: o.timeline,
           contact: {
-            name: o.contact_name,
-            email: o.contact_email,
-            phone: o.contact_phone
+            name: o.contactName,
+            email: o.contactEmail,
+            phone: o.contactPhone,
           },
           progress: o.progress || 0,
-          createdAt: o.created_at,
-          updatedAt: o.updated_at
+          createdAt: o.createdAt?.toISOString(),
+          updatedAt: o.updatedAt?.toISOString(),
         })),
-        visitas: visitas.map((v: any) => ({
+        visitas: visitaRows.map((v) => ({
           id: v.id,
-          obraId: v.obra_id,
-          obraName: obras.find((o: any) => o.id === v.obra_id)?.title || "Obra",
+          obraId: v.obraId,
+          obraName: obraRows.find((o) => o.id === v.obraId)?.title || "Obra",
           date: v.date,
           time: v.time,
           type: v.type,
-          contactName: v.contact_name,
-          contactPhone: v.contact_phone,
+          contactName: v.contactName,
+          contactPhone: v.contactPhone,
           notes: v.notes,
-          status: v.status
+          status: v.status,
         })),
-        notifications: notifications.map((n: any) => ({
+        notifications: notificationRows.map((n) => ({
           id: n.id,
           type: n.type,
           title: n.title,
           description: n.description,
-          timestamp: n.created_at,
+          timestamp: n.createdAt?.toISOString(),
           read: n.read,
-          link: n.link
+          link: n.link,
         })),
-        users: profiles.map((p: any) => ({
+        users: profileRows.map((p) => ({
           id: p.id,
           name: p.name || "User",
           email: p.email,
           role: p.role || "cliente",
           company: p.company || "",
-          avatar: p.avatar_url || "/placeholder.svg",
+          avatar: p.avatarUrl || "/placeholder.svg",
           online: false,
-          joinDate: p.created_at
+          joinDate: p.createdAt?.toISOString(),
         })),
-        analises: analises.map((a: any) => ({
+        analises: analiseRows.map((a) => ({
           id: a.id,
-          fileName: a.file_name,
-          uploadDate: a.created_at,
+          fileName: a.fileName,
+          uploadDate: a.createdAt?.toISOString(),
           region: a.region,
-          totalBudget: parseFloat(a.total_budget || 0),
-          totalReference: parseFloat(a.total_reference || 0),
-          overallVariance: parseFloat(a.overall_variance || 0),
-          overallRating: a.overall_rating,
+          totalBudget: Number(a.totalBudget ?? 0),
+          totalReference: Number(a.totalReference ?? 0),
+          overallVariance: Number(a.overallVariance ?? 0),
+          overallRating: a.overallRating,
           items: a.items || [],
           stats: a.stats || {},
-          categoryBreakdown: a.category_breakdown || [],
+          categoryBreakdown: a.categoryBreakdown || [],
           recommendations: a.recommendations || [],
-          qualityScore: a.quality_score
-        }))
-      }
+          qualityScore: a.qualityScore != null ? Number(a.qualityScore) : null,
+        })),
+      },
     })
   } catch (error) {
     console.error("Data sync error:", error)
-    return NextResponse.json({ 
-      success: false, 
-      error: "Failed to sync data" 
-    }, { status: 500 })
+    return NextResponse.json({ success: false, error: "Failed to sync data" }, { status: 500 })
   }
 }
 
-// Save data to Supabase
+// Save data to Neon
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ 
-        success: false, 
-        error: "Authentication required" 
-      }, { status: 401 })
+    const session = await getApiSession()
+
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 },
+      )
     }
-    
+
+    const userId = session.userId
     const body = await req.json()
     const { type, data } = body
-    
+
     switch (type) {
       case "material": {
-        const { error } = await supabase.from("materials").upsert({
-          id: data.id,
+        const price = Number(data.price ?? 0)
+        const priceMax = Number(data.priceMax ?? data.price ?? 0)
+        const values = {
           name: data.name,
           unit: data.unit,
-          min_price: data.price,
-          avg_price: (data.price + (data.priceMax || data.price)) / 2,
-          max_price: data.priceMax || data.price,
+          minPrice: String(price),
+          avgPrice: String((price + priceMax) / 2),
+          maxPrice: String(priceMax),
           category: data.category,
           region: data.region || "Nacional",
-          created_by: user.id,
-          last_updated: new Date().toISOString()
-        })
-        if (error) throw error
+          createdBy: userId,
+          lastUpdated: new Date(),
+        }
+        const id = asUuid(data.id)
+        if (id) {
+          await db
+            .insert(materials)
+            .values({ id, ...values })
+            .onConflictDoUpdate({ target: materials.id, set: values })
+        } else {
+          await db.insert(materials).values(values)
+        }
         break
       }
-      
+
       case "budget": {
-        const { error } = await supabase.from("budgets").upsert({
-          id: data.id,
+        const values = {
           name: data.name,
-          obra_id: data.obraId,
-          uploaded_by: user.id,
+          obraId: asUuid(data.obraId) ?? null,
+          uploadedBy: userId,
           status: data.status,
-          total_value: data.totalValue,
-          total_items: data.items?.length || 0,
-          updated_at: new Date().toISOString()
-        })
-        if (error) throw error
+          totalValue: data.totalValue != null ? String(data.totalValue) : null,
+          totalItems: data.items?.length || 0,
+          updatedAt: new Date(),
+        }
+        const id = asUuid(data.id)
+        if (id) {
+          await db
+            .insert(budgets)
+            .values({ id, ...values })
+            .onConflictDoUpdate({ target: budgets.id, set: values })
+        } else {
+          await db.insert(budgets).values(values)
+        }
         break
       }
-      
+
       case "obra": {
-        const { error } = await supabase.from("obras").upsert({
-          id: data.id,
+        const values = {
           title: data.title,
-          client_name: data.client,
-          client_id: user.id,
+          clientName: data.client,
+          clientId: userId,
           location: data.location,
           category: data.category,
           description: data.description,
           area: data.area,
           type: data.type,
-          budget: data.budget,
-          start_date: data.startDate,
-          end_date: data.endDate,
+          budget: data.budget != null ? String(data.budget) : null,
+          startDate: data.startDate || null,
+          endDate: data.endDate || null,
           timeline: data.timeline,
           status: data.status,
           progress: data.progress || 0,
-          contact_name: data.contact?.name,
-          contact_email: data.contact?.email,
-          contact_phone: data.contact?.phone,
-          created_by: user.id,
-          updated_at: new Date().toISOString()
-        })
-        if (error) throw error
+          contactName: data.contact?.name,
+          contactEmail: data.contact?.email,
+          contactPhone: data.contact?.phone,
+          createdBy: userId,
+          updatedAt: new Date(),
+        }
+        const id = asUuid(data.id)
+        if (id) {
+          await db
+            .insert(obras)
+            .values({ id, ...values })
+            .onConflictDoUpdate({ target: obras.id, set: values })
+        } else {
+          await db.insert(obras).values(values)
+        }
         break
       }
-      
+
       case "visita": {
-        const { error } = await supabase.from("visitas").upsert({
-          id: data.id,
-          obra_id: data.obraId,
-          date: data.date,
+        const values = {
+          obraId: asUuid(data.obraId) ?? null,
+          date: data.date || null,
           time: data.time,
           type: data.type,
-          contact_name: data.contactName,
-          contact_phone: data.contactPhone,
+          contactName: data.contactName,
+          contactPhone: data.contactPhone,
           notes: data.notes,
           status: data.status,
-          created_by: user.id
-        })
-        if (error) throw error
+          createdBy: userId,
+        }
+        const id = asUuid(data.id)
+        if (id) {
+          await db
+            .insert(visitas)
+            .values({ id, ...values })
+            .onConflictDoUpdate({ target: visitas.id, set: values })
+        } else {
+          await db.insert(visitas).values(values)
+        }
         break
       }
-      
+
       case "notification": {
-        const { error } = await supabase.from("notifications").insert({
-          user_id: user.id,
+        await db.insert(notifications).values({
+          userId,
           type: data.type,
           title: data.title,
           description: data.description,
           link: data.link,
-          read: false
+          read: false,
         })
-        if (error) throw error
         break
       }
-      
+
       case "analysis": {
-        const { error } = await supabase.from("analise_saved").upsert({
-          id: data.id,
-          user_id: user.id,
-          file_name: data.fileName,
+        const values = {
+          userId,
+          fileName: data.fileName,
           region: data.region,
-          total_budget: data.totalBudget,
-          total_reference: data.totalReference,
-          overall_variance: data.overallVariance,
-          overall_rating: data.overallRating,
-          quality_score: data.qualityScore,
-          match_rate: data.stats?.matchRate,
-          potential_savings: data.stats?.potentialSavings,
-          risk_items: data.stats?.riskItems,
+          totalBudget: data.totalBudget != null ? String(data.totalBudget) : null,
+          totalReference: data.totalReference != null ? String(data.totalReference) : null,
+          overallVariance: data.overallVariance != null ? String(data.overallVariance) : null,
+          overallRating: data.overallRating,
+          qualityScore: data.qualityScore != null ? String(data.qualityScore) : null,
+          matchRate: data.stats?.matchRate != null ? String(data.stats.matchRate) : null,
+          potentialSavings:
+            data.stats?.potentialSavings != null ? String(data.stats.potentialSavings) : null,
+          riskItems: data.stats?.riskItems ?? null,
           stats: data.stats,
-          category_breakdown: data.categoryBreakdown,
+          categoryBreakdown: data.categoryBreakdown,
           recommendations: data.recommendations,
           items: data.items,
-          submission_status: "draft",
-          updated_at: new Date().toISOString()
-        })
-        if (error) throw error
+          submissionStatus: "draft",
+          updatedAt: new Date(),
+        }
+        const id = asUuid(data.id)
+        if (id) {
+          await db
+            .insert(analiseSaved)
+            .values({ id, ...values })
+            .onConflictDoUpdate({ target: analiseSaved.id, set: values })
+        } else {
+          await db.insert(analiseSaved).values(values)
+        }
         break
       }
-      
+
       case "mark_notification_read": {
-        const { error } = await supabase
-          .from("notifications")
-          .update({ read: true })
-          .eq("id", data.id)
-          .eq("user_id", user.id)
-        if (error) throw error
+        const id = asUuid(data.id)
+        if (id) {
+          await db
+            .update(notifications)
+            .set({ read: true })
+            .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+        }
         break
       }
-      
+
       case "delete_notification": {
-        const { error } = await supabase
-          .from("notifications")
-          .delete()
-          .eq("id", data.id)
-          .eq("user_id", user.id)
-        if (error) throw error
+        const id = asUuid(data.id)
+        if (id) {
+          await db
+            .delete(notifications)
+            .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+        }
         break
       }
-      
+
       case "delete": {
         const { table, id } = data
-        const { error } = await supabase
-          .from(table)
-          .delete()
-          .eq("id", id)
-        if (error) throw error
+        const uuid = asUuid(id)
+        if (!uuid) break
+        // Whitelisted tables only (prevents arbitrary table access)
+        switch (table) {
+          case "materials":
+            if (session.role === "admin") await db.delete(materials).where(eq(materials.id, uuid))
+            break
+          case "budgets":
+            await db
+              .delete(budgets)
+              .where(and(eq(budgets.id, uuid), eq(budgets.uploadedBy, userId)))
+            break
+          case "obras":
+            await db
+              .delete(obras)
+              .where(
+                and(
+                  eq(obras.id, uuid),
+                  or(eq(obras.createdBy, userId), eq(obras.clientId, userId)),
+                ),
+              )
+            break
+          case "visitas":
+            await db
+              .delete(visitas)
+              .where(and(eq(visitas.id, uuid), eq(visitas.createdBy, userId)))
+            break
+          case "analise_saved":
+            await db
+              .delete(analiseSaved)
+              .where(and(eq(analiseSaved.id, uuid), eq(analiseSaved.userId, userId)))
+            break
+          default:
+            return NextResponse.json(
+              { success: false, error: "Unknown table" },
+              { status: 400 },
+            )
+        }
         break
       }
-      
+
       default:
-        return NextResponse.json({ 
-          success: false, 
-          error: "Unknown operation type" 
-        }, { status: 400 })
+        return NextResponse.json(
+          { success: false, error: "Unknown operation type" },
+          { status: 400 },
+        )
     }
-    
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Data save error:", error)
-    return NextResponse.json({ 
-      success: false, 
-      error: "Failed to save data" 
-    }, { status: 500 })
+    return NextResponse.json({ success: false, error: "Failed to save data" }, { status: 500 })
   }
 }
