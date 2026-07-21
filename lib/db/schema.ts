@@ -214,10 +214,16 @@ export const analiseSaved = pgTable("analise_saved", {
 
 export const apiKeys = pgTable("api_keys", {
   id: uuid("id").primaryKey().defaultRandom(),
-  key: text("key").notNull().unique(),
+  key: text("key"),
   name: text("name"),
   createdBy: text("created_by"),
   active: boolean("active").default(true),
+  // Extended fields for hashed key storage
+  keyHash: text("key_hash").unique(),
+  keyPrefix: text("key_prefix"),
+  ownerId: text("owner_id"),
+  isActive: boolean("is_active").default(true),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 })
