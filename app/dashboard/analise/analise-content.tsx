@@ -3200,7 +3200,7 @@ www.moap.pt
                                           {item.variance.toFixed(0)}%
                                         </span>
                                         {Math.abs(item.variance) > 65 && (
-                                          <AlertTriangle className="h-3 w-3 text-orange-500" title="Variação > 65%" />
+                                          <AlertTriangle className="h-3 w-3 text-orange-500" aria-label="Variação superior a 65%" />
                                         )}
                                       </div>
                                     ) : (

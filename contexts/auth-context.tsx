@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import { authClient } from "@/lib/auth-client"
+import { DEMO_ADMIN_ENABLED, DEMO_ADMIN_USER } from "@/lib/demo-access"
 import {
   getMyProfile,
   createMyProfile,
@@ -85,8 +86,8 @@ function profileToPending(p: ProfileData): PendingRegistration {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(DEMO_ADMIN_ENABLED ? DEMO_ADMIN_USER : null)
+  const [isLoading, setIsLoading] = useState(!DEMO_ADMIN_ENABLED)
   const [pendingRegistrations, setPendingRegistrations] = useState<PendingRegistration[]>([])
 
   const loadPendingRegistrations = useCallback(async () => {
@@ -118,6 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize auth state on mount
   useEffect(() => {
+    if (DEMO_ADMIN_ENABLED) return
+
     const initialize = async () => {
       try {
         await refreshUser()
@@ -170,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Logout error:", error)
     } finally {
-      setUser(null)
+      setUser(DEMO_ADMIN_ENABLED ? DEMO_ADMIN_USER : null)
       setPendingRegistrations([])
     }
   }

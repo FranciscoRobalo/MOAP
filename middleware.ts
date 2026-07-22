@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { getSessionCookie } from "better-auth/cookies"
+import { DEMO_ADMIN_ENABLED } from "@/lib/demo-access"
 
 export async function middleware(request: NextRequest) {
   // Protect dashboard routes: require a Better Auth session cookie.
   // (Full session validation happens server-side in pages/actions.)
-  if (request.nextUrl.pathname.startsWith("/dashboard")) {
+  if (!DEMO_ADMIN_ENABLED && request.nextUrl.pathname.startsWith("/dashboard")) {
     const sessionCookie = getSessionCookie(request)
     if (!sessionCookie) {
       const url = request.nextUrl.clone()
