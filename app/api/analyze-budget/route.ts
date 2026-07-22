@@ -46,6 +46,11 @@ interface MaterialRef {
   priceMin?: number
   priceMax?: number
   category: string
+  subcategory?: string | null
+  region?: string | null
+  description?: string | null
+  keywords?: string[] | null
+  lastUpdated?: Date | null
 }
 
 interface AnalysisResponse {
@@ -73,12 +78,13 @@ interface AnalysisResponse {
 // ============================================================================
 
 const getOpenAIClient = () => {
-  if (!process.env.OPENAI_API_KEY) {
-    console.error("[API] OPENAI_API_KEY not found in environment")
+  const apiKey = process.env.OPENAI_API_KEY_2 || process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    console.error("[API] OPENAI_API_KEY_2 or OPENAI_API_KEY not found in environment")
     return null
   }
-  return new OpenAI({ 
-    apiKey: process.env.OPENAI_API_KEY,
+  return new OpenAI({
+    apiKey,
     timeout: 50000, // 50s timeout (under Vercel's 60s function limit)
     maxRetries: 4,  // Retry on transient errors (ECONNRESET, 429, 5xx)
   })
@@ -99,6 +105,11 @@ async function fetchMaterialsFromDB(): Promise<MaterialRef[]> {
         minPrice: materialsTable.minPrice,
         maxPrice: materialsTable.maxPrice,
         category: materialsTable.category,
+        subcategory: materialsTable.subcategory,
+        region: materialsTable.region,
+        description: materialsTable.description,
+        keywords: materialsTable.keywords,
+        lastUpdated: materialsTable.lastUpdated,
       })
       .from(materialsTable)
       .orderBy(asc(materialsTable.category))
@@ -111,6 +122,11 @@ async function fetchMaterialsFromDB(): Promise<MaterialRef[]> {
       priceMin: m.minPrice != null ? Number(m.minPrice) : 0,
       priceMax: m.maxPrice != null ? Number(m.maxPrice) : 0,
       category: m.category,
+      subcategory: m.subcategory,
+      region: m.region,
+      description: m.description,
+      keywords: m.keywords,
+      lastUpdated: m.lastUpdated,
     }))
   } catch (error) {
     console.error("Failed to fetch materials:", error)
@@ -148,6 +164,36 @@ function normalizeUnit(unit: string): string {
     "mês": "mês", "mes": "mês", "hora": "hora", "h": "hora",
   }
   return unitMap[trimmed] || (trimmed.length <= 6 ? trimmed : "un")
+}
+
+const PORTUGUESE_SYNONYMS: Record<string, string[]> = {
+  etics: ["capoto", "cappotto", "isolamento exterior"],
+  pladur: ["gesso cartonado", "drywall"],
+  betao: ["concreto", "betonagem"],
+  alvenaria: ["tijolo", "bloco"],
+  caixilharia: ["janela", "aro", "aluminio", "pvc"],
+  canalizacao: ["hidraulica", "tubagem", "agua", "esgoto"],
+  eletrica: ["eletricidade", "cablagem", "tomada", "interruptor"],
+}
+
+function normalizeText(value: string): string {
+  let normalized = value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  for (const [canonical, synonyms] of Object.entries(PORTUGUESE_SYNONYMS)) {
+    for (const synonym of synonyms) normalized = normalized.replaceAll(synonym, canonical)
+  }
+  return normalized.replace(/[^a-z0-9]+/g, " ").trim()
+}
+
+function regionCoefficient(region: string): number {
+  return {
+    Norte: 0.92,
+    Centro: 0.95,
+    "Lisboa e Vale do Tejo": 1,
+    Alentejo: 0.9,
+    Algarve: 1.05,
+    "Açores": 1.15,
+    Madeira: 1.12,
+  }[region] ?? 1
 }
 
 function calculateRating(variance: number | null): "below" | "average" | "above" | "critical" | "unknown" {
@@ -414,14 +460,14 @@ INSTRUÇÕES DE EXTRAÇÃO E ANÁLISE
    OUTROS:
    • Estaleiro pequeno: €2500-8000/vg
    • Estaleiro médio: €8000-25000/vg
-   • Teto falso gesso: €28-52/m2
+   • Teto falso gesso: ���28-52/m2
 
 5. INSIGHTS E RECOMENDAÇÕES:
    • Para cada item, fornecer insight sobre o preço
    • Identificar se está muito acima/abaixo do mercado
    • Sugerir pontos de negociação
 
-═════════════════════════════════════════════════════════════════════════════��═
+═════════════���═══════════════════════════════════════════════════════════════��═
 BASE DE DADOS DE MATERIAIS/SERVIÇOS (usar para correspondência):
 ═���════════════════════════��════════════════════════════════════════════════════
 ${materialSummary}
@@ -809,33 +855,36 @@ function parseWithRegex(text: string, debugInfo: string[]): ParsedItem[] {
 // ============================================================================
 
 function matchLocally(
-  items: ParsedItem[], 
+  items: ParsedItem[],
   materials: MaterialRef[],
-  debugInfo: string[]
+  debugInfo: string[],
+  region: string,
 ): AnalyzedItem[] {
   debugInfo.push("Using local matching...")
   
   return items.map(item => {
-    // Simple keyword matching
-    const itemWords = item.name.toLowerCase().split(/\s+/)
+    const itemWords = new Set(normalizeText(item.name).split(/\s+/).filter((word) => word.length >= 3))
     let bestMatch: MaterialRef | null = null
     let bestScore = 0
     
     for (const material of materials) {
-      const materialWords = material.name.toLowerCase().split(/\s+/)
+      const materialWords = new Set(normalizeText([
+        material.name,
+        material.category,
+        material.subcategory,
+        material.description,
+        ...(material.keywords ?? []),
+      ].filter(Boolean).join(" ")).split(/\s+/).filter((word) => word.length >= 3))
       let score = 0
-      
+
       for (const word of itemWords) {
-        if (word.length < 3) continue
-        if (materialWords.some(mw => mw.includes(word) || word.includes(mw))) {
-          score += 1
-        }
+        if (materialWords.has(word)) score += 2
+        else if ([...materialWords].some((candidate) => candidate.includes(word) || word.includes(candidate))) score += 0.5
       }
-      
-      // Bonus for unit match
-      if (normalizeUnit(material.unit) === normalizeUnit(item.unit)) {
-        score += 2
-      }
+
+      const unitCompatible = normalizeUnit(material.unit) === normalizeUnit(item.unit)
+      if (unitCompatible) score += 4
+      else if (normalizeUnit(item.unit) !== "vg") score -= 5
       
       if (score > bestScore) {
         bestScore = score
@@ -843,15 +892,19 @@ function matchLocally(
       }
     }
     
-    const confidence = bestScore > 3 ? Math.min(bestScore * 15, 85) : 0
-    const refAvg = bestMatch?.price || null
-    const refMin = bestMatch?.priceMin || refAvg
-    const refMax = bestMatch?.priceMax || refAvg
-    const variance = refAvg && item.price > 0 ? ((item.price - refAvg) / refAvg) * 100 : null
+    const confidence = bestScore >= 6 ? Math.min(Math.round(bestScore * 10), 92) : 0
+    const coefficient = regionCoefficient(region)
+    const refAvg = bestMatch ? bestMatch.price * coefficient : null
+    const refMin = bestMatch ? (bestMatch.priceMin || bestMatch.price) * coefficient : null
+    const refMax = bestMatch ? (bestMatch.priceMax || bestMatch.price) * coefficient : null
+    const isGlobalPrice = normalizeUnit(item.unit) === "vg"
+    const acceptedMatch = confidence >= 60 && (!bestMatch || isGlobalPrice || normalizeUnit(bestMatch.unit) === normalizeUnit(item.unit))
+    const variance = !isGlobalPrice && acceptedMatch && refAvg && item.price > 0
+      ? ((item.price - refAvg) / refAvg) * 100
+      : null
     const rating = calculateRating(variance)
     const riskLevel = calculateRiskLevel(variance, confidence)
-    
-    const isGlobalPrice = normalizeUnit(item.unit) === "vg"
+
     const quantity = item.quantity > 0 ? item.quantity : 1
 
     return {
@@ -859,8 +912,8 @@ function matchLocally(
       unitPrice: item.price,
       totalPrice: isGlobalPrice ? item.price : item.price * quantity,
       isGlobalPrice,
-      matchedMaterialId: confidence >= 60 ? bestMatch?.id || null : null,
-      matchedMaterialName: confidence >= 60 ? bestMatch?.name || null : null,
+      matchedMaterialId: acceptedMatch ? bestMatch?.id || null : null,
+      matchedMaterialName: acceptedMatch ? bestMatch?.name || null : null,
       confidence,
       referenceMinPrice: refMin,
       referenceMaxPrice: refMax,
@@ -958,6 +1011,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
     const formData = await request.formData()
     const file = formData.get("file") as File
     const materialsJson = formData.get("materials") as string
+    const region = String(formData.get("region") || "Lisboa e Vale do Tejo")
     
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
@@ -1005,7 +1059,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
         
         // Fallback to local matching if GPT fails
         if (items.length === 0) {
-          items = matchLocally(parsedItems, materials, debugInfo)
+          items = matchLocally(parsedItems, materials, debugInfo, region)
         }
       }
     }
@@ -1023,7 +1077,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
         // Fallback to regex + local matching
         if (items.length === 0) {
           const parsedItems = parseWithRegex(text, debugInfo)
-          items = matchLocally(parsedItems, materials, debugInfo)
+          items = matchLocally(parsedItems, materials, debugInfo, region)
         }
       } catch (error) {
         debugInfo.push(`PDF extraction error: ${error instanceof Error ? error.message : "Unknown"}`)
@@ -1043,7 +1097,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
         if (parsedItems.length === 0) {
           parsedItems = parseWithRegex(text, debugInfo)
         }
-        items = matchLocally(parsedItems, materials, debugInfo)
+        items = matchLocally(parsedItems, materials, debugInfo, region)
       }
     }
     else {
@@ -1068,6 +1122,42 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       return true
     })
     
+    // Catalogue values, not model-provided numbers, are authoritative.
+    const catalogueById = new Map(materials.map((material) => [material.id, material]))
+    const coefficient = regionCoefficient(region)
+    items = items.map((item) => {
+      const material = item.matchedMaterialId ? catalogueById.get(item.matchedMaterialId) : undefined
+      const isGlobalPrice = item.isGlobalPrice || normalizeUnit(item.unit) === "vg"
+      const unitCompatible = !!material && (isGlobalPrice || normalizeUnit(material.unit) === normalizeUnit(item.unit))
+      const accepted = !!material && unitCompatible && item.confidence >= 60
+      const quantity = item.quantity > 0 ? item.quantity : 1
+      const unitPrice = item.unitPrice || item.price || 0
+      const referenceAvgPrice = accepted && !isGlobalPrice ? material.price * coefficient : null
+      const referenceMinPrice = accepted && !isGlobalPrice ? (material.priceMin || material.price) * coefficient : null
+      const referenceMaxPrice = accepted && !isGlobalPrice ? (material.priceMax || material.price) * coefficient : null
+      const variance = referenceAvgPrice && unitPrice > 0 ? ((unitPrice - referenceAvgPrice) / referenceAvgPrice) * 100 : null
+
+      return {
+        ...item,
+        quantity,
+        price: unitPrice,
+        unitPrice,
+        totalPrice: isGlobalPrice ? unitPrice : unitPrice * quantity,
+        isGlobalPrice,
+        matchedMaterialId: accepted ? material.id : null,
+        matchedMaterialName: accepted ? material.name : null,
+        confidence: accepted ? Math.min(100, Math.max(0, item.confidence)) : 0,
+        referenceMinPrice,
+        referenceAvgPrice,
+        referenceMaxPrice,
+        variance,
+        category: accepted ? material.category : item.category || "Sem categoria",
+        rating: calculateRating(variance),
+        riskLevel: calculateRiskLevel(variance, accepted ? item.confidence : 0),
+        matchReason: accepted ? item.matchReason : "Sem correspondência de catálogo validada",
+      }
+    })
+
     // Calculate comprehensive stats
     const stats = calculateStats(items)
     
@@ -1095,7 +1185,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       }
     }
     
-    const matchedItems = items.filter(i => i.matchedMaterialId || i.confidence >= 60).length
+    const matchedItems = items.filter(i => i.matchedMaterialId).length
     const avgConfidence = items.length > 0 
       ? items.reduce((sum, i) => sum + (i.confidence || 0), 0) / items.length 
       : 0

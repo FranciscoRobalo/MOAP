@@ -52,12 +52,12 @@ export function Header() {
             </Link>
           ) : (
             <>
-              <Link href="/login?force=1">
+              <Link href="/dashboard">
                 <Button variant="ghost" size="sm">
                   {t("login")}
                 </Button>
               </Link>
-              <Link href="/login?force=1">
+              <Link href="/dashboard">
                 <Button size="sm">{t("startNow")}</Button>
               </Link>
             </>
@@ -139,12 +139,12 @@ export function Header() {
                 </Link>
               ) : (
                 <>
-                  <Link href="/login?force=1">
+                  <Link href="/dashboard">
                     <Button variant="ghost" size="sm" className="w-full">
                       {t("login")}
                     </Button>
                   </Link>
-                  <Link href="/login?force=1">
+                  <Link href="/dashboard">
                     <Button size="sm" className="w-full">
                       {t("startNow")}
                     </Button>

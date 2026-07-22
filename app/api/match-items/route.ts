@@ -22,11 +22,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { items, materials } = body as { items: BudgetItem[]; materials: MaterialRef[] }
     
-    const apiKey = process.env.OPENAI_API_KEY
+    const apiKey = process.env.OPENAI_API_KEY_2 || process.env.OPENAI_API_KEY
     
     if (!apiKey) {
       return NextResponse.json({ 
-        error: "OPENAI_API_KEY não configurada",
+        error: "OPENAI_API_KEY_2 não configurada",
         matches: {}
       }, { status: 500 })
     }
