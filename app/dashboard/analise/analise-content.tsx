@@ -2521,34 +2521,34 @@ www.moap.pt
           )}
 
           {/* Summary Cards - Enhanced */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="bg-card/50">
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{analysisResult.totalBudget.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
-                <p className="text-sm text-muted-foreground">Total do Orçamento</p>
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+            <Card className="bg-card/50 overflow-hidden">
+              <CardContent className="pt-4 pb-4">
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold truncate">{analysisResult.totalBudget.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Total do Orçamento</p>
               </CardContent>
             </Card>
-            <Card className="bg-card/50">
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{analysisResult.totalReference.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
-                <p className="text-sm text-muted-foreground">Total de Referência</p>
+            <Card className="bg-card/50 overflow-hidden">
+              <CardContent className="pt-4 pb-4">
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold truncate">{analysisResult.totalReference.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</div>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Total de Referência</p>
               </CardContent>
             </Card>
-            <Card className="bg-card/50">
-              <CardContent className="pt-6">
-                <div className={cn("text-2xl font-bold", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).color)}>
+            <Card className="bg-card/50 overflow-hidden">
+              <CardContent className="pt-4 pb-4">
+                <div className={cn("text-lg sm:text-xl lg:text-2xl font-bold", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).color)}>
                   {analysisResult.overallVariance > 0 ? "+" : ""}
                   {analysisResult.overallVariance.toFixed(1)}%
                 </div>
-                <p className="text-sm text-muted-foreground">Variação Global</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Variação Global</p>
               </CardContent>
             </Card>
-            <Card className={cn("bg-card/50", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).bg)}>
-              <CardContent className="pt-6">
-                <div className={cn("text-2xl font-bold", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).color)}>
+            <Card className={cn("bg-card/50 overflow-hidden", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).bg)}>
+              <CardContent className="pt-4 pb-4">
+                <div className={cn("text-lg sm:text-xl lg:text-2xl font-bold truncate", (ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).color)}>
                   {(ratingConfig[analysisResult.overallRating as keyof typeof ratingConfig] || ratingConfig.unknown).label}
                 </div>
-                <p className="text-sm text-muted-foreground">Classificação Geral</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Classificação Geral</p>
               </CardContent>
             </Card>
           </div>
@@ -2866,7 +2866,7 @@ www.moap.pt
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-5">
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
                 {[
                   { key: "below", count: analysisResult.stats.belowAverage },
                   { key: "average", count: analysisResult.stats.average },
@@ -2905,30 +2905,31 @@ www.moap.pt
                   <CardDescription>{analysisResult.fileName}</CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => setAnalysisResult(null)}>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Nova Análise
+                  <Button variant="outline" size="sm" onClick={() => setAnalysisResult(null)}>
+                    <RefreshCw className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Nova Análise</span>
                   </Button>
                   {isAdmin && (
-                    <Button variant="outline" onClick={importToDatabase} className="bg-price-below/10 hover:bg-price-below/20 text-price-below border-price-below/30">
-                      <Database className="mr-2 h-4 w-4" />
-                      Importar para Base de Dados
+                    <Button variant="outline" size="sm" onClick={importToDatabase} className="bg-price-below/10 hover:bg-price-below/20 text-price-below border-price-below/30">
+                      <Database className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Importar BD</span>
                     </Button>
                   )}
-                  <Button variant="outline" onClick={() => window.print()}>
-                    <Printer className="mr-2 h-4 w-4" />
-                    Imprimir
+                  <Button variant="outline" size="sm" onClick={() => window.print()}>
+                    <Printer className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Imprimir</span>
                   </Button>
-                  <Button onClick={exportResults}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Exportar PDF
+                  <Button size="sm" onClick={exportResults}>
+                    <Download className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Exportar</span>
                   </Button>
                   <Button 
+                    size="sm"
                     onClick={() => setShowSaveDialog(true)}
                     className="bg-price-below hover:bg-price-below/90"
                   >
-                    <Save className="mr-2 h-4 w-4" />
-                    Guardar para Aprovação
+                    <Save className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Guardar</span>
                   </Button>
                 </div>
               </div>
@@ -2976,7 +2977,7 @@ www.moap.pt
               {/* Filters - Compact */}
               <div className="flex flex-col gap-2 mb-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative flex-1 min-w-[180px] max-w-[300px]">
+                  <div className="relative flex-1 min-w-[140px]">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <Input
                       placeholder="Pesquisar..."
@@ -3069,7 +3070,7 @@ www.moap.pt
 
               {/* Tabs */}
               <Tabs id="items-list" value={activeTab} onValueChange={setActiveTab} className="w-full scroll-mt-20">
-                <TabsList className="mb-4 bg-muted/50">
+                <TabsList className="mb-4 bg-muted/50 w-full sm:w-auto overflow-x-auto flex">
                   <TabsTrigger value="all">Todos ({analysisResult.items.length})</TabsTrigger>
                   <TabsTrigger value="material">
                     Materiais ({analysisResult.items.filter((i) => i.type === "material").length})
@@ -3082,11 +3083,11 @@ www.moap.pt
                 <TabsContent value={activeTab}>
                   {viewMode === "table" ? (
                   <div className="rounded-lg border border-border/50 overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                    <div className="w-full overflow-x-auto">
+                      <table className="w-full min-w-0 text-sm table-fixed">
                         <thead className="bg-muted/50">
                           <tr>
-                            <th className="px-2 py-2 text-center font-medium w-8">
+                            <th className="px-1 py-2 text-center font-medium w-7 shrink-0">
                               <button
                                 onClick={() => selectedItems.size === filteredItems.length ? clearSelection() : selectAllItems()}
                                 className="p-0.5 hover:bg-muted rounded transition-colors"
@@ -3099,30 +3100,30 @@ www.moap.pt
                                 )}
                               </button>
                             </th>
-                            <th className="px-2 py-2 text-left font-medium min-w-[180px]">
+                            <th className="px-2 py-2 text-left font-medium w-[35%]">
                               <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-primary transition-colors text-xs">
                                 Item
                                 {sortField === "name" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
                               </button>
                             </th>
-                            <th className="px-2 py-2 text-left font-medium text-xs hidden lg:table-cell">Corresp.</th>
-                            <th className="px-2 py-2 text-center font-medium w-16 text-xs hidden md:table-cell">Conf.</th>
-                            <th className="px-2 py-2 text-right font-medium w-14 text-xs">Qtd</th>
-                            <th className="px-2 py-2 text-right font-medium w-20">
+                            <th className="px-2 py-2 text-left font-medium text-xs hidden lg:table-cell w-[20%]">Corresp.</th>
+                            <th className="px-2 py-2 text-center font-medium w-12 text-xs hidden md:table-cell">Conf.</th>
+                            <th className="px-2 py-2 text-right font-medium w-12 text-xs hidden sm:table-cell">Qtd</th>
+                            <th className="px-2 py-2 text-right font-medium w-[13%]">
                               <button onClick={() => handleSort("price")} className="flex items-center gap-1 hover:text-primary transition-colors ml-auto text-xs">
                                 P.Orç.
                                 {sortField === "price" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
                               </button>
                             </th>
-                            <th className="px-2 py-2 text-right font-medium w-20 text-xs hidden sm:table-cell">P.Ref.</th>
-                            <th className="px-2 py-2 text-right font-medium w-16">
+                            <th className="px-2 py-2 text-right font-medium w-[13%] text-xs hidden md:table-cell">P.Ref.</th>
+                            <th className="px-2 py-2 text-right font-medium w-14">
                               <button onClick={() => handleSort("variance")} className="flex items-center gap-1 hover:text-primary transition-colors ml-auto text-xs">
                                 Var.
                                 {sortField === "variance" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
                               </button>
                             </th>
-                            <th className="px-2 py-2 text-center font-medium w-16 text-xs">Class.</th>
-                            <th className="px-2 py-2 text-center font-medium w-16 text-xs">Ações</th>
+                            <th className="px-1 py-2 text-center font-medium w-[14%] text-xs">Class.</th>
+                            <th className="px-1 py-2 text-center font-medium w-14 text-xs">Ações</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
@@ -3151,14 +3152,14 @@ www.moap.pt
                                     </button>
                                   </td>
                                   <td className="px-2 py-1.5">
-                                    <div className="font-medium truncate max-w-[200px]" title={item.originalName}>{item.originalName}</div>
+                                    <div className="font-medium truncate" title={item.originalName}>{item.originalName}</div>
                                     <div className="text-[10px] text-muted-foreground">{item.unit}</div>
                                   </td>
                                   <td className="px-2 py-1.5 hidden lg:table-cell">
                                     {item.matchedName ? (
-                                      <div className="truncate max-w-[140px]" title={item.matchedName}>
-                                        <div>{item.matchedName}</div>
-                                        <div className="text-[10px] text-muted-foreground">{item.category}</div>
+                                      <div className="truncate" title={item.matchedName}>
+                                        <div className="truncate">{item.matchedName}</div>
+                                        <div className="text-[10px] text-muted-foreground truncate">{item.category}</div>
                                       </div>
                                     ) : suggestions.length > 0 ? (
                                       <button
@@ -3180,11 +3181,11 @@ www.moap.pt
                                       "text-muted-foreground"
                                     )}>{(item.matchConfidence * 100).toFixed(0)}%</span>
                                   </td>
-                                  <td className="px-2 py-1.5 text-right">{item.quantity}</td>
+                                  <td className="px-2 py-1.5 text-right hidden sm:table-cell">{item.quantity}</td>
                                   <td className="px-2 py-1.5 text-right font-medium">
                                     {item.budgetPrice.toLocaleString("pt-PT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}€
                                   </td>
-                                  <td className="px-2 py-1.5 text-right hidden sm:table-cell">
+                                  <td className="px-2 py-1.5 text-right hidden md:table-cell">
                                     {item.referenceAvgPrice ? (
                                       <span>{item.referenceAvgPrice.toLocaleString("pt-PT", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}€</span>
                                     ) : (
