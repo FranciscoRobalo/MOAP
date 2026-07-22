@@ -743,7 +743,7 @@ export default function AnaliseContent() {
     
     // Check if section header
     const isSectionHeader = (line: string) => {
-      if (/^\d+\.?\d*\s{2,}[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]+$/.test(line)) return true
+      if (/^\d+\.?\d*\s{2,}[A-ZÁÉÍÓÚÂÊÔ��ÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]+$/.test(line)) return true
       if (/^[A-ZÁÉ��ÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{3,30}$/.test(line) && !line.includes(",")) return true
       if (/^\d+$/.test(line)) return true
       return false
@@ -1015,11 +1015,13 @@ export default function AnaliseContent() {
   
   // Calculate quality score for an analysis
   const calculateQualityScore = (result: AnalysisResult): number => {
-    const matchRateScore = result.stats.matchRate * 40 // 0-40 points
-    const confidenceScore = result.stats.avgConfidence * 30 // 0-30 points
-    const coverageScore = Math.min(result.items.length / 50, 1) * 15 // 0-15 points (max at 50 items)
-    const lowRiskScore = (1 - result.stats.riskItems / Math.max(result.items.length, 1)) * 15 // 0-15 points
-    return Math.round(matchRateScore + confidenceScore + coverageScore + lowRiskScore)
+    const normalizedMatchRate = result.stats.matchRate > 1 ? result.stats.matchRate / 100 : result.stats.matchRate
+    const normalizedConfidence = result.stats.avgConfidence > 1 ? result.stats.avgConfidence / 100 : result.stats.avgConfidence
+    const matchRateScore = normalizedMatchRate * 40
+    const confidenceScore = normalizedConfidence * 30
+    const coverageScore = Math.min(result.items.length / 50, 1) * 15
+    const lowRiskScore = (1 - result.stats.riskItems / Math.max(result.items.length, 1)) * 15
+    return Math.min(100, Math.max(0, Math.round(matchRateScore + confidenceScore + coverageScore + lowRiskScore)))
   }
   
   // Save current analysis to history (both localStorage and Supabase)
@@ -1281,6 +1283,7 @@ www.moap.pt
       // Create form data with file (materials fetched from DB automatically)
       const formData = new FormData()
       formData.append("file", file)
+      formData.append("region", selectedRegion)
       
       // Call the unified analysis API with increased timeout
       const controller = new AbortController()
@@ -1532,7 +1535,7 @@ www.moap.pt
           variance: variance ?? null,
           rating,
           category,
-          matchConfidence: confidence,
+          matchConfidence: confidence > 1 ? confidence / 100 : confidence,
           type: "work",
           matchDetails,
         } as BudgetItem & { matchDetails: string })
